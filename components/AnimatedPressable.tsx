@@ -1,0 +1,130 @@
+import { StyleSheet } from 'react-native';
+import { Colors, Spacing, Radius, FontSizes, FONT_REGULAR, FONT_MEDIUM, FONT_BOLD } from '@/constants/theme';
+
+export const globalStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: 100,
+  },
+  header: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.md,
+  },
+  title: {
+    fontFamily: FONT_BOLD,
+    fontSize: FontSizes.xxl,
+    color: Colors.text,
+    lineHeight: 34,
+  },
+  subtitle: {
+    fontFamily: FONT_REGULAR,
+    fontSize: FontSizes.md,
+    color: Colors.textSecondary,
+    lineHeight: 22,
+    marginTop: Spacing.xs,
+  },
+  card: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.surfaceBorder,
+  },
+  cardElevated: {
+    backgroundColor: Colors.surfaceElevated,
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.surfaceBorder,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  input: {
+    fontFamily: FONT_REGULAR,
+    fontSize: FontSizes.md,
+    color: Colors.text,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.surfaceBorder,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+  },
+  inputFocused: {
+    borderColor: Colors.accent,
+  },
+  button: {
+    backgroundColor: Colors.accent,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonOutline: {
+    backgroundColor: 'transparent',
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.surfaceBorder,
+  },
+  buttonText: {
+    fontFamily: FONT_MEDIUM,
+    fontSize: FontSizes.md,
+    color: Colors.text,
+  },
+  buttonPrimaryText: {
+    fontFamily: FONT_MEDIUM,
+    fontSize: FontSizes.md,
+    color: '#FFFFFF',
+  },
+  label: {
+    fontFamily: FONT_MEDIUM,
+    fontSize: FontSizes.sm,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.sm,
+  },
+  errorText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: FontSizes.sm,
+    color: Colors.error,
+    marginTop: Spacing.xs,
+  },
+  badge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.accentLight,
+  },
+  badgeText: {
+    fontFamily: FONT_MEDIUM,
+    fontSize: FontSizes.xs,
+    color: Colors.accent,
+  },
+  sectionTitle: {
+    fontFamily: FONT_BOLD,
+    fontSize: FontSizes.lg,
+    color: Colors.text,
+    marginBottom: Spacing.md,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: Colors.divider,
+    marginVertical: Spacing.md,
+  },
+});

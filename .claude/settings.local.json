@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npx expo *)",
+      "Read(//Users/brandonganske/.ngrok2/**)",
+      "Bash(curl -s http://127.0.0.1:4040/api/tunnels)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(t['public_url']\\) for t in d.get\\('tunnels',[]\\)]\")",
+      "mcp__visualize__read_me",
+      "mcp__visualize__show_widget"
+    ]
+  }
+}
