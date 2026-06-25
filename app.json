@@ -46,6 +46,12 @@
         "projectId": "dd169693-d17c-4743-9ac9-4b7bbf2fc5fc"
       }
     },
-    "owner": "influenceish"
+    "owner": "influenceish",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/dd169693-d17c-4743-9ac9-4b7bbf2fc5fc"
+    }
   }
 }
