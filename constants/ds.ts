@@ -107,6 +107,11 @@ export const T = {
   bold:    _family ? { fontFamily: _family, fontWeight: '600' as const } : { fontWeight: '600' as const },
 };
 
+// Max content width. Phones are narrower than this so it's a no-op there; on
+// tablets it caps the app to a centered, phone-width column (the page bg shows
+// in the side gutters) instead of stretching every layout edge-to-edge.
+export const MAX_CONTENT = 600;
+
 export const R = {
   sm: 10,
   md: 14,

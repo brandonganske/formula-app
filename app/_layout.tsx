@@ -48,7 +48,7 @@ export default function RootLayout() {
   useFrameworkReady();
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#F4F3EF' }}>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <PurchasesProvider>

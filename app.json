@@ -16,7 +16,11 @@
       }
     },
     "android": {
-      "package": "com.influenceish.formula"
+      "package": "com.influenceish.formula",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#FF4B5C"
+      }
     },
     "web": {
       "bundler": "metro",
