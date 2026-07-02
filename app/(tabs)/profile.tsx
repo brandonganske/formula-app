@@ -15,7 +15,7 @@ import { D, T, R, Shadow } from '@/constants/ds';
 import {
   LogOut, ExternalLink, Shield, Brain, ChevronRight,
   Zap, AtSign, X, Bell, Mail, HelpCircle, FileText,
-  Users, Video, BookOpen, Target, KeyRound, Check, Phone, CreditCard,
+  Users, Video, BookOpen, Target, KeyRound, Check, Phone, CreditCard, Trash2,
 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { api, extractData } from '@/lib/api';
@@ -275,6 +275,52 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = () => logout();
+
+  // Apple Guideline 5.1.1(v): apps offering account creation must let users
+  // delete their account in-app. Two confirmation steps guard against taps.
+  const [deleting, setDeleting] = useState(false);
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'This permanently deletes your Formula account, your creator brain, and all saved scripts. This can’t be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () =>
+            Alert.alert(
+              'Are you sure?',
+              'Your account and all associated data will be permanently erased. If you have an active subscription, cancel it separately in the App Store — deleting your account does not cancel it.',
+              [
+                { text: 'Keep My Account', style: 'cancel' },
+                {
+                  text: 'Delete Forever',
+                  style: 'destructive',
+                  onPress: async () => {
+                    setDeleting(true);
+                    try {
+                      await api.delete('/auth/account');
+                      await logout();
+                      Alert.alert('Account Deleted', 'Your account and data have been permanently deleted.');
+                    } catch (err: any) {
+                      const msg =
+                        err?.response?.data?.error?.message ??
+                        err?.response?.data?.message ??
+                        err?.message ??
+                        'Could not delete your account. Please try again or contact hello@influenceish.com.';
+                      Alert.alert('Deletion Failed', typeof msg === 'string' ? msg : 'Could not delete your account.');
+                    } finally {
+                      setDeleting(false);
+                    }
+                  },
+                },
+              ],
+            ),
+        },
+      ],
+    );
+  };
 
   const fmtCount = (n: number | null | undefined) => {
     if (!n) return '—';
@@ -604,6 +650,13 @@ export default function ProfileScreen() {
             icon={<LogOut size={20} color={D.error} strokeWidth={1.8} />}
             label="Sign Out"
             onPress={handleLogout}
+            danger
+          />
+          <SettingsRow
+            icon={<Trash2 size={20} color={D.error} strokeWidth={1.8} />}
+            label="Delete Account"
+            sub={deleting ? 'Deleting…' : 'Permanently delete your account and data'}
+            onPress={deleting ? undefined : handleDeleteAccount}
             danger
             last
           />
