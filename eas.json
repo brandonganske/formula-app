@@ -16,7 +16,11 @@
     },
     "production": {
       "autoIncrement": true,
-      "channel": "production"
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_gCxiKzJTslzvmukDULGsLCFtNuS",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "goog_tdyIhYFvlnSCPxLksyGjFxcGHze"
+      }
     }
   },
   "submit": {

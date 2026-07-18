@@ -55,20 +55,36 @@ export default function ResetPasswordScreen() {
 
   // Capture the recovery access token from the link that opened the app. The
   // token is forwarded to the backend on submit — no client session needed.
+  // Supabase delivers failures (expired/used link) as #error_code=… instead of
+  // a token, and email scanners frequently consume the one-time link before the
+  // user taps it — so surface those as "link expired" rather than spinning.
   useEffect(() => {
     let active = true;
     const establish = (url: string | null) => {
       if (!url || !active) return;
-      const { access_token } = parseAuthParams(url);
-      if (!access_token) return;
-      setAccessToken(access_token);
-      setSessionReady(true);
+      const params = parseAuthParams(url);
+      if (params.access_token) {
+        setAccessToken(params.access_token);
+        setSessionReady(true);
+      } else if ((params as any).error || (params as any).error_code) {
+        setLinkError('This reset link is invalid or has expired. Request a new one.');
+      }
     };
 
     Linking.getInitialURL().then(establish);
     const sub = Linking.addEventListener('url', ({ url }) => establish(url));
 
-    return () => { active = false; sub.remove(); };
+    // No token within 8s (opened without a usable link) — treat as expired.
+    const timeout = setTimeout(() => {
+      if (active) {
+        setSessionReady((ready) => {
+          if (!ready) setLinkError('This reset link is invalid or has expired. Request a new one.');
+          return ready;
+        });
+      }
+    }, 8000);
+
+    return () => { active = false; sub.remove(); clearTimeout(timeout); };
   }, []);
 
   const handleSubmit = async () => {
