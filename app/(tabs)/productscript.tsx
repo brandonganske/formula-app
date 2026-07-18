@@ -1,7 +1,7 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ScrollView, ActivityIndicator, Platform, Image, Alert,
+  ScrollView, ActivityIndicator, Platform, Image, Alert, Animated,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import FadeInView from '@/components/FadeInView';
@@ -11,7 +11,7 @@ import {
   VideoStyle, ContentTone, ProductScriptBody, ProductScriptResult,
   ProductScriptOption, ProductSearchResult, ProductSearchResponse,
 } from '@/types/api';
-import { D, T, R, Shadow } from '@/constants/ds';
+import { D, T, R, Shadow, Ease, SectionLabelStyle } from '@/constants/ds';
 import {
   Sparkles, Copy, Check, Search, X, ChevronDown,
   ShoppingBag, Brain, ChevronRight, ChevronLeft, RefreshCw, BookOpen,
@@ -20,6 +20,7 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import NoCreditsModal from '@/components/NoCreditsModal';
+import AnimatedPressable from '@/components/AnimatedPressable';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -47,6 +48,79 @@ const CONTENT_TONES: { id: ContentTone; label: string; sub: string }[] = [
   { id: 'funny', label: 'Funny', sub: 'Humor & energy' },
   { id: 'serious', label: 'Serious', sub: 'Earnest & direct' },
 ];
+
+// ─── Progress bar ─────────────────────────────────────────────────────────────
+
+const PROGRESS_STEPS = [
+  { label: 'Reading your brain voice...', pct: 0.15, duration: 4000 },
+  { label: 'Finding the right angle...', pct: 0.35, duration: 7000 },
+  { label: 'Writing hook variations...', pct: 0.55, duration: 9000 },
+  { label: 'Crafting body & CTA...', pct: 0.75, duration: 8000 },
+  { label: 'Polishing all three scripts...', pct: 0.92, duration: 10000 },
+];
+
+function GeneratingProgress({ visible }: { visible: boolean }) {
+  const [stepIdx, setStepIdx] = useState(0);
+  const progress = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (visible) {
+      setStepIdx(0);
+      progress.setValue(0);
+      Animated.timing(opacity, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+      let idx = 0;
+      const advance = () => {
+        if (idx >= PROGRESS_STEPS.length) return;
+        const step = PROGRESS_STEPS[idx];
+        Animated.timing(progress, { toValue: step.pct, duration: step.duration, easing: Ease.linear, useNativeDriver: false }).start();
+        setStepIdx(idx);
+        idx += 1;
+        timerRef.current = setTimeout(advance, step.duration);
+      };
+      advance();
+    } else {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      Animated.timing(progress, { toValue: 1, duration: 400, easing: Ease.linear, useNativeDriver: false }).start();
+      setTimeout(() => { Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }).start(); }, 500);
+    }
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [visible]);
+
+  const barWidth = progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
+
+  const currentStep = PROGRESS_STEPS[Math.min(stepIdx, PROGRESS_STEPS.length - 1)];
+
+  return (
+    <Animated.View style={[PG.wrap, { opacity }]}>
+      <View style={PG.topRow}>
+        <View style={PG.dot} />
+        <Text style={PG.stepLabel}>{currentStep.label}</Text>
+        <Text style={PG.pctLabel}>{Math.round((PROGRESS_STEPS[stepIdx]?.pct ?? 0.92) * 100)}%</Text>
+      </View>
+      <View style={PG.track}>
+        <Animated.View style={[PG.fill, { width: barWidth as any }]} />
+      </View>
+      <Text style={PG.hint}>Usually takes 30–60 seconds.</Text>
+    </Animated.View>
+  );
+}
+
+const PG = StyleSheet.create({
+  wrap: {
+    marginHorizontal: 20, marginBottom: 16, padding: 16,
+    backgroundColor: D.card, borderRadius: R.xl,
+    borderWidth: 1, borderColor: D.cardBorder, ...Shadow.soft,
+  },
+  topRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: D.coral, flexShrink: 0 },
+  stepLabel: { flex: 1, ...T.medium, fontSize: 13, color: D.textPrimary },
+  pctLabel: { ...T.bold, fontSize: 12, color: D.coral },
+  track: { height: 6, borderRadius: 3, backgroundColor: D.coralSubtle, overflow: 'hidden', marginBottom: 10 },
+  fill: { height: '100%', borderRadius: 3, backgroundColor: D.coral },
+  hint: { ...T.regular, fontSize: 11, color: D.textMuted, textAlign: 'center' },
+});
 
 // ─── Product Search Sheet ─────────────────────────────────────────────────────
 
@@ -379,18 +453,18 @@ function OptionCard({
 
           {/* Actions */}
           <View style={OC.actions}>
-            <TouchableOpacity style={OC.copyBtn} onPress={handleCopy} activeOpacity={0.75}>
+            <AnimatedPressable style={OC.copyBtn} onPress={handleCopy} haptic="selection">
               {copied
                 ? <><Check size={14} color={D.success} strokeWidth={2.5} /><Text style={[OC.actionText, { color: D.success }]}>Copied!</Text></>
                 : <><Copy size={14} color={D.textMuted} strokeWidth={2} /><Text style={OC.actionText}>Copy script</Text></>
               }
-            </TouchableOpacity>
+            </AnimatedPressable>
 
-            <TouchableOpacity
+            <AnimatedPressable
               style={[OC.saveBtn, saved && OC.saveBtnDone]}
               onPress={handleSave}
               disabled={saved || saving}
-              activeOpacity={0.8}
+              haptic="success"
             >
               {saving ? (
                 <ActivityIndicator size="small" color={D.coral} />
@@ -399,7 +473,7 @@ function OptionCard({
               ) : (
                 <><Save size={13} color={D.coral} strokeWidth={2} /><Text style={OC.saveBtnText}>Save</Text></>
               )}
-            </TouchableOpacity>
+            </AnimatedPressable>
           </View>
         </FadeInView>
       )}
@@ -440,7 +514,7 @@ const OC = StyleSheet.create({
     borderRadius: R.sm, padding: 12, borderLeftWidth: 3, borderLeftColor: D.coral,
   },
   hookLabel: {
-    ...T.bold, fontSize: 9, color: D.coral,
+    ...T.bold, fontSize: 10, color: D.coral,
     letterSpacing: 1.2, marginBottom: 5,
   },
   hookText: {
@@ -461,7 +535,7 @@ const OC = StyleSheet.create({
   },
   psychologyRow: { gap: 3 },
   psychologyLabel: {
-    ...T.bold, fontSize: 8, color: D.coral,
+    ...T.bold, fontSize: 10, color: D.coral,
     letterSpacing: 1.2, opacity: 0.7,
   },
   psychologyText: { ...T.regular, fontSize: 12, color: D.inkSoft, lineHeight: 18 },
@@ -776,15 +850,17 @@ export default function ProductScriptScreen() {
           </FadeInView>
         )}
 
+        <GeneratingProgress visible={scriptMutation.isPending} />
+
         {/* ── Generate CTA ─────────────────────────────────────────────────── */}
-        <TouchableOpacity
+        <AnimatedPressable
           style={[S.ctaBtn, !canSubmit && S.ctaBtnOff]}
           onPress={() => {
             if (credits <= 0) { setShowNoCredits(true); return; }
             scriptMutation.mutate();
           }}
           disabled={!canSubmit}
-          activeOpacity={0.85}
+          haptic="medium"
         >
           {scriptMutation.isPending ? (
             <View style={S.loadingRow}>
@@ -797,7 +873,7 @@ export default function ProductScriptScreen() {
               <Text style={S.ctaBtnText}>Generate 3 Scripts</Text>
             </>
           )}
-        </TouchableOpacity>
+        </AnimatedPressable>
         </>
         )}
 
@@ -916,7 +992,7 @@ const S = StyleSheet.create({
     borderWidth: 1, borderColor: D.cardBorder, padding: 16,
     ...Shadow.soft,
   },
-  cardLabel: { ...T.bold, fontSize: 10, color: D.textDisabled, letterSpacing: 1.2, marginBottom: 12 },
+  cardLabel: { ...T.bold, ...SectionLabelStyle, marginBottom: 12 },
   optionalLabel: { ...T.regular, fontSize: 10, color: D.textDisabled, letterSpacing: 0.5 },
 
   productPicker: {
@@ -952,6 +1028,7 @@ const S = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
     backgroundColor: D.coral, borderRadius: R.full,
     marginHorizontal: 20, paddingVertical: 17, marginBottom: 28,
+    ...Shadow.coral,
   },
   ctaBtnOff: { opacity: 0.35 },
   ctaBtnText: { ...T.bold, fontSize: 15, color: '#FFF', letterSpacing: -0.2 },

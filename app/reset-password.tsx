@@ -9,8 +9,9 @@ import * as Linking from 'expo-linking';
 import Svg, { Rect } from 'react-native-svg';
 import { Lock, ArrowRight, CheckCircle, AlertCircle } from 'lucide-react-native';
 import FadeInView from '@/components/FadeInView';
+import AnimatedPressable from '@/components/AnimatedPressable';
 import { api } from '@/lib/api';
-import { D, T, R } from '@/constants/ds';
+import { D, T, R, Shadow, Gradient } from '@/constants/ds';
 
 // ─── F mark SVG ──────────────────────────────────────────────────────────────
 
@@ -106,7 +107,7 @@ export default function ResetPasswordScreen() {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={S.root}>
       <LinearGradient
-        colors={['#FF4D65', '#FF3755', '#E8204A']}
+        colors={Gradient.auth}
         locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
@@ -193,11 +194,11 @@ export default function ResetPasswordScreen() {
                 </FadeInView>
               )}
 
-              <TouchableOpacity style={[S.btn, loading && S.btnDisabled]} onPress={handleSubmit} disabled={loading} activeOpacity={0.88}>
+              <AnimatedPressable style={[S.btn, loading && S.btnDisabled]} onPress={handleSubmit} disabled={loading} haptic="light">
                 {loading
                   ? <ActivityIndicator color="#FFF" size="small" />
                   : <><Text style={S.btnText}>Update Password</Text><View style={S.btnArrow}><ArrowRight size={15} color="#FFF" strokeWidth={2.5} /></View></>}
-              </TouchableOpacity>
+              </AnimatedPressable>
             </>
           )}
         </FadeInView>
@@ -226,6 +227,11 @@ const S = StyleSheet.create({
     width: 96, height: 96, borderRadius: 26,
     backgroundColor: 'rgba(255,255,255,0.16)',
     alignItems: 'center', justifyContent: 'center', marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
+    elevation: 8,
   },
   markInner: {
     width: 74, height: 74, borderRadius: 18,
@@ -245,7 +251,7 @@ const S = StyleSheet.create({
   centered: { alignItems: 'center', paddingVertical: 24 },
   iconCircle: {
     width: 64, height: 64, borderRadius: 32,
-    backgroundColor: D.coral + '14',
+    backgroundColor: D.coralSubtle,
     alignItems: 'center', justifyContent: 'center', marginBottom: 20,
   },
   title: { ...T.bold, fontSize: 22, color: D.textPrimary, letterSpacing: -0.5, marginBottom: 8, textAlign: 'center' },
@@ -260,6 +266,7 @@ const S = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     backgroundColor: D.coral, borderRadius: R.full, paddingVertical: 17, gap: 10, marginTop: 8,
     alignSelf: 'stretch',
+    ...Shadow.coral,
   },
   btnDisabled: { opacity: 0.55 },
   btnText: { ...T.bold, fontSize: 16, color: '#FFF', letterSpacing: -0.2 },

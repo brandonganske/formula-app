@@ -144,3 +144,22 @@ export const Shadow = {
     elevation: 8,
   },
 };
+
+// Brand gradients — the ONLY coral gradient recipes. hero = warm in-app heroes
+// (header, script detail, tab heroes, modals); auth = login/reset/onboarding hero.
+export const Gradient = {
+  hero: ['#FF7A45', '#FF3755', '#FF5E8A'] as const,
+  heroCompact: ['#FF7A45', '#FF3755'] as const,
+  auth: ['#FF4D65', '#FF3755', '#E8204A'] as const,
+};
+
+// Shared uppercase section label — one style for every list/section header.
+export const SectionLabelStyle = {
+  fontSize: 11,
+  color: D.textMuted,
+  letterSpacing: 1.2,
+  textTransform: 'uppercase' as const,
+};
+
+// One folder palette for both Saved scripts and Products folders.
+export const FOLDER_COLORS = ['#FF3755', '#2FA10C', '#0ea5e9', '#F59E0B', '#ec4899', '#1A1426'];

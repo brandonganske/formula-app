@@ -9,7 +9,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, extractData } from '@/lib/api';
 import { SavedScriptItem, SavedScriptsResponse } from '@/types/api';
-import { D, T, R, Shadow } from '@/constants/ds';
+import { D, T, R, Shadow, Gradient } from '@/constants/ds';
 import {
   ChevronLeft, Copy, Check, ShoppingBag, Film, Sparkles, AlertTriangle, TrendingUp, Zap,
 } from 'lucide-react-native';
@@ -110,7 +110,7 @@ export default function ScriptDetailScreen() {
     <View style={S.root}>
       {/* Gradient header */}
       <LinearGradient
-        colors={['#FF7A45', '#FF3755', '#FF5E8A']}
+        colors={Gradient.hero}
         start={{ x: 0.13, y: 0 }} end={{ x: 0.87, y: 1 }}
         style={S.header}
       >
@@ -258,7 +258,7 @@ const S = StyleSheet.create({
   roCard: {
     marginTop: 14, backgroundColor: D.inkCard, borderRadius: R.xl, padding: 16,
   },
-  roLabel: { ...T.bold, fontSize: 9, color: D.lime, letterSpacing: 1.4, marginBottom: 6 },
+  roLabel: { ...T.bold, fontSize: 10, color: D.lime, letterSpacing: 1.4, marginBottom: 6 },
   roText: { ...T.medium, fontSize: 14, color: '#FFF', lineHeight: 21 },
 
   whyCard: {
@@ -266,6 +266,6 @@ const S = StyleSheet.create({
     borderWidth: 1, borderColor: D.lime + '40', padding: 16,
   },
   whyHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
-  whyLabel: { ...T.bold, fontSize: 9, color: D.limeDeep, letterSpacing: 1.4 },
+  whyLabel: { ...T.bold, fontSize: 10, color: D.limeDeep, letterSpacing: 1.4 },
   whyText: { ...T.regular, fontSize: 13.5, color: D.limeDeep, lineHeight: 20 },
 });

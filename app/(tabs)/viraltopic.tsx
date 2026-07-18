@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ScrollView, ActivityIndicator, Animated, Alert,
+  ScrollView, ActivityIndicator, Animated, Alert, Keyboard,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import FadeInView from '@/components/FadeInView';
@@ -12,7 +12,7 @@ import {
   ViralTopicBody, ViralTopicResult, ViralTopicOption,
   WhyOriginalWorks,
 } from '@/types/api';
-import { D, T, R, Shadow, Ease } from '@/constants/ds';
+import { D, T, R, Shadow, Ease, SectionLabelStyle } from '@/constants/ds';
 import {
   Sparkles, Copy, Check, ChevronDown, Zap,
   Mic, Camera, MessageSquare, Save, AlertTriangle,
@@ -21,6 +21,7 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import NoCreditsModal from '@/components/NoCreditsModal';
+import AnimatedPressable from '@/components/AnimatedPressable';
 
 // ── Progress bar ───────────────────────────────────────────────────────────
 
@@ -193,7 +194,7 @@ const WI = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(182,255,138,0.20)', padding: 12,
   },
   formulaHdr: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 },
-  formulaLabel: { ...T.bold, fontSize: 9, color: D.lime, letterSpacing: 1.2 },
+  formulaLabel: { ...T.bold, fontSize: 10, color: D.lime, letterSpacing: 1.2 },
   formulaText: { ...T.medium, fontSize: 13, color: D.lime, lineHeight: 20 },
 });
 
@@ -360,15 +361,15 @@ function OptionCard({ option, index, videoFormat }: {
 
           {/* Actions */}
           <View style={OC.actions}>
-            <TouchableOpacity style={OC.copyBtn} onPress={handleCopy} activeOpacity={0.75}>
+            <AnimatedPressable style={OC.copyBtn} onPress={handleCopy} haptic="selection">
               {copied
                 ? <><Check size={14} color={D.success} strokeWidth={2.5} /><Text style={[OC.actionText, { color: D.success }]}>Copied!</Text></>
                 : <><Copy size={14} color={D.textMuted} strokeWidth={2} /><Text style={OC.actionText}>Copy script</Text></>
               }
-            </TouchableOpacity>
-            <TouchableOpacity
+            </AnimatedPressable>
+            <AnimatedPressable
               style={[OC.saveBtn, saved && OC.saveBtnDone]}
-              onPress={handleSave} disabled={saved || saving} activeOpacity={0.8}
+              onPress={handleSave} disabled={saved || saving} haptic="success"
             >
               {saving ? (
                 <ActivityIndicator size="small" color={D.cyan} />
@@ -377,7 +378,7 @@ function OptionCard({ option, index, videoFormat }: {
               ) : (
                 <><Save size={13} color={D.cyan} strokeWidth={2} /><Text style={OC.saveBtnText}>Save</Text></>
               )}
-            </TouchableOpacity>
+            </AnimatedPressable>
           </View>
         </FadeInView>
       ) : null}
@@ -413,7 +414,7 @@ const OC = StyleSheet.create({
     marginTop: 12, backgroundColor: D.cyanSubtle,
     borderRadius: R.sm, padding: 12, borderLeftWidth: 3, borderLeftColor: D.cyan,
   },
-  hookLabel: { ...T.bold, fontSize: 9, color: D.cyan, letterSpacing: 1.2, marginBottom: 5 },
+  hookLabel: { ...T.bold, fontSize: 10, color: D.cyan, letterSpacing: 1.2, marginBottom: 5 },
   hookText: { ...T.medium, fontSize: 14, color: D.textPrimary, lineHeight: 21, fontStyle: 'italic' },
   analysisToggle: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 },
   analysisToggleText: { ...T.medium, fontSize: 11, color: D.cyan },
@@ -422,7 +423,7 @@ const OC = StyleSheet.create({
   },
   hookAnalysisText: { ...T.regular, fontSize: 12, color: D.inkSoft, lineHeight: 18 },
   psychRow: { gap: 3 },
-  psychLabel: { ...T.bold, fontSize: 8, color: D.cyan, letterSpacing: 1.2, opacity: 0.7 },
+  psychLabel: { ...T.bold, fontSize: 10, color: D.cyan, letterSpacing: 1.2, opacity: 0.7 },
   psychText: { ...T.regular, fontSize: 12, color: D.inkSoft, lineHeight: 18 },
 
   divider: { height: 1, backgroundColor: D.divider, marginVertical: 14 },
@@ -486,12 +487,12 @@ function ContextBanner({
           <ArrowLeft size={16} color={D.textMuted} strokeWidth={2} />
           <Text style={CB.backText}>Edit</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={CB.regenBtn} onPress={onRegenerate} disabled={isPending} activeOpacity={0.75}>
+        <AnimatedPressable style={CB.regenBtn} onPress={onRegenerate} disabled={isPending} haptic="selection">
           {isPending
             ? <ActivityIndicator size="small" color={D.cyan} />
             : <><RefreshCw size={13} color={D.cyan} strokeWidth={2} /><Text style={CB.regenText}>Regenerate</Text></>
           }
-        </TouchableOpacity>
+        </AnimatedPressable>
       </View>
       <View style={CB.card}>
         <View style={CB.row}>
@@ -728,10 +729,15 @@ export default function ViralTopicScreen() {
               placeholder="https://www.tiktok.com/@creator/video/..."
               placeholderTextColor={D.textDisabled}
               value={videoUrl}
-              onChangeText={setVideoUrl}
+              onChangeText={(t) => {
+                setVideoUrl(t);
+                if (t.includes('http')) Keyboard.dismiss();
+              }}
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="url"
+              returnKeyType="done"
+              onSubmitEditing={Keyboard.dismiss}
             />
             {videoUrl.length > 0 && (
               <TouchableOpacity onPress={() => setVideoUrl('')} hitSlop={10}>
@@ -787,7 +793,7 @@ export default function ViralTopicScreen() {
             <Text style={S.featureText}>2 recreations in your voice — same format, your topic</Text>
           </View>
           <View style={S.featureRow}>
-            <View style={[S.featureIcon, { backgroundColor: 'rgba(47,161,12,0.10)' }]}>
+            <View style={[S.featureIcon, { backgroundColor: D.greenSubtle }]}>
               <Sparkles size={14} color={D.limeDeep} strokeWidth={2} />
             </View>
             <Text style={S.featureText}>Engagement CTAs — built for brand deals & organic reach</Text>
@@ -809,14 +815,14 @@ export default function ViralTopicScreen() {
         <GeneratingProgress visible={mutation.isPending} />
 
         {/* CTA */}
-        <TouchableOpacity
+        <AnimatedPressable
           style={[S.ctaBtn, !canSubmit && S.ctaBtnOff]}
           onPress={() => {
             if (credits <= 0) { setShowNoCredits(true); return; }
             mutation.mutate();
           }}
           disabled={!canSubmit}
-          activeOpacity={0.85}
+          haptic="medium"
         >
           {mutation.isPending ? (
             <View style={S.loadingRow}>
@@ -829,7 +835,7 @@ export default function ViralTopicScreen() {
               <Text style={S.ctaBtnText}>Recreate This Format</Text>
             </>
           )}
-        </TouchableOpacity>
+        </AnimatedPressable>
 
         <View style={{ height: 60 }} />
       </ScrollView>
@@ -905,7 +911,7 @@ const S = StyleSheet.create({
   ctaBtnText: { ...T.bold, fontSize: 15, color: '#FFF', letterSpacing: -0.2 },
   loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 
-  sectionHeading: { ...T.bold, fontSize: 10, color: D.textDisabled, letterSpacing: 1.5, marginBottom: 12 },
+  sectionHeading: { ...T.bold, ...SectionLabelStyle, marginBottom: 12 },
 
   regenOverlay: {
     position: 'absolute', bottom: 0, left: 0, right: 0,

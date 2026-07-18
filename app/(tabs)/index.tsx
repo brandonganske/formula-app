@@ -10,8 +10,10 @@ import { useAuth } from '@/context/AuthContext';
 import { api, extractData } from '@/lib/api';
 import { CREDIT_COSTS } from '@/lib/iap/catalog';
 import { RunData, AnalyzeResponse, CreatorMeData, SpeechTemplate, PacingTemplate, ProductInsights, VideoStyleProfile } from '@/types/api';
-import { D, T, R, Shadow, Ease } from '@/constants/ds';
+import { D, T, R, Shadow, Ease, Gradient, SectionLabelStyle } from '@/constants/ds';
 import FadeInView from '@/components/FadeInView';
+import AnimatedPressable from '@/components/AnimatedPressable';
+import { Skeleton } from '@/components/Skeleton';
 import {
   Brain, Mic, Film, Activity,
   CheckCircle, RefreshCw, AlertCircle,
@@ -101,7 +103,7 @@ function CardHead({
   return (
     <View style={chS.wrap}>
       <LinearGradient
-        colors={['#FF7A45', '#FF3755']}
+        colors={Gradient.heroCompact}
         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
         style={chS.iconBox}
       >
@@ -312,7 +314,7 @@ const shtS = StyleSheet.create({
   numText: { ...T.bold, fontSize: 12 },
   scene: { flex: 1, ...T.medium, fontSize: 14, color: D.textPrimary },
   tagPill: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: R.full, borderWidth: 1, flexShrink: 0 },
-  tagText: { ...T.bold, fontSize: 10, letterSpacing: 0.4 },
+  tagText: { ...T.bold, fontSize: 11, letterSpacing: 0.4 },
 });
 
 // ─── Section card wrapper ─────────────────────────────────────────────────────
@@ -1236,7 +1238,7 @@ export default function BrainScreen() {
         {/* Hero card */}
         <FadeInView style={[S.heroCard, { marginTop: 14 }]}>
           <LinearGradient
-            colors={['#FF7A45', '#FF3755', '#FF5E8A']}
+            colors={Gradient.hero}
             start={{ x: 0.13, y: 0 }}
             end={{ x: 0.87, y: 1 }}
             style={StyleSheet.absoluteFill}
@@ -1388,6 +1390,26 @@ export default function BrainScreen() {
     );
   }
 
+  // ── INITIAL LOAD — skeleton while /creators/me is still in flight ─────────
+  if (!meData) {
+    return (
+      <View style={S.root}>
+        <ScrollView contentContainerStyle={S.scroll} showsVerticalScrollIndicator={false} scrollEnabled={false}>
+          <View style={{ paddingHorizontal: 16, paddingTop: 14, gap: 12 }}>
+            <Skeleton height={170} radius={R.xxl} />
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <Skeleton height={90} radius={R.xl} style={{ flex: 1 }} />
+              <Skeleton height={90} radius={R.xl} style={{ flex: 1 }} />
+              <Skeleton height={90} radius={R.xl} style={{ flex: 1 }} />
+            </View>
+            <Skeleton height={120} radius={R.xxl} />
+            <Skeleton height={120} radius={R.xxl} />
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
   // ── EMPTY CTA ─────────────────────────────────────────────────────────────
   return (
     <ScrollView style={S.root} contentContainerStyle={S.scroll} showsVerticalScrollIndicator={false}>
@@ -1413,7 +1435,7 @@ export default function BrainScreen() {
       {/* Hero CTA — coral gradient card */}
       <View style={S.heroCta}>
         <LinearGradient
-          colors={['#FF7A45', '#FF3755', '#FF4E78']}
+          colors={Gradient.hero}
           start={{ x: 0.15, y: 0 }}
           end={{ x: 0.85, y: 1 }}
           style={StyleSheet.absoluteFill}
@@ -1444,11 +1466,11 @@ export default function BrainScreen() {
         )}
 
         {/* Button */}
-        <TouchableOpacity
+        <AnimatedPressable
           style={[S.heroCtaBtn, analyzeLoading && { opacity: 0.6 }]}
           onPress={handleAnalyze}
           disabled={analyzeLoading}
-          activeOpacity={0.88}
+          haptic="medium"
         >
           {analyzeLoading
             ? <ActivityIndicator color={D.coral} size="small" />
@@ -1459,7 +1481,7 @@ export default function BrainScreen() {
               </>
             )
           }
-        </TouchableOpacity>
+        </AnimatedPressable>
       </View>
 
       {/* Differentiator — "Formula Watches Your Video" */}
@@ -1640,7 +1662,7 @@ const S = StyleSheet.create({
   // Chip sections
   chips: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 7, columnGap: 7 },
   chipSection: { marginTop: 18, paddingTop: 16, borderTopWidth: 1, borderTopColor: D.divider, gap: 10 },
-  chipLabel: { ...T.bold, fontSize: 11, color: D.textMuted, letterSpacing: 0.8, textTransform: 'uppercase' },
+  chipLabel: { ...T.bold, ...SectionLabelStyle },
 
   // Tile row
   tileRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
@@ -1740,8 +1762,7 @@ const S = StyleSheet.create({
   ingestSub: { ...T.regular, fontSize: 13, color: D.textSecondary, lineHeight: 19, marginTop: 2 },
 
   analyzeLabel: {
-    ...T.bold, fontSize: 11, color: D.textDisabled,
-    letterSpacing: 1.3, textTransform: 'uppercase',
+    ...T.bold, ...SectionLabelStyle,
     marginHorizontal: 20, marginTop: 24, marginBottom: 12,
   },
   featureCard: {

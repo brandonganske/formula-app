@@ -10,7 +10,7 @@ import { api, extractData } from '@/lib/api';
 import {
   VideoStyle, ContentTone, OrganicScriptBody, OrganicScriptResult, OrganicScriptOption,
 } from '@/types/api';
-import { D, T, R, Shadow, Ease } from '@/constants/ds';
+import { D, T, R, Shadow, Ease, SectionLabelStyle } from '@/constants/ds';
 import {
   Sparkles, Copy, Check, ChevronDown, Zap,
   Mic, Camera, MessageSquare, Save, AlertTriangle,
@@ -18,6 +18,7 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import NoCreditsModal from '@/components/NoCreditsModal';
+import AnimatedPressable from '@/components/AnimatedPressable';
 
 // ── Video style / tone config ──────────────────────────────────────────────
 
@@ -142,7 +143,7 @@ const SP = StyleSheet.create({
     backgroundColor: D.surface, borderWidth: 1.5, borderColor: D.border,
     alignItems: 'center',
   },
-  btnActive: { backgroundColor: 'rgba(47,161,12,0.08)', borderColor: D.limeDeep },
+  btnActive: { backgroundColor: D.greenSubtle, borderColor: D.limeDeep },
   label: { ...T.bold, fontSize: 12, color: D.textMuted, marginBottom: 2 },
   labelActive: { color: D.limeDeep },
   sub: { ...T.regular, fontSize: 10, color: D.textDisabled, textAlign: 'center' },
@@ -178,7 +179,7 @@ function VoiceStrip({ voiceUsed, genderUsed }: {
 
 const VM = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 14 },
-  label: { ...T.bold, fontSize: 9, color: D.textDisabled, letterSpacing: 1.2 },
+  label: { ...T.bold, fontSize: 10, color: D.textDisabled, letterSpacing: 1.2 },
   chip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: D.surface, borderRadius: R.full,
@@ -358,17 +359,17 @@ function OptionCard({
 
           {/* Actions */}
           <View style={OC.actions}>
-            <TouchableOpacity style={OC.copyBtn} onPress={handleCopy} activeOpacity={0.75}>
+            <AnimatedPressable style={OC.copyBtn} onPress={handleCopy} haptic="selection">
               {copied
                 ? <><Check size={14} color={D.success} strokeWidth={2.5} /><Text style={[OC.actionText, { color: D.success }]}>Copied!</Text></>
                 : <><Copy size={14} color={D.textMuted} strokeWidth={2} /><Text style={OC.actionText}>Copy script</Text></>
               }
-            </TouchableOpacity>
-            <TouchableOpacity
+            </AnimatedPressable>
+            <AnimatedPressable
               style={[OC.saveBtn, saved && OC.saveBtnDone]}
               onPress={handleSave}
               disabled={saved || saving}
-              activeOpacity={0.8}
+              haptic="success"
             >
               {saving ? (
                 <ActivityIndicator size="small" color={D.limeDeep} />
@@ -377,7 +378,7 @@ function OptionCard({
               ) : (
                 <><Save size={13} color={D.limeDeep} strokeWidth={2} /><Text style={OC.saveBtnText}>Save</Text></>
               )}
-            </TouchableOpacity>
+            </AnimatedPressable>
           </View>
         </FadeInView>
       ) : null}
@@ -412,20 +413,20 @@ const OC = StyleSheet.create({
   chevronOpen: { transform: [{ rotate: '180deg' }] },
 
   hookRow: {
-    marginTop: 12, backgroundColor: 'rgba(47,161,12,0.06)',
+    marginTop: 12, backgroundColor: D.limeDeep + '0F',
     borderRadius: R.sm, padding: 12, borderLeftWidth: 3, borderLeftColor: D.limeDeep,
   },
-  hookLabel: { ...T.bold, fontSize: 9, color: D.limeDeep, letterSpacing: 1.2, marginBottom: 5 },
+  hookLabel: { ...T.bold, fontSize: 10, color: D.limeDeep, letterSpacing: 1.2, marginBottom: 5 },
   hookText: { ...T.medium, fontSize: 14, color: D.textPrimary, lineHeight: 21, fontStyle: 'italic' },
   hookAnalysisToggle: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 },
   hookAnalysisToggleText: { ...T.medium, fontSize: 11, color: D.limeDeep },
   hookAnalysis: {
     marginTop: 10, paddingTop: 10,
-    borderTopWidth: 1, borderTopColor: 'rgba(47,161,12,0.15)', gap: 8,
+    borderTopWidth: 1, borderTopColor: D.successBorder, gap: 8,
   },
   hookAnalysisText: { ...T.regular, fontSize: 12, color: D.inkSoft, lineHeight: 18 },
   psychRow: { gap: 3 },
-  psychLabel: { ...T.bold, fontSize: 8, color: D.limeDeep, letterSpacing: 1.2, opacity: 0.7 },
+  psychLabel: { ...T.bold, fontSize: 10, color: D.limeDeep, letterSpacing: 1.2, opacity: 0.7 },
   psychText: { ...T.regular, fontSize: 12, color: D.inkSoft, lineHeight: 18 },
 
   divider: { height: 1, backgroundColor: D.divider, marginVertical: 14 },
@@ -471,7 +472,7 @@ const OC = StyleSheet.create({
   saveBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     paddingVertical: 10, borderRadius: R.md,
-    backgroundColor: 'rgba(47,161,12,0.08)', borderWidth: 1, borderColor: 'rgba(47,161,12,0.22)',
+    backgroundColor: D.greenSubtle, borderWidth: 1, borderColor: D.successBorder,
     minHeight: 40,
   },
   saveBtnDone: { backgroundColor: D.successSubtle, borderColor: D.successBorder },
@@ -496,12 +497,12 @@ function ResultBanner({
           <ArrowLeft size={16} color={D.textMuted} strokeWidth={2} />
           <Text style={RB.backText}>Edit</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={RB.regenBtn} onPress={onRegenerate} disabled={isPending} activeOpacity={0.75}>
+        <AnimatedPressable style={RB.regenBtn} onPress={onRegenerate} disabled={isPending} haptic="selection">
           {isPending
             ? <ActivityIndicator size="small" color={D.limeDeep} />
             : <><RefreshCw size={13} color={D.limeDeep} strokeWidth={2} /><Text style={RB.regenText}>Regenerate</Text></>
           }
-        </TouchableOpacity>
+        </AnimatedPressable>
       </View>
       <View style={RB.card}>
         <View style={RB.row}>
@@ -526,7 +527,7 @@ const RB = StyleSheet.create({
   regenBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: R.full,
-    backgroundColor: 'rgba(47,161,12,0.08)', borderWidth: 1, borderColor: 'rgba(47,161,12,0.22)',
+    backgroundColor: D.greenSubtle, borderWidth: 1, borderColor: D.successBorder,
     minWidth: 120, justifyContent: 'center',
   },
   regenText: { ...T.medium, fontSize: 13, color: D.limeDeep },
@@ -700,14 +701,14 @@ export default function OrganicScriptScreen() {
         <GeneratingProgress visible={mutation.isPending} />
 
         {/* CTA */}
-        <TouchableOpacity
+        <AnimatedPressable
           style={[S.ctaBtn, !canSubmit && S.ctaBtnOff]}
           onPress={() => {
             if (credits <= 0) { setShowNoCredits(true); return; }
             mutation.mutate();
           }}
           disabled={!canSubmit}
-          activeOpacity={0.85}
+          haptic="medium"
         >
           {mutation.isPending ? (
             <View style={S.loadingRow}>
@@ -720,7 +721,7 @@ export default function OrganicScriptScreen() {
               <Text style={S.ctaBtnText}>Generate Scripts</Text>
             </>
           )}
-        </TouchableOpacity>
+        </AnimatedPressable>
 
         <View style={{ height: 60 }} />
       </ScrollView>
@@ -744,7 +745,7 @@ const S = StyleSheet.create({
   hdrSub: { ...T.regular, fontSize: 13, color: D.textMuted, marginTop: 3 },
   hdrIcon: {
     width: 40, height: 40, borderRadius: 12,
-    backgroundColor: 'rgba(47,161,12,0.10)', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: D.greenSubtle, alignItems: 'center', justifyContent: 'center',
   },
 
   card: {
@@ -787,7 +788,7 @@ const S = StyleSheet.create({
   ctaBtnText: { ...T.bold, fontSize: 15, color: '#FFF', letterSpacing: -0.2 },
   loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 
-  sectionHeading: { ...T.bold, fontSize: 10, color: D.textDisabled, letterSpacing: 1.5, marginBottom: 12 },
+  sectionHeading: { ...T.bold, ...SectionLabelStyle, marginBottom: 12 },
 
   regenOverlay: {
     position: 'absolute', bottom: 0, left: 0, right: 0,

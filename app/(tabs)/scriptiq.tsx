@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput,
+  View, Text, StyleSheet, TextInput,
   ScrollView, Platform, Keyboard, TouchableWithoutFeedback,
 } from 'react-native';
+import AnimatedPressable from '@/components/AnimatedPressable';
 import FadeInView from '@/components/FadeInView';
 import TabFadeView from '@/components/TabFadeView';
 import { useRouter } from 'expo-router';
@@ -61,8 +62,8 @@ const lbS = StyleSheet.create({
   wrap: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: R.full,
-    backgroundColor: 'rgba(182,255,138,0.13)',
-    borderWidth: 1, borderColor: 'rgba(182,255,138,0.28)',
+    backgroundColor: D.limeSubtle,
+    borderWidth: 1, borderColor: D.lime + '48',
     alignSelf: 'flex-start', marginTop: 5,
   },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: D.lime },
@@ -87,10 +88,11 @@ function GenCard({
   soon?: boolean;
 }) {
   return (
-    <TouchableOpacity
+    <AnimatedPressable
       style={gcS.row}
       onPress={onPress}
-      activeOpacity={onPress ? 0.82 : 1}
+      disabled={!onPress}
+      haptic="light"
     >
       <View style={[gcS.iconBox, { backgroundColor: iconBg, borderColor: iconBorder }]}>
         {icon}
@@ -115,7 +117,7 @@ function GenCard({
           : <ChevronRight size={16} color={D.textMuted} strokeWidth={2} />
         }
       </View>
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 }
 const gcS = StyleSheet.create({
@@ -139,7 +141,7 @@ const gcS = StyleSheet.create({
     paddingHorizontal: 7, paddingVertical: 3, borderRadius: R.full,
     backgroundColor: D.surface, borderWidth: 1, borderColor: D.border,
   },
-  soonText: { ...T.bold, fontSize: 9, color: D.textDisabled, letterSpacing: 0.1 * 9 },
+  soonText: { ...T.bold, fontSize: 10, color: D.textDisabled, letterSpacing: 0.1 * 10 },
   sub: { ...T.regular, fontSize: 12, color: D.textMuted, lineHeight: 17 },
   chevron: { flexShrink: 0 },
 });
@@ -204,9 +206,9 @@ export default function ScriptIQScreen() {
               returnKeyType="go"
               onSubmitEditing={handleShopGo}
             />
-            <TouchableOpacity style={S.goBtn} onPress={handleShopGo} activeOpacity={0.85}>
+            <AnimatedPressable style={S.goBtn} onPress={handleShopGo} haptic="light" hitSlop={6}>
               <ArrowRight size={18} color={D.ink} strokeWidth={2.2} />
-            </TouchableOpacity>
+            </AnimatedPressable>
           </View>
         </FadeInView>
 
@@ -240,9 +242,9 @@ export default function ScriptIQScreen() {
               returnKeyType="go"
               onSubmitEditing={handleViralGo}
             />
-            <TouchableOpacity style={S.goBtnCyan} onPress={handleViralGo} activeOpacity={0.85}>
+            <AnimatedPressable style={S.goBtnCyan} onPress={handleViralGo} haptic="light" hitSlop={6}>
               <ArrowRight size={18} color="#FFF" strokeWidth={2.2} />
-            </TouchableOpacity>
+            </AnimatedPressable>
           </View>
         </FadeInView>
 
@@ -304,7 +306,7 @@ const S = StyleSheet.create({
     letterSpacing: -1.2, lineHeight: 39, marginBottom: 14,
   },
   heroItalic: {
-    fontStyle: 'italic', color: D.ink,
+    fontStyle: 'italic', color: D.coral,
   },
   heroSub: {
     ...T.regular, fontSize: 15, color: D.inkSoft, lineHeight: 23,
@@ -368,7 +370,7 @@ const S = StyleSheet.create({
     overflow: 'hidden',
     shadowColor: '#1A1426',
     shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.20, shadowRadius: 32, elevation: 10,
+    shadowOpacity: 0.24, shadowRadius: 36, elevation: 12,
   },
   viralCardGlow: {
     position: 'absolute', width: 200, height: 200, borderRadius: 100,

@@ -2,8 +2,10 @@ import { Tabs, Redirect } from 'expo-router';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
-import { D, T } from '@/constants/ds';
+import { D, T, Shadow } from '@/constants/ds';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppHeader from '@/components/AppHeader';
+import AnimatedPressable from '@/components/AnimatedPressable';
 import { useAuth } from '@/context/AuthContext';
 
 const INACTIVE = 'rgba(26,20,38,0.34)';
@@ -92,12 +94,13 @@ const TAB_MAP: Record<string, { Icon: IconComp; label: string }> = {
 };
 
 function CustomTabBar({ state, navigation }: any) {
+  const insets = useSafeAreaInsets();
   const routes = VISIBLE
     .map((name: string) => state.routes.find((r: any) => r.name === name))
     .filter(Boolean);
 
   return (
-    <View style={S.bar}>
+    <View style={[S.bar, { paddingBottom: Math.max(insets.bottom, 9) + (Platform.OS === 'ios' ? 4 : 0) }]}>
       {routes.map((route: any) => {
         const focused = state.routes[state.index]?.name === route.name;
         const onPress = () => {
@@ -108,7 +111,7 @@ function CustomTabBar({ state, navigation }: any) {
         if (route.name === 'scriptiq') {
           return (
             <View key={route.key} style={S.fabSlot}>
-              <TouchableOpacity style={S.fab} onPress={onPress} activeOpacity={0.88}>
+              <AnimatedPressable style={S.fab} onPress={onPress} haptic="light">
                 <LinearGradient
                   colors={['rgba(255,255,255,0.22)', 'rgba(255,255,255,0)']}
                   start={{ x: 0.5, y: 0 }}
@@ -117,7 +120,7 @@ function CustomTabBar({ state, navigation }: any) {
                   pointerEvents="none"
                 />
                 <ScriptIQIcon />
-              </TouchableOpacity>
+              </AnimatedPressable>
             </View>
           );
         }
@@ -162,18 +165,15 @@ export default function TabLayout() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const SAFE_BOTTOM = Platform.OS === 'ios' ? 22 : 9;
-
 const S = StyleSheet.create({
   bar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: 'rgba(255,255,255,0.86)',
+    backgroundColor: 'rgba(244,243,239,0.96)',
     borderTopWidth: 0.5,
-    borderTopColor: 'rgba(26,20,38,0.12)',
+    borderTopColor: D.inkLine,
     paddingHorizontal: 12,
     paddingTop: 9,
-    paddingBottom: SAFE_BOTTOM,
   },
   tab: {
     flex: 1,
@@ -212,10 +212,6 @@ const S = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    shadowColor: 'rgba(26,20,38,1)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.16,
-    shadowRadius: 5,
-    elevation: 4,
+    ...Shadow.coral,
   },
 });

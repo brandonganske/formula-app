@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { D, T, Shadow } from '@/constants/ds';
+import { D, T, Shadow, Gradient } from '@/constants/ds';
 import Svg, { Rect, Circle } from 'react-native-svg';
 import { useAuth } from '@/context/AuthContext';
 import { Zap } from 'lucide-react-native';
@@ -63,7 +63,7 @@ export default function AppHeader() {
           hitSlop={8}
         >
           <LinearGradient
-            colors={['#FF7A45', '#FF3755', '#FF5E8A']}
+            colors={Gradient.hero}
             start={{ x: 0.13, y: 0 }}
             end={{ x: 0.87, y: 1 }}
             style={S.profileBtn}

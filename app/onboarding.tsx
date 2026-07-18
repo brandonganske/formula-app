@@ -4,6 +4,7 @@ import {
   ScrollView, ActivityIndicator, Platform, KeyboardAvoidingView, Switch,
 } from 'react-native';
 import FadeInView from '@/components/FadeInView';
+import AnimatedPressable from '@/components/AnimatedPressable';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { D, T, R, Shadow } from '@/constants/ds';
@@ -18,9 +19,9 @@ function FormulaMark({ size = 14 }: { size?: number }) {
   const scale = size / 20;
   return (
     <Svg width={size} height={size} viewBox="0 0 100 100">
-      <Rect x="24" y="18" width="16" height="64" rx="8" fill="#FFFFFF" />
-      <Rect x="24" y="18" width="54" height="16" rx="8" fill="#B6FF8A" />
-      <Rect x="24" y="45" width="40" height="15" rx="7.5" fill="#FFFFFF" />
+      <Rect x="22" y="16" width="16" height="68" rx="8" fill="#FFFFFF" />
+      <Rect x="22" y="16" width="56" height="16" rx="8" fill="#B6FF8A" />
+      <Rect x="22" y="44" width="42" height="15" rx="7.5" fill="#FFFFFF" />
     </Svg>
   );
 }
@@ -405,11 +406,11 @@ export default function OnboardingScreen() {
 
         {/* CTA */}
         <FadeInView delay={220} direction="down" style={undefined}>
-          <TouchableOpacity
+          <AnimatedPressable
             style={[S.nextBtn, saving && S.nextBtnDisabled]}
             onPress={handleNext}
             disabled={saving}
-            activeOpacity={0.85}
+            haptic="light"
           >
             {saving ? (
               <ActivityIndicator color="#FFF" size="small" />
@@ -423,7 +424,7 @@ export default function OnboardingScreen() {
                 </View>
               </>
             )}
-          </TouchableOpacity>
+          </AnimatedPressable>
         </FadeInView>
 
         <View style={{ height: 40 }} />

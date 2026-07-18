@@ -1,10 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, AccessibilityInfo, ViewStyle, StyleProp } from 'react-native';
-
-// Strong ease-out — entering elements start fast so the moment the user is
-// watching isn't delayed. (Built-in easings are too weak; RN's Animated default
-// is Easing.inOut, which adds an ease-in ramp we don't want on entrances.)
-const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
+import { Animated, AccessibilityInfo, ViewStyle, StyleProp } from 'react-native';
+import { Ease } from '@/constants/ds';
 
 // App-wide reduced-motion flag. Queried once at import and kept current via a
 // single listener, so component mounts can read it synchronously (no flash).
@@ -35,12 +31,12 @@ export default function FadeInView({
   useEffect(() => {
     const timer = setTimeout(() => {
       const anims = [
-        Animated.timing(opacity, { toValue: 1, duration, easing: EASE_OUT, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration, easing: Ease.out, useNativeDriver: true }),
       ];
       // Reduced motion keeps the opacity fade (gentler, not zero) but drops the
       // movement entirely.
       if (direction !== 'none' && !reduceMotion) {
-        anims.push(Animated.timing(translate, { toValue: 0, duration, easing: EASE_OUT, useNativeDriver: true }));
+        anims.push(Animated.timing(translate, { toValue: 0, duration, easing: Ease.out, useNativeDriver: true }));
       } else {
         translate.setValue(0);
       }

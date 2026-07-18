@@ -8,9 +8,10 @@ import { Redirect } from 'expo-router';
 import Svg, { Rect } from 'react-native-svg';
 import { AtSign, Mail, Lock, ArrowRight, CheckCircle } from 'lucide-react-native';
 import FadeInView from '@/components/FadeInView';
+import AnimatedPressable from '@/components/AnimatedPressable';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
-import { D, T, R } from '@/constants/ds';
+import { D, T, R, Shadow, Gradient } from '@/constants/ds';
 import { normalizeTikTokHandle, looksLikeLink } from '@/constants/onboarding';
 
 // ─── F mark SVG ──────────────────────────────────────────────────────────────
@@ -153,7 +154,7 @@ export default function AuthScreen() {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={S.root}>
       <LinearGradient
-        colors={['#FF4D65', '#FF3755', '#E8204A']}
+        colors={Gradient.auth}
         locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
@@ -305,11 +306,11 @@ export default function AuthScreen() {
               )}
 
               {/* Submit */}
-              <TouchableOpacity
+              <AnimatedPressable
                 style={[S.btn, loading && S.btnDisabled]}
                 onPress={handleSubmit}
                 disabled={loading}
-                activeOpacity={0.88}
+                haptic="light"
               >
                 {loading
                   ? <ActivityIndicator color="#FFF" size="small" />
@@ -324,7 +325,7 @@ export default function AuthScreen() {
                     </>
                   )
                 }
-              </TouchableOpacity>
+              </AnimatedPressable>
 
               <Text style={S.footer}>By continuing you agree to our Terms of Service</Text>
             </>
@@ -426,11 +427,7 @@ const S = StyleSheet.create({
     paddingVertical: 17,
     gap: 10,
     marginTop: 4,
-    shadowColor: D.coral,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
-    elevation: 8,
+    ...Shadow.coral,
   },
   btnDisabled: { opacity: 0.55 },
   btnText: { ...T.bold, fontSize: 16, color: '#FFF', letterSpacing: -0.2 },
@@ -459,7 +456,7 @@ const S = StyleSheet.create({
   sentWrap: { alignItems: 'center', paddingVertical: 24 },
   sentIcon: {
     width: 64, height: 64, borderRadius: 32,
-    backgroundColor: D.coral + '14',
+    backgroundColor: D.coralSubtle,
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 20,
   },

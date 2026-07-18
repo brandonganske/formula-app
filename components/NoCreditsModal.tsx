@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Zap, X, ShoppingBag } from 'lucide-react-native';
 import FadeInView from '@/components/FadeInView';
-import { D, T, R, Shadow } from '@/constants/ds';
+import { D, T, R, Shadow, Gradient } from '@/constants/ds';
 
 interface Props {
   visible: boolean;
@@ -40,7 +40,7 @@ export default function NoCreditsModal({ visible, onClose }: Props) {
           {/* Icon */}
           <View style={S.iconWrap}>
             <LinearGradient
-              colors={['#FF7A45', '#FF3755']}
+              colors={Gradient.heroCompact}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={S.iconGrad}

@@ -7,11 +7,12 @@ import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import FadeInView from '@/components/FadeInView';
 import TabFadeView from '@/components/TabFadeView';
+import AnimatedPressable from '@/components/AnimatedPressable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
-import { D, T, R, Shadow } from '@/constants/ds';
+import { D, T, R, Shadow, Gradient, SectionLabelStyle } from '@/constants/ds';
 import {
   LogOut, ExternalLink, Shield, Brain, ChevronRight,
   Zap, AtSign, X, Bell, Mail, HelpCircle, FileText,
@@ -95,8 +96,8 @@ const SR = StyleSheet.create({
   rowLast: { borderBottomWidth: 0 },
   iconBox: {
     width: 46, height: 46, borderRadius: 14,
-    backgroundColor: 'rgba(26,20,38,0.05)',
-    borderWidth: 1, borderColor: 'rgba(26,20,38,0.08)',
+    backgroundColor: D.inkHairline,
+    borderWidth: 1, borderColor: D.surfaceBorder,
     alignItems: 'center', justifyContent: 'center',
   },
   iconBoxDanger: {
@@ -351,7 +352,7 @@ export default function ProfileScreen() {
       {/* ── Coral gradient hero card ────────────────────────────── */}
       <FadeInView style={S.heroWrap}>
         <LinearGradient
-          colors={['#FF7A45', '#FF3755', '#FF5E8A']}
+          colors={Gradient.hero}
           locations={[0, 0.52, 1]}
           start={{ x: 0.15, y: 0 }}
           end={{ x: 0.85, y: 1 }}
@@ -471,18 +472,19 @@ export default function ProfileScreen() {
                   </View>
                   <Text style={S.tierCredits}>{plan.monthlyCredits} credits / month</Text>
                 </View>
-                <TouchableOpacity
+                <AnimatedPressable
                   style={[S.tierBtn, isCurrent && S.tierBtnCurrent]}
+                  hitSlop={8}
                   onPress={() => !isCurrent && runPurchase(plan.productId)}
                   disabled={isCurrent || busyId === plan.productId}
-                  activeOpacity={0.85}
+                  haptic="medium"
                 >
                   {busyId === plan.productId
                     ? <ActivityIndicator size="small" color={D.coral} />
                     : isCurrent
                       ? <Text style={[S.tierBtnText, { color: D.success }]}>Current</Text>
                       : <Text style={S.tierBtnText}>{price}<Text style={S.tierBtnPer}>/mo</Text></Text>}
-                </TouchableOpacity>
+                </AnimatedPressable>
               </View>
             );
           })}
@@ -494,12 +496,12 @@ export default function ProfileScreen() {
               const price = priceById[pack.productId] ?? pack.priceLabel;
               const busy = busyId === pack.productId;
               return (
-                <TouchableOpacity
+                <AnimatedPressable
                   key={pack.productId}
                   style={[S.packCard, pack.popular && S.packCardPopular]}
                   onPress={() => runPurchase(pack.productId)}
                   disabled={busy}
-                  activeOpacity={0.85}
+                  haptic="medium"
                 >
                   {pack.popular && <View style={S.packBadge}><Text style={S.packBadgeText}>BEST</Text></View>}
                   {busy
@@ -511,7 +513,7 @@ export default function ProfileScreen() {
                         <Text style={[S.packPrice, pack.popular && { color: D.coral }]}>{price}</Text>
                       </>
                     )}
-                </TouchableOpacity>
+                </AnimatedPressable>
               );
             })}
           </View>
@@ -794,13 +796,13 @@ const S = StyleSheet.create({
   scroll: { paddingBottom: 16 },
 
   heroWrap: {
-    marginHorizontal: 14, marginTop: 14, marginBottom: 28,
-    borderRadius: 30, overflow: 'hidden',
+    marginHorizontal: 16, marginTop: 14, marginBottom: 28,
+    borderRadius: R.xxl, overflow: 'hidden',
     shadowColor: D.coral, shadowOffset: { width: 0, height: 22 },
     shadowOpacity: 0.30, shadowRadius: 46, elevation: 14,
   },
   hero: {
-    borderRadius: 30, overflow: 'hidden',
+    borderRadius: R.xxl, overflow: 'hidden',
     paddingBottom: 26,
   },
 
@@ -865,7 +867,7 @@ const S = StyleSheet.create({
     flexDirection: 'row', marginTop: 22, width: '100%',
     backgroundColor: 'rgba(255,255,255,0.14)',
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.30)',
-    borderRadius: 20, overflow: 'hidden',
+    borderRadius: R.xl, overflow: 'hidden',
   },
   statCell: {
     flex: 1, alignItems: 'center', paddingVertical: 18, paddingHorizontal: 10,
@@ -881,12 +883,11 @@ const S = StyleSheet.create({
   // Sections
   section: { paddingHorizontal: 16, marginBottom: 20 },
   sectionLabel: {
-    ...T.bold, fontSize: 11, color: D.textDisabled,
-    letterSpacing: 1.3, marginBottom: 12, marginLeft: 4,
-    textTransform: 'uppercase',
+    ...T.bold, ...SectionLabelStyle,
+    marginBottom: 12, marginLeft: 4,
   },
   group: {
-    backgroundColor: D.card, borderRadius: 20,
+    backgroundColor: D.card, borderRadius: R.xl,
     borderWidth: 1, borderColor: D.cardBorder, overflow: 'hidden',
     ...Shadow.soft,
   },
@@ -894,7 +895,7 @@ const S = StyleSheet.create({
   // Credits card
   creditsCard: {
     backgroundColor: D.card,
-    borderRadius: 20,
+    borderRadius: R.xl,
     borderWidth: 1,
     borderColor: D.cardBorder,
     overflow: 'hidden',
@@ -921,7 +922,7 @@ const S = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: D.coral + '30', flexShrink: 0,
   },
   planBadgeText: { ...T.bold, fontSize: 12, color: D.coral, letterSpacing: -0.1 },
-  planBadgeStatus: { ...T.medium, fontSize: 9, color: D.textMuted, marginTop: 1, textTransform: 'capitalize' },
+  planBadgeStatus: { ...T.medium, fontSize: 10, color: D.textMuted, marginTop: 1, textTransform: 'capitalize' },
   manageBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: D.coral, borderRadius: R.full, paddingVertical: 14, ...Shadow.coral,
@@ -931,8 +932,7 @@ const S = StyleSheet.create({
   restoreRowText: { ...T.medium, fontSize: 13, color: D.textMuted },
   creditsDivider: { height: 1, backgroundColor: D.border, marginBottom: 16 },
   creditsPackLabel: {
-    ...T.bold, fontSize: 10, color: D.textDisabled,
-    letterSpacing: 1.2, marginBottom: 12, textTransform: 'uppercase',
+    ...T.bold, ...SectionLabelStyle, marginBottom: 12,
   },
   packsRow: {
     flexDirection: 'row',
@@ -960,7 +960,7 @@ const S = StyleSheet.create({
     paddingVertical: 3,
     alignItems: 'center',
   },
-  packBadgeText: { ...T.bold, fontSize: 8, color: '#FFF', letterSpacing: 0.6 },
+  packBadgeText: { ...T.bold, fontSize: 10, color: '#FFF', letterSpacing: 0.6 },
   packCredits: { ...T.bold, fontSize: 22, color: D.textPrimary, letterSpacing: -0.5, marginTop: 14 },
   packLabel: { ...T.medium, fontSize: 11, color: D.textMuted },
   packPrice: { ...T.bold, fontSize: 15, color: D.textPrimary, marginTop: 6 },
@@ -975,7 +975,7 @@ const S = StyleSheet.create({
   tierTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   tierName: { ...T.bold, fontSize: 15, color: D.textPrimary, letterSpacing: -0.2 },
   tierTag: { backgroundColor: D.coral, borderRadius: R.full, paddingHorizontal: 7, paddingVertical: 2 },
-  tierTagText: { ...T.bold, fontSize: 8, color: '#FFF', letterSpacing: 0.6 },
+  tierTagText: { ...T.bold, fontSize: 10, color: '#FFF', letterSpacing: 0.6 },
   tierCredits: { ...T.medium, fontSize: 12.5, color: D.textMuted, marginTop: 3 },
   tierBtn: {
     minWidth: 76, alignItems: 'center', justifyContent: 'center',

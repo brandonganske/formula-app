@@ -9,12 +9,14 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
 import FadeInView from '@/components/FadeInView';
+import { Skeleton } from '@/components/Skeleton';
+import * as Haptics from 'expo-haptics';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, extractData } from '@/lib/api';
 import { storage } from '@/lib/storage';
 import { SavedScriptItem, SavedScriptsResponse } from '@/types/api';
 import { useAuth } from '@/context/AuthContext';
-import { D, T, R, Shadow, Ease } from '@/constants/ds';
+import { D, T, R, Shadow, Ease, Gradient, SectionLabelStyle, FOLDER_COLORS } from '@/constants/ds';
 import {
   FolderPlus, Folder, FolderOpen, Copy, Check, RefreshCw,
   ChevronRight, ChevronLeft, Plus, X, Trash2, Zap,
@@ -48,14 +50,6 @@ interface ScriptFolderItemRow {
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-const FOLDER_COLORS = [
-  { hex: '#FF3755', label: 'Coral' },
-  { hex: '#2FA10C', label: 'Green' },
-  { hex: '#0ea5e9', label: 'Blue' },
-  { hex: '#F59E0B', label: 'Amber' },
-  { hex: '#ec4899', label: 'Pink' },
-  { hex: '#1A1426', label: 'Ink' },
-];
 
 // ── Legacy local-storage keys (used only by the one-time migration) ────────
 
@@ -100,11 +94,6 @@ function OriginIcon({ origin, size = 10 }: { origin: string | null | undefined; 
 }
 
 // ── Skeleton ───────────────────────────────────────────────────────────────
-
-function Bone({ w, h }: { w: string | number; h: number }) {
-  return <View style={[SK.bone, { width: w as any, height: h }]} />;
-}
-const SK = StyleSheet.create({ bone: { backgroundColor: D.surface, borderRadius: 6 } });
 
 // ── Script card ────────────────────────────────────────────────────────────
 
@@ -199,10 +188,10 @@ function ScriptCard({
                   onBlur={saveRename}
                   maxLength={80}
                 />
-                <TouchableOpacity onPress={saveRename} hitSlop={8}>
+                <TouchableOpacity onPress={saveRename} hitSlop={14}>
                   <Check size={14} color={D.success} strokeWidth={2.5} />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => setRenaming(false)} hitSlop={8}>
+                <TouchableOpacity onPress={() => setRenaming(false)} hitSlop={14}>
                   <X size={14} color={D.textMuted} strokeWidth={2} />
                 </TouchableOpacity>
               </View>
@@ -279,7 +268,7 @@ const SC = StyleSheet.create({
     ...Shadow.card,
   },
   ghostIcon: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  ghostLabel: { ...T.bold, fontSize: 9, color: D.textMuted, maxWidth: 64, textAlign: 'center' },
+  ghostLabel: { ...T.bold, fontSize: 10, color: D.textMuted, maxWidth: 64, textAlign: 'center' },
   hdr: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   hdrLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
   originDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
@@ -289,9 +278,9 @@ const SC = StyleSheet.create({
   renameInput: { ...T.bold, fontSize: 14, color: D.textPrimary, flex: 1, borderBottomWidth: 1, borderBottomColor: D.coral, paddingVertical: 2 },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   originPill: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: R.full },
-  originText: { ...T.bold, fontSize: 10 },
+  originText: { ...T.bold, fontSize: 11 },
   productChip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: D.coralSubtle, paddingHorizontal: 7, paddingVertical: 2, borderRadius: R.full },
-  productName: { ...T.bold, fontSize: 10, color: D.coral, maxWidth: 120 },
+  productName: { ...T.bold, fontSize: 11, color: D.coral, maxWidth: 120 },
   date: { ...T.regular, fontSize: 11, color: D.textMuted },
   dot: { width: 3, height: 3, borderRadius: 2, backgroundColor: D.textDisabled },
   chevron: {},
@@ -308,7 +297,7 @@ const SC = StyleSheet.create({
   divider: { height: 1, backgroundColor: D.divider, marginVertical: 12 },
   scriptText: { ...T.regular, fontSize: 13, color: D.textSecondary, lineHeight: 22, marginBottom: 4 },
   ctaRow: { backgroundColor: D.inkCard, borderRadius: R.md, padding: 10, marginTop: 8, marginBottom: 10 },
-  ctaLabel: { ...T.bold, fontSize: 9, color: D.lime, letterSpacing: 1.2, marginBottom: 3 },
+  ctaLabel: { ...T.bold, fontSize: 10, color: D.lime, letterSpacing: 1.2, marginBottom: 3 },
   ctaText: { ...T.medium, fontSize: 12, color: '#FFF', lineHeight: 18 },
 
   actions: { flexDirection: 'row', gap: 8, paddingTop: 12, borderTopWidth: 1, borderTopColor: D.divider, marginTop: 8 },
@@ -391,7 +380,7 @@ function CreateFolderSheet({ onDone, onClose }: {
   onClose: () => void;
 }) {
   const [name, setName] = useState('');
-  const [color, setColor] = useState(FOLDER_COLORS[0].hex);
+  const [color, setColor] = useState(FOLDER_COLORS[0]);
 
   return (
     <FadeInView direction="up" style={CFS.panel}>
@@ -419,12 +408,12 @@ function CreateFolderSheet({ onDone, onClose }: {
         <View style={CFS.colorRow}>
           {FOLDER_COLORS.map((c) => (
             <TouchableOpacity
-              key={c.hex}
-              style={[CFS.colorSwatch, { backgroundColor: c.hex }, color === c.hex && CFS.colorSwatchActive]}
-              onPress={() => setColor(c.hex)}
+              key={c}
+              style={[CFS.colorSwatch, { backgroundColor: c }, color === c && CFS.colorSwatchActive]}
+              onPress={() => setColor(c)}
               activeOpacity={0.8}
             >
-              {color === c.hex && <Check size={14} color="#FFF" strokeWidth={3} />}
+              {color === c && <Check size={14} color="#FFF" strokeWidth={3} />}
             </TouchableOpacity>
           ))}
         </View>
@@ -462,7 +451,7 @@ const CFS = StyleSheet.create({
   hdrTitle: { ...T.bold, fontSize: 17, color: D.textPrimary },
   closeBtn: { width: 32, height: 32, borderRadius: 10, backgroundColor: D.surface, alignItems: 'center', justifyContent: 'center' },
   body: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 4 },
-  fieldLabel: { ...T.bold, fontSize: 10, color: D.textDisabled, letterSpacing: 1.2, marginBottom: 10 },
+  fieldLabel: { ...T.bold, ...SectionLabelStyle, marginBottom: 10 },
   input: {
     backgroundColor: D.surface, borderRadius: R.md, borderWidth: 1, borderColor: D.border,
     padding: 14, ...T.regular, fontSize: 15, color: D.textPrimary,
@@ -927,6 +916,9 @@ export default function ToolkitScreen() {
       }
     }
     if (dropped) {
+      if (Platform.OS !== 'web') {
+        try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
+      }
       handleToggleFolderRef.current(dropped, dragScriptRef.current.id);
     }
     dragScriptRef.current = null;
@@ -997,7 +989,7 @@ export default function ToolkitScreen() {
     >
       <FadeInView style={S.hero}>
         <LinearGradient
-          colors={['#FF7A45', '#FF3755', '#FF5E8A']}
+          colors={Gradient.hero}
           start={{ x: 0.13, y: 0 }} end={{ x: 0.87, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
@@ -1066,12 +1058,9 @@ export default function ToolkitScreen() {
         {/* Scripts section */}
         {isLoading && (
           <View style={S.section}>
-            <Text style={S.sectionLabel}>SCRIPTS</Text>
+            <Skeleton width={120} height={12} style={{ marginBottom: 13 }} />
             {[0, 1, 2, 3].map((i) => (
-              <FadeInView key={i} delay={i * 40} style={[SC.card, { gap: 8 }]}>
-                <Bone w="65%" h={13} />
-                <Bone w="40%" h={11} />
-              </FadeInView>
+              <Skeleton key={i} height={72} radius={R.xl} style={{ marginBottom: 10 }} />
             ))}
           </View>
         )}
@@ -1219,7 +1208,7 @@ const S = StyleSheet.create({
   scroll: { paddingHorizontal: 20, paddingBottom: 20, paddingTop: 4 },
 
   section: { marginBottom: 8 },
-  sectionLabel: { ...T.bold, fontSize: 10, color: D.textDisabled, letterSpacing: 1.5, marginBottom: 12 },
+  sectionLabel: { ...T.bold, ...SectionLabelStyle, marginBottom: 12 },
   sectionCount: { ...T.regular, color: D.textDisabled },
 
   folderGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },

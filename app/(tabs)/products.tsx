@@ -15,13 +15,14 @@ import {
   ProductSearchResult, ProductSearchResponse, ProductSearchSort,
   ProductEngineResult, ProductEngineLearn, SavedProductItem, ProductFolder,
 } from '@/types/api';
-import { D, T, R, Shadow } from '@/constants/ds';
+import { D, T, R, Shadow, Gradient, SectionLabelStyle, FOLDER_COLORS } from '@/constants/ds';
 import {
   Search, ShoppingBag, X, BookmarkPlus, Bookmark,
   ChevronDown, ChevronRight, Copy, Check, Trash2,
   Zap, AlertCircle, FolderOpen, FolderPlus, Folder,
 } from 'lucide-react-native';
 import NoCreditsModal from '@/components/NoCreditsModal';
+import { Skeleton } from '@/components/Skeleton';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -50,11 +51,6 @@ const SORT_OPTIONS: { key: ProductSearchSort; label: string }[] = [
   { key: 'top_gmv', label: 'Top GMV' },
   { key: 'commission', label: 'Commission' },
   { key: 'popular', label: 'Popular' },
-];
-
-const FOLDER_COLORS = [
-  '#FF3755', '#3B82F6', '#14B8A6', '#F59E0B',
-  '#EC4899', '#2FA10C', '#64748B',
 ];
 
 // ── Inline SVG glyphs ──────────────────────────────────────────────────────
@@ -336,7 +332,7 @@ function LearnPanel({
         ) : (
           <TouchableOpacity style={LP.saveBtn} onPress={onSave} disabled={saving} activeOpacity={0.88}>
             <LinearGradient
-              colors={['#FF7A45', '#FF3755']}
+              colors={Gradient.heroCompact}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={StyleSheet.absoluteFill}
@@ -389,8 +385,7 @@ const LP = StyleSheet.create({
   explainer: { ...T.regular, fontSize: 14, color: D.textSecondary, lineHeight: 22, marginBottom: 24 },
   section: { marginBottom: 22 },
   sectionLabel: {
-    ...T.bold, fontSize: 10, color: D.textDisabled, letterSpacing: 1.3,
-    textTransform: 'uppercase', marginBottom: 12,
+    ...T.bold, ...SectionLabelStyle, marginBottom: 12,
   },
   tpRow: { flexDirection: 'row', gap: 12, marginBottom: 14, alignItems: 'flex-start' },
   tpDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: D.coral, marginTop: 6, flexShrink: 0 },
@@ -518,7 +513,7 @@ function ProductRow({
             )}
           </View>
         </View>
-        <TouchableOpacity style={PR.learnBtn} onPress={() => onLearn(product)} disabled={isLoading} activeOpacity={0.8}>
+        <TouchableOpacity style={PR.learnBtn} onPress={() => onLearn(product)} disabled={isLoading} activeOpacity={0.8} hitSlop={8}>
           {isLoading
             ? <ActivityIndicator size={12} color={D.coral} />
             : <><Zap size={12} color={D.coral} strokeWidth={2} /><Text style={PR.learnTxt}>Learn</Text></>
@@ -591,9 +586,9 @@ function SavedCard({
               </View>
             )}
             {folderName && !isManaging && (
-              <View style={[SC.pill, { backgroundColor: (folderColor ?? '#FF3755') + '18', borderWidth: 1, borderColor: (folderColor ?? '#FF3755') + '30' }]}>
-                <Folder size={9} color={folderColor ?? '#FF3755'} strokeWidth={2} />
-                <Text style={[SC.pillTxt, { color: folderColor ?? '#FF3755', fontSize: 10 }]}>{folderName}</Text>
+              <View style={[SC.pill, { backgroundColor: (folderColor ?? D.coral) + '18', borderWidth: 1, borderColor: (folderColor ?? D.coral) + '30' }]}>
+                <Folder size={9} color={folderColor ?? D.coral} strokeWidth={2} />
+                <Text style={[SC.pillTxt, { color: folderColor ?? D.coral, fontSize: 10 }]}>{folderName}</Text>
               </View>
             )}
           </View>
@@ -630,12 +625,12 @@ const SC = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 14,
     backgroundColor: D.card, borderRadius: R.xl,
     borderWidth: 1, borderColor: D.cardBorder,
-    padding: 13, marginBottom: 12, ...Shadow.card,
+    padding: 13, marginBottom: 12, ...Shadow.soft,
   },
   thumb: { width: 64, height: 64, borderRadius: 16, flexShrink: 0, borderWidth: 1, borderColor: D.border },
   thumbEmpty: { backgroundColor: D.surface, alignItems: 'center', justifyContent: 'center' },
   body: { flex: 1, gap: 5, minWidth: 0 },
-  shop: { ...T.bold, fontSize: 10.5, color: D.textMuted, letterSpacing: 0.5, textTransform: 'uppercase' },
+  shop: { ...T.bold, fontSize: 11, color: D.textMuted, letterSpacing: 0.5, textTransform: 'uppercase' },
   title: { ...T.bold, fontSize: 14, color: D.textPrimary, lineHeight: 19, letterSpacing: -0.2 },
   pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, alignItems: 'center' },
   pill: { backgroundColor: D.ink, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -919,7 +914,7 @@ export default function ProductsScreen() {
         {/* Hero / search card */}
         <View style={[S.heroWrap, searchActive && S.heroWrapActive]}>
           <LinearGradient
-            colors={['#FF7A45', '#FF3755', '#FF5E8A']}
+            colors={Gradient.hero}
             start={{ x: 0.13, y: 0 }}
             end={{ x: 0.87, y: 1 }}
             style={S.hero}
@@ -984,6 +979,7 @@ export default function ProductsScreen() {
                 <TouchableOpacity
                   key={key}
                   style={[S.sortPill, sort === key && S.sortPillActive]}
+                  hitSlop={8}
                   onPress={() => setSort(key)}
                   activeOpacity={0.75}
                 >
@@ -1054,6 +1050,7 @@ export default function ProductsScreen() {
                 {/* All tab */}
                 <TouchableOpacity
                   style={[S.folderTab, !selectedFolderId && S.folderTabActive]}
+                  hitSlop={8}
                   onPress={() => setSelectedFolderId(null)}
                   activeOpacity={0.75}
                 >
@@ -1076,6 +1073,7 @@ export default function ProductsScreen() {
                         S.folderTab,
                         active && { backgroundColor: folder.color + '18', borderColor: folder.color + '40' },
                       ]}
+                      hitSlop={8}
                       onPress={() => setSelectedFolderId(folder.id)}
                       onLongPress={() => setDeletingFolderId(folder.id)}
                       activeOpacity={0.75}
@@ -1117,8 +1115,11 @@ export default function ProductsScreen() {
 
             {/* Product cards */}
             {savedLoading ? (
-              <View style={{ alignItems: 'center', paddingVertical: 32 }}>
-                <ActivityIndicator color={D.coral} />
+              <View style={{ paddingTop: 4 }}>
+                <Skeleton height={48} radius={R.md} style={{ marginBottom: 14 }} />
+                {[0, 1, 2, 3].map((i) => (
+                  <Skeleton key={i} height={64} radius={R.xl} style={{ marginBottom: 10 }} />
+                ))}
               </View>
             ) : filteredItems.length === 0 ? (
               <View style={S.emptyWrap}>
@@ -1180,7 +1181,7 @@ export default function ProductsScreen() {
                 onPress={() => { if (credits <= 0) { setShowNoCredits(true); return; } setLearnError(null); setLearnLoading(true); engineMutation.mutate(activeProduct); }}
                 activeOpacity={0.88}
               >
-                <LinearGradient colors={['#FF7A45', '#FF3755']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+                <LinearGradient colors={Gradient.heroCompact} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
                 <Text style={LP.saveBtnText}>Try Again</Text>
               </TouchableOpacity>
               <View style={{ height: 8 }} />
@@ -1486,7 +1487,7 @@ const S = StyleSheet.create({
 
   sectionHdr: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   sectionHdrLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  sectionLabel: { ...T.bold, fontSize: 11, color: D.textDisabled, letterSpacing: 0.9, textTransform: 'uppercase' },
+  sectionLabel: { ...T.bold, ...SectionLabelStyle },
   countBadge: { backgroundColor: D.coral, borderRadius: R.full, paddingHorizontal: 8, paddingVertical: 2 },
   countBadgeTxt: { ...T.bold, fontSize: 11, color: '#fff' },
   manageBtn: { ...T.bold, fontSize: 13, color: D.coral },

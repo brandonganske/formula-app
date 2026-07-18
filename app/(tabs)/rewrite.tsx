@@ -13,7 +13,7 @@ import {
   ViralRewriteBody, ViralRewriteResult, RewriteOption,
   ProductSearchResult, ProductBrain, ProductSearchResponse,
 } from '@/types/api';
-import { D, T, R, Shadow, Ease } from '@/constants/ds';
+import { D, T, R, Shadow, Ease, SectionLabelStyle } from '@/constants/ds';
 import {
   Sparkles, Copy, Check, Search, X, ChevronDown,
   ShoppingBag, Brain, FileText, Play, Film, Zap, Quote, Eye,
@@ -21,6 +21,7 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import NoCreditsModal from '@/components/NoCreditsModal';
+import AnimatedPressable from '@/components/AnimatedPressable';
 
 // ── coerce API values to string ────────────────────────────────────────────
 function str(value: unknown): string {
@@ -484,20 +485,20 @@ function ScriptCard({ option, index }: { option: RewriteOption; index: number })
 
           {/* Actions */}
           <View style={SC.actions}>
-            <TouchableOpacity style={SC.copyBtn} onPress={handleCopy} activeOpacity={0.75}>
+            <AnimatedPressable style={SC.copyBtn} onPress={handleCopy} haptic="selection">
               {copied
                 ? <><Check size={14} color={D.success} strokeWidth={2.5} /><Text style={[SC.actionText, { color: D.success }]}>Copied!</Text></>
                 : <><Copy size={14} color={D.textMuted} strokeWidth={2} /><Text style={SC.actionText}>Copy script</Text></>
               }
-            </TouchableOpacity>
-            <TouchableOpacity style={[SC.saveBtn, saved && SC.saveBtnDone]} onPress={handleSave} activeOpacity={0.75} disabled={saved}>
+            </AnimatedPressable>
+            <AnimatedPressable style={[SC.saveBtn, saved && SC.saveBtnDone]} onPress={handleSave} haptic="success" disabled={saved}>
               {saving
                 ? <ActivityIndicator size="small" color={D.coral} />
                 : saved
                   ? <><Check size={14} color={D.success} strokeWidth={2.5} /><Text style={[SC.actionText, { color: D.success }]}>Saved!</Text></>
                   : <><Save size={14} color={D.coral} strokeWidth={2} /><Text style={[SC.actionText, { color: D.coral }]}>Save script</Text></>
               }
-            </TouchableOpacity>
+            </AnimatedPressable>
           </View>
         </FadeInView>
       )}
@@ -536,7 +537,7 @@ const SC = StyleSheet.create({
     marginTop: 12, backgroundColor: D.coralFaint,
     borderRadius: R.sm, padding: 12, borderLeftWidth: 3, borderLeftColor: D.coral,
   },
-  hookLabel: { ...T.bold, fontSize: 9, color: D.coral, letterSpacing: 1.2, marginBottom: 5 },
+  hookLabel: { ...T.bold, fontSize: 10, color: D.coral, letterSpacing: 1.2, marginBottom: 5 },
   hookText: { ...T.medium, fontSize: 14, color: D.textPrimary, lineHeight: 21, fontStyle: 'italic' },
   hookAnalysisToggle: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 },
   hookAnalysisToggleText: { ...T.medium, fontSize: 11, color: D.coral },
@@ -546,10 +547,10 @@ const SC = StyleSheet.create({
   },
   hookAnalysisText: { ...T.regular, fontSize: 12, color: D.inkSoft, lineHeight: 18 },
   vsRow: { gap: 3 },
-  vsLabel: { ...T.bold, fontSize: 8, color: D.coral, letterSpacing: 1.2, opacity: 0.7 },
+  vsLabel: { ...T.bold, fontSize: 10, color: D.coral, letterSpacing: 1.2, opacity: 0.7 },
   vsText: { ...T.regular, fontSize: 12, color: D.inkSoft, lineHeight: 18 },
   psychRow: { gap: 3 },
-  psychLabel: { ...T.bold, fontSize: 8, color: D.coral, letterSpacing: 1.2, opacity: 0.7 },
+  psychLabel: { ...T.bold, fontSize: 10, color: D.coral, letterSpacing: 1.2, opacity: 0.7 },
   psychText: { ...T.regular, fontSize: 12, color: D.inkSoft, lineHeight: 18 },
 
   divider: { height: 1, backgroundColor: D.divider, marginVertical: 14 },
@@ -583,7 +584,7 @@ const SC = StyleSheet.create({
   saveBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 6, paddingVertical: 10, borderRadius: R.md,
-    backgroundColor: D.coralSubtle, borderWidth: 1, borderColor: D.coral + '40',
+    backgroundColor: D.coralSubtle, borderWidth: 1, borderColor: D.coral + '30',
   },
   saveBtnDone: {
     backgroundColor: D.successSubtle, borderColor: D.success + '40',
@@ -625,12 +626,12 @@ function ContextBanner({
           <ArrowLeft size={16} color={D.textMuted} strokeWidth={2} />
           <Text style={CB.backText}>Edit</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={CB.regenBtn} onPress={onRegenerate} disabled={isPending} activeOpacity={0.75}>
+        <AnimatedPressable style={CB.regenBtn} onPress={onRegenerate} disabled={isPending} haptic="selection">
           {isPending
             ? <ActivityIndicator size="small" color={D.coral} />
             : <><RefreshCw size={13} color={D.coral} strokeWidth={2} /><Text style={CB.regenText}>Regenerate</Text></>
           }
-        </TouchableOpacity>
+        </AnimatedPressable>
       </View>
 
       {/* Dark context card */}
@@ -981,14 +982,14 @@ export default function RewriteScreen() {
         <GeneratingProgress visible={rewriteMutation.isPending} />
 
         {/* CTA */}
-        <TouchableOpacity
+        <AnimatedPressable
           style={[S.ctaBtn, !canSubmit && S.ctaBtnOff]}
           onPress={() => {
             if (credits <= 0) { setShowNoCredits(true); return; }
             rewriteMutation.mutate();
           }}
           disabled={!canSubmit}
-          activeOpacity={0.85}
+          haptic="medium"
         >
           {rewriteMutation.isPending ? (
             <View style={S.loadingRow}>
@@ -1001,7 +1002,7 @@ export default function RewriteScreen() {
               <Text style={S.ctaBtnText}>Generate Scripts</Text>
             </>
           )}
-        </TouchableOpacity>
+        </AnimatedPressable>
 
         <View style={{ height: 60 }} />
       </ScrollView>
@@ -1118,12 +1119,13 @@ const S = StyleSheet.create({
   stealCard: {
     backgroundColor: D.inkCard, borderRadius: R.xl,
     borderWidth: 1, borderColor: D.inkCardBorder, padding: 18, marginBottom: 12,
+    ...Shadow.card,
   },
   stealHdr: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   stealTitle: { ...T.bold, fontSize: 13, color: D.lime },
   stealText: { ...T.medium, fontSize: 16, color: '#FFF', lineHeight: 26, fontStyle: 'italic' },
 
-  sectionHeading: { ...T.bold, fontSize: 10, color: D.textDisabled, letterSpacing: 1.5, marginBottom: 12 },
+  sectionHeading: { ...T.bold, ...SectionLabelStyle, marginBottom: 12 },
 
   transcriptCard: {
     backgroundColor: D.card, borderRadius: R.xl,
