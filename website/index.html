@@ -2,456 +2,605 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Formula — AI scripts in your voice, for TikTok creators</title>
-<meta name="description" content="Formula learns your voice from your own TikToks — then writes hooks and scripts that stop the scroll in the first 3 seconds. Coming soon to the App Store.">
-<meta property="og:title" content="Formula — AI scripts in your voice, for TikTok creators">
-<meta property="og:description" content="Formula learns your voice from your own TikToks — then writes hooks and scripts that stop the scroll in the first 3 seconds.">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Formula — scripts that sound like you</title>
+<meta name="description" content="Formula learns your voice from your own TikToks — then writes hooks that stop the scroll in the first 3 seconds.">
+<meta property="og:title" content="Formula — scripts that sound like you">
+<meta property="og:description" content="AI scripts trained on your own TikToks. Hooks that stop the scroll in the first 3 seconds.">
 <meta property="og:type" content="website">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%23FF3755'/%3E%3Crect x='22' y='16' width='16' height='68' rx='8' fill='%23FFFFFF'/%3E%3Crect x='22' y='16' width='56' height='16' rx='8' fill='%23B6FF8A'/%3E%3Crect x='22' y='44' width='42' height='15' rx='7.5' fill='%23FFFFFF'/%3E%3C/svg%3E">
+<meta property="og:image" content="https://thecreatorformula.com/shots/scriptiq.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%23FF3755'/%3E%3Crect x='22' y='16' width='16' height='68' rx='8' fill='%23fff'/%3E%3Crect x='22' y='16' width='56' height='16' rx='8' fill='%23B6FF8A'/%3E%3Crect x='22' y='44' width='42' height='15' rx='7.5' fill='%23fff'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --paper:#F4F3EF;
-    --card:#FFFFFF;
-    --border:rgba(26,20,38,0.10);
-    --ink:#1A1426;
-    --coral:#FF3755;
-    --coral-grad:linear-gradient(135deg,#FF7A45,#FF3755,#FF5E8A);
-    --lime:#B6FF8A;
-    --lime-deep:#2FA10C;
-    --muted:rgba(26,20,38,0.62);
-    --faint:rgba(26,20,38,0.42);
-    --shadow:0 8px 24px rgba(26,20,38,0.08);
-    --shadow-coral:0 10px 24px rgba(255,55,85,0.35);
-    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-    --display:"Space Grotesk",sans-serif;
-    --body:"Inter",sans-serif;
+    --paper:#F4F3EF; --ink:#1A1426; --coral:#FF3755;
+    --grad:linear-gradient(135deg,#FF7A45,#FF3755,#FF5E8A);
+    --lime:#B6FF8A; --lime-dark:#2FA10C;
+    --muted:rgba(26,20,38,.62); --faint:rgba(26,20,38,.42);
+    --mono:ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,monospace;
   }
-  *{margin:0;padding:0;box-sizing:border-box}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
   html{scroll-behavior:smooth}
-  body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  body{background:var(--paper);color:var(--ink);font-family:'Inter',system-ui,sans-serif;line-height:1.6;overflow-x:hidden}
+  img{max-width:100%;display:block}
   a{color:inherit;text-decoration:none}
-  :focus-visible{outline:3px solid var(--coral);outline-offset:3px;border-radius:8px}
-  .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+  ::selection{background:var(--coral);color:#fff}
+  :focus-visible{outline:3px solid var(--coral);outline-offset:2px;border-radius:8px}
+  h1,h2,h3{font-family:'Space Grotesk',sans-serif;font-weight:700;line-height:1.08;letter-spacing:-.02em}
+  .wrap{max-width:1160px;margin:0 auto;padding:0 clamp(20px,5vw,48px)}
+  .accent{color:var(--coral)}
+  section{padding:clamp(72px,10vw,128px) 0}
 
-  /* ---------- Nav ---------- */
-  .nav{position:sticky;top:0;z-index:50;background:rgba(244,243,239,0.9);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
-  .nav-inner{display:flex;align-items:center;justify-content:space-between;height:64px}
+  /* ---------- shared bits ---------- */
+  .pill-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:999px;padding:14px 28px;min-height:48px;font-weight:600;font-size:clamp(15px,1.6vw,16px);transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;border:none;cursor:pointer;overflow:hidden}
+  .pill-btn:hover{transform:translateY(-2px)}
+  .pill-btn.primary{background:var(--grad);color:#fff;box-shadow:0 8px 24px rgba(255,55,85,.35)}
+  .pill-btn.primary:hover{box-shadow:0 12px 32px rgba(255,55,85,.45)}
+  .pill-btn.ghost{background:transparent;color:var(--ink);border:1.5px solid rgba(26,20,38,.2)}
+  .pill-btn.ghost:hover{border-color:var(--ink)}
+  .pill-btn .arr{display:inline-block;width:0;opacity:0;transform:translateX(-6px);transition:width .25s ease,opacity .25s ease,transform .25s ease}
+  .pill-btn:hover .arr{width:18px;opacity:1;transform:translateX(0)}
+  .tag{font-family:var(--mono);font-size:12.5px;font-weight:500;letter-spacing:.02em;background:#fff;border:1px solid rgba(26,20,38,.1);border-radius:999px;padding:6px 14px;color:var(--muted);white-space:nowrap}
+  .eyebrow{display:inline-flex;align-items:center;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.14em;color:var(--coral);text-transform:uppercase;background:#fff;border:1px solid rgba(255,55,85,.22);border-radius:999px;padding:7px 15px}
+  .eyebrow.center{display:table;margin:0 auto 18px}
+  .fmark{width:34px;height:34px;border-radius:9px;background:var(--coral);flex-shrink:0}
+  .fmark svg{width:100%;height:100%}
+  .wordmark{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px;letter-spacing:-.04em}
+  .sec-h2{font-size:clamp(30px,4vw,44px);text-align:center;margin-bottom:clamp(36px,5vw,56px)}
+
+  /* ---------- nav ---------- */
+  .nav{position:sticky;top:0;z-index:50;background:rgba(244,243,239,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid rgba(26,20,38,.06);transition:box-shadow .3s ease}
+  .nav-inner{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px clamp(20px,5vw,48px);max-width:1160px;margin:0 auto;transition:padding .3s ease}
+  .nav.scrolled{box-shadow:0 8px 30px rgba(26,20,38,.08)}
+  .nav.scrolled .nav-inner{padding-top:9px;padding-bottom:9px}
   .brand{display:flex;align-items:center;gap:10px}
-  .fmark{width:32px;height:32px;border-radius:9px;background:var(--coral-grad);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-  .fmark svg{width:100%;height:100%;display:block}
-  .wordmark{font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:-0.04em;color:var(--ink)}
-  .wordmark .dot{color:var(--coral)}
-  .wordmark.on-dark .dot{color:var(--lime)}
-  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:999px;font-family:var(--body);font-weight:600;font-size:15px;padding:12px 24px;transition:transform .15s ease,box-shadow .15s ease;cursor:pointer}
-  .btn:hover{transform:translateY(-1px)}
-  .btn:active{transform:translateY(0) scale(.98)}
-  .btn-coral{background:var(--coral-grad);color:#fff;box-shadow:var(--shadow-coral)}
-  .btn-ghost{background:transparent;color:var(--ink);border:1.5px solid rgba(26,20,38,0.18)}
-  .btn-ghost:hover{border-color:rgba(26,20,38,0.35)}
-  .btn-white{background:#fff;color:var(--coral);box-shadow:0 10px 24px rgba(26,20,38,0.18)}
-  .btn-sm{padding:9px 18px;font-size:14px}
+  .nav .pill-btn{padding:10px 22px;min-height:44px;font-size:14.5px}
+  .nav-links{display:flex;gap:6px;align-items:center;margin-left:auto;margin-right:18px}
+  .nav-links a{font-size:14.5px;font-weight:500;color:var(--muted);padding:10px 12px;border-radius:999px;transition:color .2s ease,background .2s ease}
+  .nav-links a:hover{color:var(--ink);background:rgba(26,20,38,.05)}
 
-  /* ---------- Hero ---------- */
-  .hero{position:relative;overflow:hidden}
-  .hero::before{content:"";position:absolute;top:-220px;right:-180px;width:640px;height:640px;border-radius:50%;background:radial-gradient(circle,rgba(255,90,110,0.14) 0%,rgba(255,122,69,0.07) 45%,transparent 70%);pointer-events:none}
-  .hero-grid{position:relative;display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center;padding:88px 0 96px}
-  .eyebrow{display:inline-flex;align-items:center;font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:0.14em;color:var(--lime);background:var(--ink);padding:7px 14px;border-radius:999px;margin-bottom:22px}
-  h1{font-family:var(--display);font-weight:700;font-size:64px;line-height:1.04;letter-spacing:-0.03em;margin-bottom:22px}
-  h1 .dot{color:var(--coral)}
-  .sub{font-size:19px;color:var(--muted);max-width:480px;margin-bottom:34px}
+  /* ---------- phone frame ---------- */
+  .phone{position:relative;background:#101014;border-radius:56px;padding:12px;box-shadow:0 40px 80px rgba(26,20,38,.25),inset 0 1px 0 rgba(255,255,255,.12)}
+  .phone::before{content:"";position:absolute;inset:0;border-radius:56px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);pointer-events:none;z-index:3}
+  .phone::after{content:"";position:absolute;top:22px;left:50%;transform:translateX(-50%);width:110px;height:32px;background:#000;border-radius:999px;z-index:2}
+  .phone img{width:100%;height:auto;border-radius:44px}
+
+  /* ---------- hero ---------- */
+  .hero{position:relative;padding:clamp(48px,7vw,88px) 0 clamp(72px,10vw,120px);overflow:hidden}
+  .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
+  .hero h1{font-size:clamp(40px,7vw,76px);margin:22px 0 20px}
+  .hero .sub{font-size:clamp(16.5px,2vw,19px);color:var(--muted);max-width:480px;margin-bottom:34px}
   .hero-ctas{display:flex;gap:14px;flex-wrap:wrap}
-
-  /* Phone card */
-  .phone-wrap{display:flex;justify-content:center}
-  .phone{width:100%;max-width:380px;background:var(--card);border:1px solid var(--border);border-radius:28px;box-shadow:0 24px 60px rgba(26,20,38,0.14);padding:24px;transform:rotate(-2deg);min-height:430px;display:flex;flex-direction:column}
-  .phone-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:20px}
-  .chip-grad{background:var(--coral-grad);color:#fff;font-family:var(--display);font-weight:600;font-size:13px;padding:6px 13px;border-radius:999px;box-shadow:0 4px 12px rgba(255,55,85,0.3)}
-  .tag{font-family:var(--mono);font-size:11px;color:var(--muted);background:rgba(26,20,38,0.05);border:1px solid var(--border);padding:5px 10px;border-radius:999px;white-space:nowrap}
-  .script{font-family:var(--body);font-size:15.5px;line-height:1.75;color:var(--ink);min-height:220px;transition:opacity .4s ease}
-  .script.fading{opacity:0}
-  .script .hook{font-weight:600}
-  .caret{display:inline-block;width:2px;height:1.05em;background:var(--coral);vertical-align:text-bottom;margin-left:1px;animation:blink 1s steps(1) infinite}
+  .hero-eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.14em;background:#fff;border:1px solid rgba(26,20,38,.1);border-radius:999px;padding:8px 16px;color:var(--muted);text-transform:uppercase}
+  .hero-eyebrow::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--lime-dark)}
+  .hero-visual{position:relative;display:flex;justify-content:center;perspective:1100px}
+  .hero-blob{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:560px;height:560px;background:radial-gradient(circle,#FF7A45 0%,#FF3755 45%,#FF5E8A 75%,transparent 100%);filter:blur(80px);opacity:.35;border-radius:50%;pointer-events:none}
+  .hero-watermark{position:absolute;top:8%;left:-12%;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:180px;letter-spacing:-.05em;color:transparent;-webkit-text-stroke:1.5px rgba(26,20,38,.08);pointer-events:none;user-select:none;white-space:nowrap}
+  .tilt{position:relative;z-index:1;transform-style:preserve-3d;will-change:transform}
+  .hero-phone{width:min(400px,80vw);transform:rotate(-4deg);animation:bob 6s ease-in-out infinite;position:relative;z-index:1}
+  @keyframes bob{0%,100%{transform:rotate(-4deg) translateY(0)}50%{transform:rotate(-4deg) translateY(-8px)}}
+  .hook-wrap{position:absolute;left:-6%;bottom:16%;z-index:4;will-change:transform}
+  .hook-card{background:#fff;border-radius:20px;padding:16px 20px;box-shadow:0 24px 48px rgba(26,20,38,.18);width:250px;animation:bob2 6s ease-in-out infinite;animation-delay:-3s}
+  @keyframes bob2{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+  .hook-card .tag{background:rgba(255,55,85,.07);border-color:rgba(255,55,85,.2);color:var(--coral)}
+  .hook-card p{font-size:15px;font-weight:600;margin:10px 0 12px;line-height:1.35;min-height:2.7em}
+  .caret{display:inline-block;width:2px;height:1em;background:var(--coral);vertical-align:-.12em;margin-left:2px;animation:blink 1s steps(1) infinite}
   @keyframes blink{50%{opacity:0}}
-  .hookbar{margin-top:auto;padding-top:18px}
-  .hookbar-label{font-family:var(--mono);font-size:10px;letter-spacing:0.08em;color:var(--faint);margin-bottom:7px}
-  .hookbar-track{height:6px;border-radius:999px;background:rgba(26,20,38,0.07);overflow:hidden}
-  .hookbar-fill{height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,var(--lime),var(--lime-deep));transition:width .3s linear}
+  .hook-bar{height:6px;border-radius:999px;background:linear-gradient(90deg,var(--lime),var(--lime-dark));width:70%}
+  .hook-label{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:6px;letter-spacing:.04em}
 
-  /* ---------- Trust line ---------- */
-  .trust{text-align:center;color:var(--faint);font-size:14.5px;padding:6px 24px 0}
+  /* hero entrance orchestration */
+  .hw{display:inline-block;opacity:0;transform:translateY(.55em);animation:wordUp .55s cubic-bezier(.22,1,.36,1) forwards}
+  @keyframes wordUp{to{opacity:1;transform:none}}
+  .hero-eyebrow{opacity:0;animation:riseIn .5s ease .05s forwards}
+  .hero .sub{opacity:0;animation:riseIn .6s ease .55s forwards}
+  .hero-ctas{opacity:0;animation:riseIn .6s ease .72s forwards}
+  @keyframes riseIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  .hero-visual .tilt,.hook-wrap{opacity:0;animation:phoneUp .8s cubic-bezier(.34,1.4,.5,1) .45s forwards}
+  .hook-wrap{animation-delay:.75s}
+  @keyframes phoneUp{from{opacity:0;transform:translateY(56px)}to{opacity:1;transform:none}}
 
-  /* ---------- Sections ---------- */
-  .section{padding:88px 0}
-  .section-head{max-width:560px;margin-bottom:44px}
-  h2{font-family:var(--display);font-weight:700;font-size:38px;line-height:1.12;letter-spacing:-0.02em;margin-bottom:12px}
-  .section-sub{color:var(--muted);font-size:17px}
+  /* ---------- marquee ---------- */
+  .marquee{background:var(--ink);overflow:hidden;padding:16px 0}
+  .marquee-track{display:flex;width:max-content;animation:scroll 40s linear infinite}
+  .marquee:hover .marquee-track{animation-play-state:paused}
+  .marquee-track span{font-family:var(--mono);font-size:14px;color:rgba(255,255,255,.85);white-space:nowrap;padding:0 18px}
+  .marquee-track i{color:var(--coral);font-style:normal}
+  @keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 
-  .reveal{opacity:0;transform:translateY(12px);transition:opacity .6s ease,transform .6s ease}
+  /* ---------- features ---------- */
+  .features{padding-bottom:clamp(24px,4vw,48px)}
+  .features-head{text-align:center;margin-bottom:clamp(48px,7vw,88px)}
+  .feature-row{display:grid;grid-template-columns:1fr 1fr;gap:clamp(40px,6vw,72px);align-items:center;margin-bottom:clamp(72px,9vw,120px)}
+  .phone-par{will-change:transform}
+  .feature-row .phone{width:min(340px,78vw);margin:0 auto}
+  .feature-copy h3{font-size:clamp(26px,3.4vw,34px);margin:14px 0 16px}
+  .feature-copy .body{color:var(--muted);font-size:clamp(15.5px,1.8vw,17px);max-width:440px;margin-bottom:24px}
+  .tag-row{display:flex;gap:10px;flex-wrap:wrap}
+
+  .mini-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  .mini-card{background:#fff;border-radius:26px;padding:30px 28px;box-shadow:0 6px 24px rgba(26,20,38,.05);transition:transform .25s ease,box-shadow .25s ease}
+  .mini-card:hover{transform:translateY(-4px);box-shadow:0 16px 40px rgba(26,20,38,.09)}
+  .mini-card .chip{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:18px}
+  .chip.coral{background:rgba(255,55,85,.1)}
+  .chip.lime{background:rgba(47,161,12,.1)}
+  .mini-card h3{font-size:20px;margin-bottom:8px}
+  .mini-card p{color:var(--muted);font-size:15px}
+
+  /* ---------- how ---------- */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:32px}
+  .step{text-align:center}
+  .step-num{width:56px;height:56px;border-radius:50%;background:rgba(255,55,85,.1);color:var(--coral);font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px;display:flex;align-items:center;justify-content:center;margin:0 auto 18px}
+  .step h3{font-size:19px;margin-bottom:8px}
+  .step p{color:var(--muted);font-size:15px;max-width:260px;margin:0 auto}
+
+  /* ---------- pricing ---------- */
+  .price-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;align-items:stretch}
+  .price-card{position:relative;background:#fff;border-radius:28px;padding:36px 32px;box-shadow:0 6px 24px rgba(26,20,38,.05);display:flex;flex-direction:column;border:1.5px solid transparent;transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease}
+  .price-card:hover{transform:translateY(-6px);box-shadow:0 22px 48px rgba(26,20,38,.12);border-color:rgba(255,55,85,.45)}
+  .price-card.popular{transform:scale(1.03);border:none;background:linear-gradient(#fff,#fff) padding-box,var(--grad) border-box;border:2px solid transparent;box-shadow:0 18px 44px rgba(255,55,85,.14)}
+  .price-card.popular:hover{transform:scale(1.03) translateY(-6px);box-shadow:0 26px 56px rgba(255,55,85,.2)}
+  .popular-pill{position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:var(--coral);color:#fff;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.12em;border-radius:999px;padding:6px 16px}
+  .price-card h3{font-size:20px;margin-bottom:14px}
+  .price{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:clamp(34px,4vw,40px);letter-spacing:-.02em}
+  .price small{font-size:16px;color:var(--faint);font-weight:600}
+  .credits{color:var(--muted);font-size:15px;margin:8px 0 28px}
+  .price-card .pill-btn{margin-top:auto}
+  .pricing-note{text-align:center;color:var(--muted);font-size:15px;max-width:520px;margin:36px auto 0}
+
+  /* ---------- faq ---------- */
+  .faq{padding-top:0}
+  .faq-list{max-width:720px;margin:0 auto;display:grid;gap:14px}
+  .faq-item{background:#fff;border-radius:24px;box-shadow:0 6px 24px rgba(26,20,38,.05);overflow:hidden}
+  .faq-q{width:100%;display:flex;align-items:center;justify-content:space-between;gap:16px;background:none;border:none;cursor:pointer;text-align:left;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:clamp(16px,2vw,18px);color:var(--ink);padding:22px 26px;min-height:44px;letter-spacing:-.01em}
+  .faq-x{flex-shrink:0;width:28px;height:28px;border-radius:50%;background:rgba(255,55,85,.1);color:var(--coral);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:500;line-height:1;transition:transform .3s ease;font-family:'Inter',sans-serif}
+  .faq-item.open .faq-x{transform:rotate(45deg)}
+  .faq-a{display:grid;grid-template-rows:0fr;transition:grid-template-rows .35s ease}
+  .faq-item.open .faq-a{grid-template-rows:1fr}
+  .faq-a-inner{overflow:hidden}
+  .faq-a p{color:var(--muted);font-size:15.5px;padding:0 26px 24px;max-width:600px}
+
+  /* ---------- get ---------- */
+  .get{padding-top:0}
+  .get-panel{background:var(--grad);background-size:220% 220%;animation:drift 12s ease-in-out infinite alternate;border-radius:36px;padding:clamp(56px,8vw,84px) clamp(24px,5vw,48px);text-align:center;color:#fff;box-shadow:0 30px 60px rgba(255,55,85,.3)}
+  @keyframes drift{from{background-position:0% 0%}to{background-position:100% 100%}}
+  .get-panel h2{font-size:clamp(30px,4.4vw,48px);margin-bottom:16px}
+  .get-panel .sub{font-size:clamp(16px,2vw,18px);opacity:.9;margin-bottom:36px}
+  .get-panel .pill-btn{background:#fff;color:var(--ink)}
+  .get-support{display:inline-block;margin-top:24px;padding:13px 10px;font-size:14px;color:rgba(255,255,255,.75)}
+  .get-support:hover{color:#fff}
+  .get-panel .eyebrow{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.3);color:#fff;margin-bottom:18px}
+
+  /* ---------- footer ---------- */
+  footer{border-top:1px solid rgba(26,20,38,.08);padding:36px 0}
+  .foot-inner{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
+  .foot-links{display:flex;gap:14px;align-items:center;font-size:14.5px;color:var(--muted);flex-wrap:wrap}
+  .foot-links a{display:inline-block;padding:13px 6px}
+  .foot-links a:hover{color:var(--ink)}
+  .copyright{font-size:13.5px;color:var(--faint)}
+
+  /* ---------- reveal ---------- */
+  .reveal{opacity:0;transform:translateY(16px);transition:opacity .6s ease,transform .6s ease}
   .reveal.in{opacity:1;transform:none}
 
-  /* ---------- Features ---------- */
-  .features-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-  .feature{background:var(--card);border:1px solid var(--border);border-radius:24px;box-shadow:var(--shadow);padding:32px}
-  .feature h3{font-family:var(--display);font-weight:600;font-size:22px;margin:16px 0 10px;letter-spacing:-0.01em}
-  .feature p{color:var(--muted);font-size:15.5px}
-  .icon-chip{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center}
-  .icon-chip svg{width:22px;height:22px}
-  .chip-coral{background:var(--coral-grad);box-shadow:0 6px 14px rgba(255,55,85,0.28)}
-  .chip-lime{background:var(--lime)}
-  .feature-dark{background:var(--ink);border-color:rgba(255,255,255,0.08)}
-  .feature-dark h3{color:#fff}
-  .feature-dark p{color:rgba(255,255,255,0.66)}
-  .feature-dark .icon-chip{background:rgba(182,255,138,0.14)}
-  .stats-row{font-family:var(--mono);font-size:12px;color:var(--lime);margin-top:18px;letter-spacing:0.03em}
-
-  /* ---------- How it works ---------- */
-  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-  .step{background:var(--card);border:1px solid var(--border);border-radius:24px;box-shadow:var(--shadow);padding:32px}
-  .step-num{width:48px;height:48px;border-radius:50%;background:rgba(255,55,85,0.10);color:var(--coral);font-family:var(--display);font-weight:700;font-size:20px;display:flex;align-items:center;justify-content:center;margin-bottom:18px}
-  .step h3{font-family:var(--display);font-weight:600;font-size:20px;margin-bottom:8px;letter-spacing:-0.01em}
-  .step p{color:var(--muted);font-size:15px}
-
-  /* ---------- Pricing ---------- */
-  .pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;align-items:stretch}
-  .plan{position:relative;background:var(--card);border:1px solid var(--border);border-radius:24px;box-shadow:var(--shadow);padding:32px;display:flex;flex-direction:column}
-  .plan-popular{border-top:4px solid var(--coral)}
-  .popular-pill{position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:var(--coral);color:#fff;font-size:12px;font-weight:600;padding:5px 14px;border-radius:999px;white-space:nowrap;box-shadow:0 6px 14px rgba(255,55,85,0.3)}
-  .plan h3{font-family:var(--display);font-weight:600;font-size:20px;margin-bottom:14px}
-  .price{font-family:var(--display);font-weight:700;font-size:40px;letter-spacing:-0.02em;line-height:1}
-  .price .per{font-family:var(--body);font-weight:500;font-size:15px;color:var(--faint);letter-spacing:0}
-  .credits{font-family:var(--mono);font-size:12.5px;color:var(--lime-deep);margin:12px 0 26px}
-  .plan .btn{margin-top:auto}
-  .pricing-note{text-align:center;color:var(--muted);font-size:15px;margin-top:32px}
-
-  /* ---------- Get the app ---------- */
-  .cta-panel{background:var(--coral-grad);border-radius:28px;padding:72px 40px;text-align:center;color:#fff;box-shadow:var(--shadow-coral)}
-  .cta-panel h2{color:#fff;max-width:640px;margin:0 auto 14px}
-  .cta-panel p{color:rgba(255,255,255,0.88);font-size:18px;margin-bottom:32px}
-  .cta-support{margin-top:22px;font-size:14px;color:rgba(255,255,255,0.72)}
-  .cta-support a{text-decoration:underline;text-underline-offset:3px}
-
-  /* ---------- Footer ---------- */
-  footer{border-top:1px solid var(--border);padding:36px 0;margin-top:24px}
-  .footer-inner{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
-  .footer-links{display:flex;align-items:center;gap:20px;flex-wrap:wrap;color:var(--faint);font-size:14px}
-  .footer-links a:hover{color:var(--ink)}
-
-  /* ---------- Responsive ---------- */
-  @media (max-width:900px){
-    .hero-grid{grid-template-columns:1fr;gap:52px;padding:60px 0 72px}
-    h1{font-size:46px}
-    .features-grid{grid-template-columns:1fr}
-    .steps{grid-template-columns:1fr}
-    .pricing-grid{grid-template-columns:1fr;max-width:440px;margin:0 auto}
-    .plan-popular{order:-1}
-    .section{padding:64px 0}
-    h2{font-size:31px}
-    .phone{transform:none}
+  /* ---------- responsive ---------- */
+  @media (max-width:1023px){
+    .hero-grid{gap:36px}
+    .feature-row{gap:36px}
+    .nav-links{margin-right:6px}
+    .hero-watermark{font-size:130px}
   }
-  @media (max-width:420px){
-    h1{font-size:38px}
-    .sub{font-size:17px}
-    .hero-ctas .btn{width:100%}
-    .cta-panel{padding:52px 22px}
-    .phone{padding:20px;min-height:400px}
-    .wrap{padding:0 18px}
+  @media (max-width:767px){
+    .nav-links{display:none}
+    .hero-grid{grid-template-columns:1fr;gap:56px}
+    .hero-copy{text-align:left}
+    .hero-phone{width:min(300px,84vw);transform:none;animation:none}
+    .hero-visual{perspective:none}
+    .hero-watermark{display:none}
+    .hook-wrap{left:2%;bottom:6%}
+    .hook-card{animation:none;width:220px;padding:14px 16px}
+    .feature-row{grid-template-columns:1fr;gap:44px}
+    .feature-row .phone-par{order:2}
+    .feature-copy{order:1}
+    .mini-cards,.steps,.price-grid{grid-template-columns:1fr;max-width:460px;margin-left:auto;margin-right:auto}
+    .price-card.popular{transform:none;margin-top:10px}
+    .price-card.popular:hover{transform:translateY(-6px)}
+    .marquee-track span{font-size:12px}
+    .marquee{padding:13px 0}
+  }
+  @media (max-width:480px){
+    .phone{border-radius:44px;padding:10px}
+    .phone img{border-radius:36px}
+    .phone::after{width:88px;height:26px;top:18px}
+    .hero-blob{width:380px;height:380px}
+    .hero-ctas .pill-btn{width:100%}
+    .feature-row .phone{width:min(280px,86vw)}
   }
 
-  /* ---------- Reduced motion ---------- */
   @media (prefers-reduced-motion:reduce){
     html{scroll-behavior:auto}
-    .phone{transform:none}
+    *,*::before,*::after{animation:none!important;transition:none!important}
+    .hw,.hero-eyebrow,.hero .sub,.hero-ctas,.hero-visual .tilt,.hook-wrap{opacity:1;transform:none}
+    .reveal{opacity:1;transform:none}
     .caret{display:none}
-    .reveal{opacity:1;transform:none;transition:none}
-    .btn{transition:none}
-    .btn:hover{transform:none}
   }
 </style>
 </head>
 <body>
 
-<header class="nav">
-  <div class="wrap nav-inner">
+<header class="nav" id="topnav">
+  <div class="nav-inner">
     <a class="brand" href="#" aria-label="Formula home">
-      <span class="fmark" aria-hidden="true">
-        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="22" y="16" width="16" height="68" rx="8" fill="#FFFFFF"/><rect x="22" y="16" width="56" height="16" rx="8" fill="#B6FF8A"/><rect x="22" y="44" width="42" height="15" rx="7.5" fill="#FFFFFF"/></svg>
-      </span>
-      <span class="wordmark">formula<span class="dot">.</span></span>
+      <span class="fmark"><svg viewBox="0 0 100 100" aria-hidden="true"><rect x="22" y="16" width="16" height="68" rx="8" fill="#fff"/><rect x="22" y="16" width="56" height="16" rx="8" fill="#B6FF8A"/><rect x="22" y="44" width="42" height="15" rx="7.5" fill="#fff"/></svg></span>
+      <span class="wordmark">formula<span class="accent">.</span></span>
     </a>
-    <a class="btn btn-coral btn-sm" href="#get">Get the app</a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="#features">Features</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <a class="pill-btn primary" href="#get">Get the app</a>
   </div>
 </header>
 
 <main>
-  <!-- Hero -->
-  <section class="hero">
-    <div class="wrap hero-grid">
-      <div>
-        <span class="eyebrow">FOR TIKTOK CREATORS</span>
-        <h1>Scripts that sound like you<span class="dot">.</span></h1>
-        <p class="sub">Formula learns your voice from your own TikToks — then writes hooks and scripts that stop the scroll in the first 3 seconds.</p>
-        <div class="hero-ctas">
-          <a class="btn btn-coral" href="#get">Coming soon to the App Store</a>
-          <a class="btn btn-ghost" href="#how">See how it works</a>
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <span class="hero-eyebrow">For TikTok creators</span>
+      <h1><span class="hw" style="animation-delay:.1s">Scripts</span> <span class="hw" style="animation-delay:.16s">that</span> <span class="hw" style="animation-delay:.22s">sound</span> <span class="hw" style="animation-delay:.28s">like</span> <span class="hw" style="animation-delay:.34s">you<span class="accent">.</span></span></h1>
+      <p class="sub">Formula learns your voice from your own TikToks — then writes hooks that stop the scroll in the first 3 seconds.</p>
+      <div class="hero-ctas">
+        <a class="pill-btn primary" href="#get">Coming soon to the App Store<span class="arr" aria-hidden="true">&rarr;</span></a>
+        <a class="pill-btn ghost" href="#features">See it in action</a>
+      </div>
+    </div>
+    <div class="hero-visual" id="heroVisual">
+      <div class="hero-blob" aria-hidden="true"></div>
+      <div class="hero-watermark" aria-hidden="true">formula.</div>
+      <div class="tilt" id="heroTilt">
+        <div class="phone hero-phone">
+          <img src="shots/scriptiq.png" alt="Formula app home screen — Scripts that sound like you, with Shoppable Script Rewrite and Non Shoppable Rewrite cards" width="660" height="1434" loading="eager" fetchpriority="high">
         </div>
       </div>
-      <div class="phone-wrap">
-        <div class="phone" aria-label="Example script generated by Formula">
-          <div class="phone-head">
-            <span class="chip-grad">ScriptIQ</span>
-            <span class="tag">curiosity_gap</span>
-            <span class="tag">220 wpm</span>
-            <span class="tag">hook 0:03</span>
-          </div>
-          <div class="script" id="script"></div>
-          <div class="hookbar">
-            <div class="hookbar-label">first 3 seconds</div>
-            <div class="hookbar-track"><div class="hookbar-fill" id="hookfill"></div></div>
-          </div>
+      <div class="hook-wrap" id="hookWrap" aria-hidden="true">
+        <div class="hook-card">
+          <span class="tag">curiosity_gap</span>
+          <p><span id="typeTarget">Nobody&rsquo;s talking about this&hellip;</span><span class="caret" id="typeCaret" hidden></span></p>
+          <div class="hook-bar"></div>
+          <div class="hook-label">hook &middot; first 3s</div>
         </div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <p class="trust">Built by creators, for creators — powered by your own content.</p>
+<div class="marquee" aria-hidden="true">
+  <div class="marquee-track">
+    <span>Nobody&rsquo;s talking about this&hellip;</span><i>&bull;</i>
+    <span>Stop scrolling &mdash; this changes everything</span><i>&bull;</i>
+    <span>POV: your hooks finally hit</span><i>&bull;</i>
+    <span>I tested it so you don&rsquo;t have to</span><i>&bull;</i>
+    <span>3 seconds is all you get</span><i>&bull;</i>
+    <span>Nobody&rsquo;s talking about this&hellip;</span><i>&bull;</i>
+    <span>Stop scrolling &mdash; this changes everything</span><i>&bull;</i>
+    <span>POV: your hooks finally hit</span><i>&bull;</i>
+    <span>I tested it so you don&rsquo;t have to</span><i>&bull;</i>
+    <span>3 seconds is all you get</span><i>&bull;</i>
+  </div>
+</div>
 
-  <!-- Features -->
-  <section class="section" id="features">
-    <div class="wrap">
-      <div class="section-head reveal">
-        <h2>One app. Your whole content engine<span style="color:var(--coral)">.</span></h2>
-        <p class="section-sub">Everything Formula writes is tuned to how you actually talk on camera.</p>
+<section class="features" id="features">
+  <div class="wrap">
+
+    <div class="features-head reveal">
+      <span class="eyebrow center">What it does</span>
+      <h2 class="sec-h2" style="margin-bottom:0">Built around how <em style="font-style:normal;color:var(--coral)">you</em> create<span class="accent">.</span></h2>
+    </div>
+
+    <div class="feature-row">
+      <div class="feature-copy reveal">
+        <span class="eyebrow">Creator Brain</span>
+        <h3>It studies YOUR videos, not the internet.</h3>
+        <p class="body">Connect your TikTok and Formula builds a living profile of how you create — your hooks, pacing, cuts, and energy — then writes every script to match.</p>
+        <div class="tag-row">
+          <span class="tag">51s avg_length</span>
+          <span class="tag">6s hook_window</span>
+          <span class="tag">10.4 scenes</span>
+        </div>
       </div>
-      <div class="features-grid">
-        <article class="feature feature-dark reveal">
-          <span class="icon-chip" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#B6FF8A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 2.5-1.2 4-2.5 5.5S15 18 15 20h-6c0-2-.2-4-1.5-5.5S5 11.5 5 9a7 7 0 0 1 7-7z"/><path d="M9 22h6"/></svg>
-          </span>
-          <h3>Creator brain</h3>
-          <p>Connect your TikTok and Formula studies your videos — your hooks, pacing, energy, and voice — and builds a living profile it writes from.</p>
-          <p class="stats-row">energy 75/100 · authenticity 70/100 · 220 wpm</p>
-        </article>
-        <article class="feature reveal">
-          <span class="icon-chip chip-coral" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
-          </span>
-          <h3>ScriptIQ</h3>
-          <p>One idea in, ready-to-film scripts out — hook, body, and CTA, tuned to how you actually talk.</p>
-        </article>
-        <article class="feature reveal">
-          <span class="icon-chip chip-coral" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l1.5 13.5a1 1 0 0 1-1 1.5h-13a1 1 0 0 1-1-1.5L6 7z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/></svg>
-          </span>
-          <h3>Product scripts</h3>
-          <p>Turn any TikTok Shop product into a natural, high-converting script that doesn't feel like an ad.</p>
-        </article>
-        <article class="feature reveal">
-          <span class="icon-chip chip-lime" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#1A1426" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
-          </span>
-          <h3>Rewrite &amp; viral topics</h3>
-          <p>Paste any video or trend and remake it in your voice — same energy, zero copying.</p>
-        </article>
+      <div class="phone-par">
+        <div class="phone reveal">
+          <img src="shots/brain.png" alt="Formula pacing template screen — average length 51s, 6 second hook window, 6.1 cuts per 30s, 10.4 scenes, and a color-coded shot sequence" width="660" height="1434" loading="lazy">
+        </div>
       </div>
     </div>
-  </section>
 
-  <!-- How it works -->
-  <section class="section" id="how">
-    <div class="wrap">
-      <div class="section-head reveal">
-        <h2>Three steps to your next post<span style="color:var(--coral)">.</span></h2>
+    <div class="feature-row">
+      <div class="phone-par">
+        <div class="phone reveal">
+          <img src="shots/products.png" alt="Formula products screen — TikTok Shop product search with commission and 7-day GMV data for trending products" width="660" height="1434" loading="lazy">
+        </div>
       </div>
-      <div class="steps">
-        <article class="step reveal">
-          <div class="step-num">1</div>
-          <h3>Connect your TikTok</h3>
-          <p>Link your account in seconds — Formula pulls from the videos you've already made.</p>
-        </article>
-        <article class="step reveal">
-          <div class="step-num">2</div>
-          <h3>Formula builds your brain</h3>
-          <p>It maps your hooks, pacing, and energy into a creator profile that's unmistakably you.</p>
-        </article>
-        <article class="step reveal">
-          <div class="step-num">3</div>
-          <h3>Generate, film, post</h3>
-          <p>Drop in an idea, get scripts that open like your best videos — then hit record.</p>
-        </article>
+      <div class="feature-copy reveal">
+        <span class="eyebrow">TikTok Shop</span>
+        <h3>Product scripts that don&rsquo;t feel like ads.</h3>
+        <p class="body">Search trending TikTok Shop products, see commissions and 7-day GMV, and generate shoppable scripts built to convert — in your voice.</p>
+        <div class="tag-row">
+          <span class="tag">15% commission</span>
+          <span class="tag">$1.9M 7d GMV</span>
+          <span class="tag">learn</span>
+        </div>
       </div>
     </div>
-  </section>
 
-  <!-- Pricing -->
-  <section class="section" id="pricing">
-    <div class="wrap">
-      <div class="section-head reveal">
-        <h2>Simple pricing, serious output<span style="color:var(--coral)">.</span></h2>
-        <p class="section-sub">Every plan writes from your creator brain. Credits refill monthly.</p>
+    <div class="mini-cards">
+      <div class="mini-card reveal">
+        <div class="chip coral"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12L13 2Z" fill="#FF3755"/></svg></div>
+        <h3>ScriptIQ</h3>
+        <p>One idea in, a filmable script out — hook, body, and CTA structured for your pacing.</p>
       </div>
-      <div class="pricing-grid">
-        <article class="plan reveal">
-          <h3>Creator</h3>
-          <p class="price">$9.99<span class="per">/mo</span></p>
-          <p class="credits">20 credits / month</p>
-          <a class="btn btn-ghost" href="#get">Start when we launch</a>
-        </article>
-        <article class="plan plan-popular reveal">
-          <span class="popular-pill">Most popular</span>
-          <h3>Pro</h3>
-          <p class="price">$14.99<span class="per">/mo</span></p>
-          <p class="credits">35 credits / month</p>
-          <a class="btn btn-ghost" href="#get">Start when we launch</a>
-        </article>
-        <article class="plan reveal">
-          <h3>Studio</h3>
-          <p class="price">$39.99<span class="per">/mo</span></p>
-          <p class="credits">100 credits / month</p>
-          <a class="btn btn-ghost" href="#get">Start when we launch</a>
-        </article>
+      <div class="mini-card reveal">
+        <div class="chip lime"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12h4l2-6 4 12 2-6h4" stroke="#2FA10C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <h3>Rewrite</h3>
+        <p>Paste any viral video and remake it in your voice — shoppable or organic.</p>
       </div>
-      <p class="pricing-note reveal">Or pay as you go — credit packs from $2.99. 3 free credits every month, no card required.</p>
-    </div>
-  </section>
-
-  <!-- Get the app -->
-  <section class="section" id="get">
-    <div class="wrap">
-      <div class="cta-panel reveal">
-        <h2>Your next viral script is already in you.</h2>
-        <p>Formula is launching on the App Store. Android coming soon.</p>
-        <!-- TODO: swap for App Store URL on launch -->
-        <a class="btn btn-white" href="#">App Store — coming soon</a>
-        <p class="cta-support"><a href="mailto:support@thecreatorformula.com">support@thecreatorformula.com</a></p>
+      <div class="mini-card reveal">
+        <div class="chip coral"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v18M5 10l7-7 7 7" stroke="#FF3755" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <h3>Viral topics</h3>
+        <p>Trending angles for your niche, refreshed so you never film into the void.</p>
       </div>
     </div>
-  </section>
+
+  </div>
+</section>
+
+<section class="how">
+  <div class="wrap">
+    <div class="reveal" style="text-align:center">
+      <span class="eyebrow center">How it works</span>
+      <h2 class="sec-h2">Three steps to your next post<span class="accent">.</span></h2>
+    </div>
+    <div class="steps">
+      <div class="step reveal">
+        <div class="step-num">1</div>
+        <h3>Connect your TikTok</h3>
+        <p>Link your account — Formula studies how your best videos actually move.</p>
+      </div>
+      <div class="step reveal">
+        <div class="step-num">2</div>
+        <h3>Formula builds your brain</h3>
+        <p>Hooks, pacing, cuts, and energy become a living creator profile.</p>
+      </div>
+      <div class="step reveal">
+        <div class="step-num">3</div>
+        <h3>Generate, film, post</h3>
+        <p>Every script arrives ready to shoot — in your voice, on your rhythm.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="pricing" id="pricing">
+  <div class="wrap">
+    <div class="reveal" style="text-align:center">
+      <span class="eyebrow center">Pricing</span>
+      <h2 class="sec-h2">Simple pricing, serious output<span class="accent">.</span></h2>
+    </div>
+    <div class="price-grid">
+      <div class="price-card reveal">
+        <h3>Creator</h3>
+        <div class="price">$9.99<small>/mo</small></div>
+        <p class="credits">20 credits every month</p>
+        <a class="pill-btn ghost" href="#get">Start when we launch</a>
+      </div>
+      <div class="price-card popular reveal">
+        <span class="popular-pill">POPULAR</span>
+        <h3>Pro</h3>
+        <div class="price">$14.99<small>/mo</small></div>
+        <p class="credits">35 credits every month</p>
+        <a class="pill-btn ghost" href="#get">Start when we launch</a>
+      </div>
+      <div class="price-card reveal">
+        <h3>Studio</h3>
+        <div class="price">$39.99<small>/mo</small></div>
+        <p class="credits">100 credits every month</p>
+        <a class="pill-btn ghost" href="#get">Start when we launch</a>
+      </div>
+    </div>
+    <p class="pricing-note reveal">Or pay as you go — credit packs from $2.99. Every account gets 3 free credits monthly, no card required.</p>
+  </div>
+</section>
+
+<section class="faq" id="faq">
+  <div class="wrap">
+    <div class="reveal" style="text-align:center">
+      <span class="eyebrow center">FAQ</span>
+      <h2 class="sec-h2">Questions, answered<span class="accent">.</span></h2>
+    </div>
+    <div class="faq-list">
+      <div class="faq-item reveal">
+        <button class="faq-q" aria-expanded="false" aria-controls="faq-a1" id="faq-q1">What is Formula?<span class="faq-x" aria-hidden="true">+</span></button>
+        <div class="faq-a" id="faq-a1" role="region" aria-labelledby="faq-q1">
+          <div class="faq-a-inner"><p>Formula is an AI script co-pilot for TikTok creators. It learns your voice from your own TikToks and turns any idea into a filmable script — hook, body, and CTA — that actually sounds like you.</p></div>
+        </div>
+      </div>
+      <div class="faq-item reveal">
+        <button class="faq-q" aria-expanded="false" aria-controls="faq-a2" id="faq-q2">How does the creator brain work?<span class="faq-x" aria-hidden="true">+</span></button>
+        <div class="faq-a" id="faq-a2" role="region" aria-labelledby="faq-q2">
+          <div class="faq-a-inner"><p>Connect your TikTok and Formula analyzes your videos — hooks, pacing, cuts, and energy — to build a living creator profile. Every script it writes is matched to how you actually create, not a generic template.</p></div>
+        </div>
+      </div>
+      <div class="faq-item reveal">
+        <button class="faq-q" aria-expanded="false" aria-controls="faq-a3" id="faq-q3">What does it cost?<span class="faq-x" aria-hidden="true">+</span></button>
+        <div class="faq-a" id="faq-a3" role="region" aria-labelledby="faq-q3">
+          <div class="faq-a-inner"><p>Every account gets a free plan with 3 credits monthly — no card required. Paid plans are $9.99, $14.99, and $39.99 per month, and pay-as-you-go credit packs start at $2.99.</p></div>
+        </div>
+      </div>
+      <div class="faq-item reveal">
+        <button class="faq-q" aria-expanded="false" aria-controls="faq-a4" id="faq-q4">When can I get it?<span class="faq-x" aria-hidden="true">+</span></button>
+        <div class="faq-a" id="faq-a4" role="region" aria-labelledby="faq-q4">
+          <div class="faq-a-inner"><p>Formula is launching on the App Store for iOS now, with Android coming next. Questions in the meantime? Email <a href="mailto:support@thecreatorformula.com" style="color:var(--coral);font-weight:600">support@thecreatorformula.com</a>.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="get" id="get">
+  <div class="wrap">
+    <div class="get-panel reveal">
+      <span class="eyebrow">Launching now</span>
+      <h2>Your next viral script is already in you.</h2>
+      <p class="sub">Launching on the App Store. Android next.</p>
+      <a class="pill-btn" href="#">App Store &mdash; coming soon<span class="arr" aria-hidden="true">&rarr;</span></a><!-- TODO: swap for App Store URL on launch -->
+      <br>
+      <a class="get-support" href="mailto:support@thecreatorformula.com">support@thecreatorformula.com</a>
+    </div>
+  </div>
+</section>
 </main>
 
 <footer>
-  <div class="wrap footer-inner">
+  <div class="wrap foot-inner">
     <a class="brand" href="#" aria-label="Formula home">
-      <span class="fmark" aria-hidden="true">
-        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="22" y="16" width="16" height="68" rx="8" fill="#FFFFFF"/><rect x="22" y="16" width="56" height="16" rx="8" fill="#B6FF8A"/><rect x="22" y="44" width="42" height="15" rx="7.5" fill="#FFFFFF"/></svg>
-      </span>
-      <span class="wordmark">formula<span class="dot">.</span></span>
+      <span class="fmark"><svg viewBox="0 0 100 100" aria-hidden="true"><rect x="22" y="16" width="16" height="68" rx="8" fill="#fff"/><rect x="22" y="16" width="56" height="16" rx="8" fill="#B6FF8A"/><rect x="22" y="44" width="42" height="15" rx="7.5" fill="#fff"/></svg></span>
+      <span class="wordmark">formula<span class="accent">.</span></span>
     </a>
-    <nav class="footer-links" aria-label="Footer">
+    <nav class="foot-links" aria-label="Footer">
       <a href="https://www.influenceish.com/privacy-policy">Privacy Policy</a>
       <a href="mailto:support@thecreatorformula.com">Support</a>
-      <span>© 2026 Influenceish LLC. Made in the USA.</span>
+      <span class="copyright">&copy; 2026 Influenceish LLC</span>
     </nav>
   </div>
 </footer>
 
 <script>
 (function(){
-  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  'use strict';
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  /* ----- Typewriter phone card ----- */
-  var scripts = [
-    ["Nobody's talking about this and it's actually insane…",
-     "I found a way to write a week of content in 20 minutes.",
-     "Here's exactly how I do it —",
-     "and why it sounds nothing like AI."],
-    ["Stop writing scripts from scratch. Seriously, stop.",
-     "Your best videos already know what works.",
-     "Formula learned my hooks from MY videos.",
-     "Now every script opens like my top 1%."],
-    ["POV: your first 3 seconds actually hook people.",
-     "No more staring at a blank page at 11pm.",
-     "One idea in. Three scripts out.",
-     "Filmed before my coffee got cold."]
-  ];
-  var box = document.getElementById("script");
-  var fill = document.getElementById("hookfill");
-
-  function renderStatic(lines){
-    box.innerHTML = "";
-    lines.forEach(function(line, i){
-      var d = document.createElement("div");
-      d.textContent = line;
-      if (i === 0) d.className = "hook";
-      box.appendChild(d);
-    });
-    fill.style.width = "100%";
+  /* ---- nav compress on scroll ---- */
+  var nav = document.getElementById('topnav');
+  var navTick = false;
+  function onNavScroll(){
+    nav.classList.toggle('scrolled', window.scrollY > 12);
+    navTick = false;
   }
+  window.addEventListener('scroll', function(){
+    if (!navTick){ navTick = true; requestAnimationFrame(onNavScroll); }
+  }, { passive:true });
+  onNavScroll();
 
-  if (reduced){
-    renderStatic(scripts[0]);
-  } else {
-    var idx = 0;
-    function typeScript(lines, done){
-      box.innerHTML = "";
-      fill.style.width = "0%";
-      var lineEls = lines.map(function(_, i){
-        var d = document.createElement("div");
-        if (i === 0) d.className = "hook";
-        box.appendChild(d);
-        return d;
-      });
-      var caret = document.createElement("span");
-      caret.className = "caret";
-      var li = 0, ci = 0;
-      var hookLen = lines[0].length;
-      var totalTyped = 0, hookDone = false;
-      function tick(){
-        if (li >= lines.length){
-          caret.remove();
-          done();
-          return;
-        }
-        var line = lines[li];
-        ci++;
-        totalTyped++;
-        lineEls[li].textContent = line.slice(0, ci);
-        lineEls[li].appendChild(caret);
-        if (li === 0){
-          fill.style.width = Math.round((ci / hookLen) * 100) + "%";
-        }
-        if (ci >= line.length){
-          li++; ci = 0;
-          setTimeout(tick, 260);
-        } else {
-          setTimeout(tick, 30);
-        }
-      }
-      tick();
-    }
-    function cycle(){
-      typeScript(scripts[idx], function(){
-        setTimeout(function(){
-          box.classList.add("fading");
-          setTimeout(function(){
-            box.classList.remove("fading");
-            idx = (idx + 1) % scripts.length;
-            cycle();
-          }, 420);
-        }, 2600);
-      });
-    }
-    cycle();
-  }
-
-  /* ----- Scroll reveal ----- */
-  var revealEls = document.querySelectorAll(".reveal");
-  if (reduced || !("IntersectionObserver" in window)){
-    revealEls.forEach(function(el){ el.classList.add("in"); });
+  /* ---- scroll reveals with sibling stagger ---- */
+  var els = document.querySelectorAll('.reveal');
+  if (reduced || !('IntersectionObserver' in window)) {
+    els.forEach(function(el){ el.classList.add('in'); });
   } else {
     var io = new IntersectionObserver(function(entries){
-      entries.forEach(function(e){
-        if (e.isIntersecting){
-          e.target.classList.add("in");
-          io.unobserve(e.target);
-        }
+      entries.forEach(function(entry){
+        if (!entry.isIntersecting) return;
+        var el = entry.target;
+        var parent = el.parentElement;
+        var siblings = parent ? Array.prototype.filter.call(parent.children, function(c){ return c.classList && c.classList.contains('reveal'); }) : [el];
+        var idx = siblings.indexOf(el);
+        el.style.transitionDelay = (idx > 0 ? idx * 80 : 0) + 'ms';
+        el.classList.add('in');
+        io.unobserve(el);
       });
-    }, {threshold: 0.12, rootMargin: "0px 0px -40px 0px"});
-    revealEls.forEach(function(el){ io.observe(el); });
+    }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+    els.forEach(function(el){ io.observe(el); });
   }
+
+  /* ---- FAQ accordion ---- */
+  document.querySelectorAll('.faq-q').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var item = btn.parentElement;
+      var open = item.classList.toggle('open');
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+  });
+
+  if (reduced) return; /* everything below is motion */
+
+  /* ---- typewriter in the hook card ---- */
+  (function(){
+    var target = document.getElementById('typeTarget');
+    var caret = document.getElementById('typeCaret');
+    if (!target || !caret) return;
+    var hooks = [
+      "Nobody’s talking about this…",
+      "Stop scrolling — this changes everything",
+      "POV: your hooks finally hit"
+    ];
+    var hi = 0, ci = hooks[0].length, erasing = false;
+    caret.hidden = false;
+    function tick(){
+      var text = hooks[hi];
+      if (!erasing) {
+        ci++;
+        target.textContent = text.slice(0, ci);
+        if (ci >= text.length) { erasing = true; setTimeout(tick, 2100); return; }
+        setTimeout(tick, 40);
+      } else {
+        ci--;
+        target.textContent = text.slice(0, ci);
+        if (ci <= 0) { erasing = false; hi = (hi + 1) % hooks.length; setTimeout(tick, 420); return; }
+        setTimeout(tick, 18);
+      }
+    }
+    setTimeout(function(){ erasing = true; tick(); }, 2600);
+  })();
+
+  /* ---- hero mouse parallax (desktop, fine pointer) ---- */
+  (function(){
+    if (!window.matchMedia('(pointer: fine) and (min-width: 1024px)').matches) return;
+    var visual = document.getElementById('heroVisual');
+    var tilt = document.getElementById('heroTilt');
+    var hook = document.getElementById('hookWrap');
+    if (!visual || !tilt) return;
+    var tx = 0, ty = 0, cx = 0, cy = 0, raf = null;
+    function loop(){
+      cx += (tx - cx) * 0.08;
+      cy += (ty - cy) * 0.08;
+      tilt.style.transform = 'rotateY(' + (cx * 4).toFixed(3) + 'deg) rotateX(' + (-cy * 2).toFixed(3) + 'deg)';
+      if (hook) hook.style.transform = 'translate3d(' + (cx * 14).toFixed(2) + 'px,' + (cy * 10).toFixed(2) + 'px,0)';
+      if (Math.abs(tx - cx) > 0.001 || Math.abs(ty - cy) > 0.001) { raf = requestAnimationFrame(loop); }
+      else raf = null;
+    }
+    function kick(){ if (!raf) raf = requestAnimationFrame(loop); }
+    visual.closest('.hero').addEventListener('mousemove', function(e){
+      var r = visual.getBoundingClientRect();
+      tx = Math.max(-1, Math.min(1, ((e.clientX - r.left) / r.width - 0.5) * 2));
+      ty = Math.max(-1, Math.min(1, ((e.clientY - r.top) / r.height - 0.5) * 2));
+      kick();
+    });
+    visual.closest('.hero').addEventListener('mouseleave', function(){ tx = 0; ty = 0; kick(); });
+  })();
+
+  /* ---- gentle scroll parallax on feature phones ---- */
+  (function(){
+    var phones = document.querySelectorAll('.phone-par');
+    if (!phones.length) return;
+    var ticking = false;
+    function update(){
+      var vh = window.innerHeight;
+      phones.forEach(function(p){
+        var r = p.getBoundingClientRect();
+        if (r.bottom < 0 || r.top > vh) return;
+        var progress = (r.top + r.height / 2 - vh / 2) / (vh / 2); /* -1..1 */
+        var y = Math.max(-1, Math.min(1, progress)) * -20;
+        p.style.transform = 'translateY(' + y.toFixed(1) + 'px)';
+      });
+      ticking = false;
+    }
+    window.addEventListener('scroll', function(){
+      if (!ticking){ ticking = true; requestAnimationFrame(update); }
+    }, { passive:true });
+    update();
+  })();
 })();
 </script>
 </body>
