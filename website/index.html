@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Formula — scripts that sound like you</title>
-<meta name="description" content="Formula learns your voice from your own TikToks — then writes hooks that stop the scroll in the first 3 seconds.">
+<meta name="description" content="Formula ingests your TikToks — every hook, cut, and word — and builds a creator brain that writes scripts in your exact voice.">
 <meta property="og:title" content="Formula — scripts that sound like you">
-<meta property="og:description" content="AI scripts trained on your own TikToks. Hooks that stop the scroll in the first 3 seconds.">
+<meta property="og:description" content="It watched your videos. Formula ingests your TikToks and builds a creator brain that writes scripts in your exact voice.">
 <meta property="og:type" content="website">
 <meta property="og:image" content="https://thecreatorformula.com/shots/scriptiq.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%23FF3755'/%3E%3Crect x='22' y='16' width='16' height='68' rx='8' fill='%23fff'/%3E%3Crect x='22' y='16' width='56' height='16' rx='8' fill='%23B6FF8A'/%3E%3Crect x='22' y='44' width='42' height='15' rx='7.5' fill='%23fff'/%3E%3C/svg%3E">
@@ -85,7 +85,7 @@
   .hook-card{background:#fff;border-radius:20px;padding:16px 20px;box-shadow:0 24px 48px rgba(26,20,38,.18);width:250px;animation:bob2 6s ease-in-out infinite;animation-delay:-3s}
   @keyframes bob2{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
   .hook-card .tag{background:rgba(255,55,85,.07);border-color:rgba(255,55,85,.2);color:var(--coral)}
-  .hook-card p{font-size:15px;font-weight:600;margin:10px 0 12px;line-height:1.35;min-height:2.7em}
+  .hook-card p{font-family:var(--mono);font-size:13px;font-weight:500;margin:10px 0 12px;line-height:1.45;min-height:2.9em;letter-spacing:-.01em}
   .caret{display:inline-block;width:2px;height:1em;background:var(--coral);vertical-align:-.12em;margin-left:2px;animation:blink 1s steps(1) infinite}
   @keyframes blink{50%{opacity:0}}
   .hook-bar{height:6px;border-radius:999px;background:linear-gradient(90deg,var(--lime),var(--lime-dark));width:70%}
@@ -102,6 +102,42 @@
   .hook-wrap{animation-delay:.75s}
   @keyframes phoneUp{from{opacity:0;transform:translateY(56px)}to{opacity:1;transform:none}}
 
+  /* ---------- pain ---------- */
+  .pain{padding-top:0;padding-bottom:clamp(56px,8vw,88px)}
+  .pain-lines{max-width:840px;margin:0 auto;display:grid;gap:clamp(14px,2vw,22px)}
+  .pain-line{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:clamp(22px,3.4vw,38px);letter-spacing:-.02em;line-height:1.18;color:rgba(26,20,38,.4)}
+  .pain-turn{color:var(--ink);margin-top:clamp(10px,2vw,18px)}
+  .uc{background:linear-gradient(transparent 64%,rgba(255,55,85,.35) 64%)}
+
+  /* ---------- inline cta row ---------- */
+  .cta-row{display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;margin-top:clamp(36px,5vw,52px);text-align:center}
+  .cta-row p{font-weight:600;font-size:clamp(15px,1.8vw,17px)}
+
+  /* ---------- compare ---------- */
+  .compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:880px;margin:0 auto}
+  .comp-card{border-radius:28px;padding:clamp(28px,4vw,36px) clamp(24px,3.4vw,32px)}
+  .comp-card.generic{background:#fff;box-shadow:0 6px 24px rgba(26,20,38,.05)}
+  .comp-card.generic h3{color:var(--faint)}
+  .comp-card.formula{background:var(--ink);color:#fff;box-shadow:0 24px 48px rgba(26,20,38,.22)}
+  .comp-card h3{font-size:20px;margin-bottom:16px}
+  .comp-row{display:flex;gap:12px;align-items:baseline;font-family:var(--mono);font-size:13.5px;padding:9px 0;line-height:1.5}
+  .comp-card.generic .comp-row{color:var(--muted)}
+  .comp-card.formula .comp-row{color:rgba(255,255,255,.85)}
+  .comp-mark{flex-shrink:0;font-weight:600}
+  .comp-card.generic .comp-mark{color:var(--coral)}
+  .comp-card.formula .comp-mark{color:var(--lime)}
+
+  /* ---------- sticky mobile cta ---------- */
+  .sticky-cta{display:none}
+  @media (max-width:767px){
+    .sticky-cta{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:rgba(244,243,239,.88);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid rgba(26,20,38,.1);transition:transform .3s ease}
+    .sticky-cta.away{transform:translateY(110%)}
+    .sticky-cta .txt{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sticky-cta .pill-btn{padding:10px 20px;min-height:42px;font-size:14px;flex-shrink:0}
+    body{padding-bottom:calc(66px + env(safe-area-inset-bottom))}
+    .compare-grid{grid-template-columns:1fr;max-width:460px}
+  }
+
   /* ---------- marquee ---------- */
   .marquee{background:var(--ink);overflow:hidden;padding:16px 0}
   .marquee-track{display:flex;width:max-content;animation:scroll 40s linear infinite}
@@ -109,6 +145,20 @@
   .marquee-track span{font-family:var(--mono);font-size:14px;color:rgba(255,255,255,.85);white-space:nowrap;padding:0 18px}
   .marquee-track i{color:var(--coral);font-style:normal}
   @keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+  /* ---------- ingest ---------- */
+  .ingest-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(40px,6vw,72px);align-items:center}
+  .ingest-log{background:var(--ink);border-radius:28px;padding:clamp(22px,3vw,34px) clamp(20px,3vw,32px);box-shadow:0 24px 48px rgba(26,20,38,.18);font-family:var(--mono);font-size:13px;line-height:2.1;color:rgba(255,255,255,.78);min-width:0}
+  .log-line{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .log-line.dim{color:rgba(255,255,255,.32)}
+  .log-line.ok{color:var(--lime)}
+  .log-line.ready{color:var(--lime);font-size:15px;font-weight:600}
+  .ingest-side .phone{width:min(300px,78vw);margin:32px auto 0}
+  .ingest-copy{color:var(--muted);font-size:clamp(15.5px,1.8vw,17px);max-width:460px;margin-bottom:24px}
+  @media (max-width:767px){
+    .ingest-grid{grid-template-columns:1fr;gap:44px}
+    .ingest-log{font-size:11.5px}
+  }
 
   /* ---------- features ---------- */
   .features{padding-bottom:clamp(24px,4vw,48px)}
@@ -146,7 +196,10 @@
   .price-card h3{font-size:20px;margin-bottom:14px}
   .price{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:clamp(34px,4vw,40px);letter-spacing:-.02em}
   .price small{font-size:16px;color:var(--faint);font-weight:600}
-  .credits{color:var(--muted);font-size:15px;margin:8px 0 28px}
+  .credits{color:var(--muted);font-size:15px;margin:8px 0 6px}
+  .per-script{font-family:var(--mono);font-size:12.5px;color:var(--lime-dark);margin-bottom:28px}
+  .value-line{text-align:center;color:var(--muted);font-size:clamp(15.5px,1.9vw,17.5px);max-width:560px;margin:-18px auto clamp(32px,4vw,44px)}
+  .value-line strong{color:var(--ink)}
   .price-card .pill-btn{margin-top:auto}
   .pricing-note{text-align:center;color:var(--muted);font-size:15px;max-width:520px;margin:36px auto 0}
 
@@ -169,7 +222,8 @@
   .get-panel h2{font-size:clamp(30px,4.4vw,48px);margin-bottom:16px}
   .get-panel .sub{font-size:clamp(16px,2vw,18px);opacity:.9;margin-bottom:36px}
   .get-panel .pill-btn{background:#fff;color:var(--ink)}
-  .get-support{display:inline-block;margin-top:24px;padding:13px 10px;font-size:14px;color:rgba(255,255,255,.75)}
+  .get-closer{margin-top:22px;font-weight:600;font-size:15.5px;color:rgba(255,255,255,.95)}
+  .get-support{display:inline-block;margin-top:8px;padding:13px 10px;font-size:14px;color:rgba(255,255,255,.75)}
   .get-support:hover{color:#fff}
   .get-panel .eyebrow{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.3);color:#fff;margin-bottom:18px}
 
@@ -249,12 +303,12 @@
 <section class="hero">
   <div class="wrap hero-grid">
     <div class="hero-copy">
-      <span class="hero-eyebrow">For TikTok creators</span>
-      <h1><span class="hw" style="animation-delay:.1s">Scripts</span> <span class="hw" style="animation-delay:.16s">that</span> <span class="hw" style="animation-delay:.22s">sound</span> <span class="hw" style="animation-delay:.28s">like</span> <span class="hw" style="animation-delay:.34s">you<span class="accent">.</span></span></h1>
-      <p class="sub">Formula learns your voice from your own TikToks — then writes hooks that stop the scroll in the first 3 seconds.</p>
+      <span class="hero-eyebrow">AI that watches your videos</span>
+      <h1><span class="hw" style="animation-delay:.1s">It</span> <span class="hw" style="animation-delay:.14s">studied</span> <span class="hw" style="animation-delay:.18s">your</span> <span class="hw" style="animation-delay:.22s">videos.</span> <span class="hw" style="animation-delay:.28s">Now</span> <span class="hw" style="animation-delay:.32s">it</span> <span class="hw" style="animation-delay:.36s">writes</span> <span class="hw" style="animation-delay:.4s">like</span> <span class="hw" style="animation-delay:.44s">you<span class="accent">.</span></span></h1>
+      <p class="sub">Formula ingests your TikToks — every hook, cut, and word — and builds a creator brain that writes scripts in your exact voice.</p>
       <div class="hero-ctas">
         <a class="pill-btn primary" href="#get">Coming soon to the App Store<span class="arr" aria-hidden="true">&rarr;</span></a>
-        <a class="pill-btn ghost" href="#features">See it in action</a>
+        <a class="pill-btn ghost" href="#ingest">Watch it learn you</a>
       </div>
     </div>
     <div class="hero-visual" id="heroVisual">
@@ -267,55 +321,96 @@
       </div>
       <div class="hook-wrap" id="hookWrap" aria-hidden="true">
         <div class="hook-card">
-          <span class="tag">curiosity_gap</span>
-          <p><span id="typeTarget">Nobody&rsquo;s talking about this&hellip;</span><span class="caret" id="typeCaret" hidden></span></p>
+          <span class="tag">live ingest</span>
+          <p><span id="typeTarget">ingesting video 47/330&hellip;</span><span class="caret" id="typeCaret" hidden></span></p>
           <div class="hook-bar"></div>
-          <div class="hook-label">hook &middot; first 3s</div>
+          <div class="hook-label">brain building&hellip;</div>
         </div>
       </div>
     </div>
   </div>
 </section>
 
+<section class="pain">
+  <div class="wrap">
+    <div class="reveal" style="text-align:center;margin-bottom:clamp(32px,4vw,44px)">
+      <span class="eyebrow center">The problem</span>
+    </div>
+    <div class="pain-lines">
+      <p class="pain-line reveal">It&rsquo;s 11pm and the page is still blank.</p>
+      <p class="pain-line reveal">Your last three hooks died in the first 3 seconds.</p>
+      <p class="pain-line reveal">Generic AI scripts sound like everyone else &mdash; because they&rsquo;re trained on everyone else.</p>
+      <p class="pain-line pain-turn reveal">Your best videos already cracked the code. <span class="uc">Formula just reads it.</span></p>
+    </div>
+    <div class="cta-row reveal">
+      <p>Your creator brain builds itself in minutes.</p>
+      <a class="pill-btn primary" href="#get">Get Formula<span class="arr" aria-hidden="true">&rarr;</span></a>
+    </div>
+  </div>
+</section>
+
 <div class="marquee" aria-hidden="true">
   <div class="marquee-track">
-    <span>Nobody&rsquo;s talking about this&hellip;</span><i>&bull;</i>
-    <span>Stop scrolling &mdash; this changes everything</span><i>&bull;</i>
-    <span>POV: your hooks finally hit</span><i>&bull;</i>
-    <span>I tested it so you don&rsquo;t have to</span><i>&bull;</i>
-    <span>3 seconds is all you get</span><i>&bull;</i>
-    <span>Nobody&rsquo;s talking about this&hellip;</span><i>&bull;</i>
-    <span>Stop scrolling &mdash; this changes everything</span><i>&bull;</i>
-    <span>POV: your hooks finally hit</span><i>&bull;</i>
-    <span>I tested it so you don&rsquo;t have to</span><i>&bull;</i>
-    <span>3 seconds is all you get</span><i>&bull;</i>
+    <span>watching video 132/330</span><i>&bull;</i>
+    <span>hook window &rarr; 6s</span><i>&bull;</i>
+    <span>220 words per minute</span><i>&bull;</i>
+    <span>shot sequence learned</span><i>&bull;</i>
+    <span>curiosity_gap detected</span><i>&bull;</i>
+    <span>energy 75/100</span><i>&bull;</i>
+    <span>&#10003; sounds like you</span><i>&bull;</i>
+    <span>watching video 132/330</span><i>&bull;</i>
+    <span>hook window &rarr; 6s</span><i>&bull;</i>
+    <span>220 words per minute</span><i>&bull;</i>
+    <span>shot sequence learned</span><i>&bull;</i>
+    <span>curiosity_gap detected</span><i>&bull;</i>
+    <span>energy 75/100</span><i>&bull;</i>
+    <span>&#10003; sounds like you</span><i>&bull;</i>
   </div>
 </div>
+
+<section class="ingest" id="ingest">
+  <div class="wrap">
+    <div class="reveal" style="text-align:center;margin-bottom:clamp(36px,5vw,56px)">
+      <span class="eyebrow center">The ingest</span>
+      <h2 class="sec-h2" style="margin-bottom:0">Watch it learn you<span class="accent">.</span></h2>
+    </div>
+    <div class="ingest-grid">
+      <div class="ingest-log" aria-label="Ingest log — Formula analyzing 330 videos and building the creator brain">
+        <span class="log-line reveal">analyzing @yourhandle &middot; 330 videos found</span>
+        <span class="log-line reveal">&#9656; video 001 &mdash; hook: bold_claim &middot; 54s &middot; 6 cuts</span>
+        <span class="log-line reveal">&#9656; video 002 &mdash; hook: curiosity_gap &middot; 48s &middot; 7 cuts</span>
+        <span class="log-line reveal">&#9656; video 003 &mdash; hook: benefit_promise &middot; 51s &middot; 5 cuts</span>
+        <span class="log-line dim reveal">&#8942;</span>
+        <span class="log-line reveal">&#9656; video 330 &mdash; hook: curiosity_gap &middot; 49s &middot; 6 cuts</span>
+        <span class="log-line ok reveal">&#10003; pacing template built &mdash; 51s avg &middot; 6s hook window</span>
+        <span class="log-line ok reveal">&#10003; speech template built &mdash; 220 wpm &middot; rapid</span>
+        <span class="log-line ready reveal">&#10003; creator brain ready</span>
+      </div>
+      <div class="ingest-side">
+        <div class="reveal">
+          <p class="ingest-copy">This isn&rsquo;t a prompt. It&rsquo;s your entire posting history, decoded — how long you hold a hook, where you cut, how fast you talk, the words you actually use. Every script starts from here.</p>
+          <div class="tag-row">
+            <span class="tag">51s avg_length</span>
+            <span class="tag">6s hook_window</span>
+            <span class="tag">10.4 scenes</span>
+          </div>
+        </div>
+        <div class="phone-par">
+          <div class="phone reveal">
+            <img src="shots/brain.png" alt="Formula pacing template screen — average length 51s, 6 second hook window, 6.1 cuts per 30s, 10.4 scenes, and a color-coded shot sequence" width="660" height="1434" loading="lazy">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
 <section class="features" id="features">
   <div class="wrap">
 
     <div class="features-head reveal">
-      <span class="eyebrow center">What it does</span>
-      <h2 class="sec-h2" style="margin-bottom:0">Built around how <em style="font-style:normal;color:var(--coral)">you</em> create<span class="accent">.</span></h2>
-    </div>
-
-    <div class="feature-row">
-      <div class="feature-copy reveal">
-        <span class="eyebrow">Creator Brain</span>
-        <h3>It studies YOUR videos, not the internet.</h3>
-        <p class="body">Connect your TikTok and Formula builds a living profile of how you create — your hooks, pacing, cuts, and energy — then writes every script to match.</p>
-        <div class="tag-row">
-          <span class="tag">51s avg_length</span>
-          <span class="tag">6s hook_window</span>
-          <span class="tag">10.4 scenes</span>
-        </div>
-      </div>
-      <div class="phone-par">
-        <div class="phone reveal">
-          <img src="shots/brain.png" alt="Formula pacing template screen — average length 51s, 6 second hook window, 6.1 cuts per 30s, 10.4 scenes, and a color-coded shot sequence" width="660" height="1434" loading="lazy">
-        </div>
-      </div>
+      <span class="eyebrow center">The output</span>
+      <h2 class="sec-h2" style="margin-bottom:0">Scripts your brain writes<span class="accent">.</span></h2>
     </div>
 
     <div class="feature-row">
@@ -327,7 +422,7 @@
       <div class="feature-copy reveal">
         <span class="eyebrow">TikTok Shop</span>
         <h3>Product scripts that don&rsquo;t feel like ads.</h3>
-        <p class="body">Search trending TikTok Shop products, see commissions and 7-day GMV, and generate shoppable scripts built to convert — in your voice.</p>
+        <p class="body">Search trending TikTok Shop products, see commissions and 7-day GMV, and generate shoppable scripts built to convert — written with your pacing and hooks baked in.</p>
         <div class="tag-row">
           <span class="tag">15% commission</span>
           <span class="tag">$1.9M 7d GMV</span>
@@ -340,20 +435,49 @@
       <div class="mini-card reveal">
         <div class="chip coral"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12L13 2Z" fill="#FF3755"/></svg></div>
         <h3>ScriptIQ</h3>
-        <p>One idea in, a filmable script out — hook, body, and CTA structured for your pacing.</p>
+        <p>One idea in, a filmable script out — hook, body, and CTA, straight from your brain.</p>
       </div>
       <div class="mini-card reveal">
         <div class="chip lime"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12h4l2-6 4 12 2-6h4" stroke="#2FA10C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
         <h3>Rewrite</h3>
-        <p>Paste any viral video and remake it in your voice — shoppable or organic.</p>
+        <p>Paste any viral video and remake it in your voice — shoppable or organic, never a copy.</p>
       </div>
       <div class="mini-card reveal">
         <div class="chip coral"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v18M5 10l7-7 7 7" stroke="#FF3755" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
         <h3>Viral topics</h3>
-        <p>Trending angles for your niche, refreshed so you never film into the void.</p>
+        <p>Trending angles matched to your niche, refreshed so you never film into the void.</p>
       </div>
     </div>
 
+  </div>
+</section>
+
+<section class="compare">
+  <div class="wrap">
+    <div class="reveal" style="text-align:center">
+      <span class="eyebrow center">The difference</span>
+      <h2 class="sec-h2">Generic AI never watched you<span class="accent">.</span></h2>
+    </div>
+    <div class="compare-grid">
+      <div class="comp-card generic reveal">
+        <h3>Generic AI</h3>
+        <div class="comp-row"><span class="comp-mark">&#10005;</span><span>Trained on the whole internet</span></div>
+        <div class="comp-row"><span class="comp-mark">&#10005;</span><span>Same hooks everyone gets</span></div>
+        <div class="comp-row"><span class="comp-mark">&#10005;</span><span>You prompt, tweak, re-prompt</span></div>
+        <div class="comp-row"><span class="comp-mark">&#10005;</span><span>Sounds like a robot doing you</span></div>
+      </div>
+      <div class="comp-card formula reveal">
+        <h3>Formula</h3>
+        <div class="comp-row"><span class="comp-mark">&#10003;</span><span>Trained on YOUR videos</span></div>
+        <div class="comp-row"><span class="comp-mark">&#10003;</span><span>Your proven hooks, reused</span></div>
+        <div class="comp-row"><span class="comp-mark">&#10003;</span><span>One tap &mdash; the brain does the prompting</span></div>
+        <div class="comp-row"><span class="comp-mark">&#10003;</span><span>Sounds like you on your best day</span></div>
+      </div>
+    </div>
+    <div class="cta-row reveal">
+      <p>Scripts in your voice, one tap away.</p>
+      <a class="pill-btn primary" href="#get">Get Formula<span class="arr" aria-hidden="true">&rarr;</span></a>
+    </div>
   </div>
 </section>
 
@@ -367,12 +491,12 @@
       <div class="step reveal">
         <div class="step-num">1</div>
         <h3>Connect your TikTok</h3>
-        <p>Link your account — Formula studies how your best videos actually move.</p>
+        <p>Link your account — that&rsquo;s the whole setup. The ingest starts on its own.</p>
       </div>
       <div class="step reveal">
         <div class="step-num">2</div>
-        <h3>Formula builds your brain</h3>
-        <p>Hooks, pacing, cuts, and energy become a living creator profile.</p>
+        <h3>Formula ingests everything</h3>
+        <p>It watches your videos and decodes your hooks, pacing, and voice — automatically.</p>
       </div>
       <div class="step reveal">
         <div class="step-num">3</div>
@@ -389,11 +513,13 @@
       <span class="eyebrow center">Pricing</span>
       <h2 class="sec-h2">Simple pricing, serious output<span class="accent">.</span></h2>
     </div>
+    <p class="value-line reveal">A scriptwriter charges <strong>$50 a script</strong>. An editor won&rsquo;t fix a weak hook.</p>
     <div class="price-grid">
       <div class="price-card reveal">
         <h3>Creator</h3>
         <div class="price">$9.99<small>/mo</small></div>
         <p class="credits">20 credits every month</p>
+        <p class="per-script">&asymp; 50&cent; per script</p>
         <a class="pill-btn ghost" href="#get">Start when we launch</a>
       </div>
       <div class="price-card popular reveal">
@@ -401,16 +527,18 @@
         <h3>Pro</h3>
         <div class="price">$14.99<small>/mo</small></div>
         <p class="credits">35 credits every month</p>
+        <p class="per-script">&asymp; 43&cent; per script</p>
         <a class="pill-btn ghost" href="#get">Start when we launch</a>
       </div>
       <div class="price-card reveal">
         <h3>Studio</h3>
         <div class="price">$39.99<small>/mo</small></div>
         <p class="credits">100 credits every month</p>
+        <p class="per-script">&asymp; 40&cent; per script</p>
         <a class="pill-btn ghost" href="#get">Start when we launch</a>
       </div>
     </div>
-    <p class="pricing-note reveal">Or pay as you go — credit packs from $2.99. Every account gets 3 free credits monthly, no card required.</p>
+    <p class="pricing-note reveal">Try it free — 3 credits every month, no card, no trial countdown. Or pay as you go with credit packs from $2.99.</p>
   </div>
 </section>
 
@@ -424,19 +552,31 @@
       <div class="faq-item reveal">
         <button class="faq-q" aria-expanded="false" aria-controls="faq-a1" id="faq-q1">What is Formula?<span class="faq-x" aria-hidden="true">+</span></button>
         <div class="faq-a" id="faq-a1" role="region" aria-labelledby="faq-q1">
-          <div class="faq-a-inner"><p>Formula is an AI script co-pilot for TikTok creators. It learns your voice from your own TikToks and turns any idea into a filmable script — hook, body, and CTA — that actually sounds like you.</p></div>
+          <div class="faq-a-inner"><p>Formula is an AI script co-pilot for TikTok creators. It ingests your own TikToks — watches them, video by video — builds a creator brain from what it finds, and turns any idea into a filmable script that actually sounds like you.</p></div>
         </div>
       </div>
       <div class="faq-item reveal">
-        <button class="faq-q" aria-expanded="false" aria-controls="faq-a2" id="faq-q2">How does the creator brain work?<span class="faq-x" aria-hidden="true">+</span></button>
+        <button class="faq-q" aria-expanded="false" aria-controls="faq-a2" id="faq-q2">What does the ingest actually analyze?<span class="faq-x" aria-hidden="true">+</span></button>
         <div class="faq-a" id="faq-a2" role="region" aria-labelledby="faq-q2">
-          <div class="faq-a-inner"><p>Connect your TikTok and Formula analyzes your videos — hooks, pacing, cuts, and energy — to build a living creator profile. Every script it writes is matched to how you actually create, not a generic template.</p></div>
+          <div class="faq-a-inner"><p>The videos on your connected TikTok account. From each one, Formula extracts your hook types, hook window, cuts per 30 seconds, scene count, words per minute, energy, and vocabulary — then compiles them into the pacing and speech templates every script is written from.</p></div>
         </div>
       </div>
       <div class="faq-item reveal">
         <button class="faq-q" aria-expanded="false" aria-controls="faq-a3" id="faq-q3">What does it cost?<span class="faq-x" aria-hidden="true">+</span></button>
         <div class="faq-a" id="faq-a3" role="region" aria-labelledby="faq-q3">
           <div class="faq-a-inner"><p>Every account gets a free plan with 3 credits monthly — no card required. Paid plans are $9.99, $14.99, and $39.99 per month, and pay-as-you-go credit packs start at $2.99.</p></div>
+        </div>
+      </div>
+      <div class="faq-item reveal">
+        <button class="faq-q" aria-expanded="false" aria-controls="faq-a5" id="faq-q5">Will it sound like AI wrote it?<span class="faq-x" aria-hidden="true">+</span></button>
+        <div class="faq-a" id="faq-a5" role="region" aria-labelledby="faq-q5">
+          <div class="faq-a-inner"><p>No — it writes from your ingest: your vocabulary, your pacing, your hook styles. If you wouldn&rsquo;t say it, it shouldn&rsquo;t write it.</p></div>
+        </div>
+      </div>
+      <div class="faq-item reveal">
+        <button class="faq-q" aria-expanded="false" aria-controls="faq-a6" id="faq-q6">I&rsquo;m not technical — how hard is setup?<span class="faq-x" aria-hidden="true">+</span></button>
+        <div class="faq-a" id="faq-a6" role="region" aria-labelledby="faq-q6">
+          <div class="faq-a-inner"><p>Connect your TikTok handle. That&rsquo;s it. The ingest runs on its own and your brain is ready in minutes.</p></div>
         </div>
       </div>
       <div class="faq-item reveal">
@@ -453,9 +593,10 @@
   <div class="wrap">
     <div class="get-panel reveal">
       <span class="eyebrow">Launching now</span>
-      <h2>Your next viral script is already in you.</h2>
+      <h2>Your next viral script is already in your videos.</h2>
       <p class="sub">Launching on the App Store. Android next.</p>
       <a class="pill-btn" href="#">App Store &mdash; coming soon<span class="arr" aria-hidden="true">&rarr;</span></a><!-- TODO: swap for App Store URL on launch -->
+      <p class="get-closer">Stop guessing what works. Start writing from proof.</p>
       <br>
       <a class="get-support" href="mailto:support@thecreatorformula.com">support@thecreatorformula.com</a>
     </div>
@@ -476,6 +617,11 @@
     </nav>
   </div>
 </footer>
+
+<div class="sticky-cta" id="stickyCta">
+  <span class="txt">Scripts that sound like you.</span>
+  <a class="pill-btn primary" href="#get">Get Formula</a>
+</div>
 
 <script>
 (function(){
@@ -506,7 +652,8 @@
         var parent = el.parentElement;
         var siblings = parent ? Array.prototype.filter.call(parent.children, function(c){ return c.classList && c.classList.contains('reveal'); }) : [el];
         var idx = siblings.indexOf(el);
-        el.style.transitionDelay = (idx > 0 ? idx * 80 : 0) + 'ms';
+        var step = (parent && parent.classList.contains('ingest-log')) ? 120 : 80;
+        el.style.transitionDelay = (idx > 0 ? idx * step : 0) + 'ms';
         el.classList.add('in');
         io.unobserve(el);
       });
@@ -523,17 +670,30 @@
     });
   });
 
+  /* ---- mobile sticky CTA: hide while #get is on screen ---- */
+  (function(){
+    var bar = document.getElementById('stickyCta');
+    var get = document.getElementById('get');
+    if (!bar || !get || !('IntersectionObserver' in window)) return;
+    var so = new IntersectionObserver(function(entries){
+      bar.classList.toggle('away', entries[0].isIntersecting);
+    }, { threshold: 0.05 });
+    so.observe(get);
+  })();
+
   if (reduced) return; /* everything below is motion */
 
-  /* ---- typewriter in the hook card ---- */
+  /* ---- ingest ticker in the floating card ---- */
   (function(){
     var target = document.getElementById('typeTarget');
     var caret = document.getElementById('typeCaret');
     if (!target || !caret) return;
     var hooks = [
-      "Nobody’s talking about this…",
-      "Stop scrolling — this changes everything",
-      "POV: your hooks finally hit"
+      "ingesting video 47/330…",
+      "hook detected → curiosity_gap",
+      "pacing → 6.1 cuts / 30s",
+      "energy → 75/100",
+      "✓ brain updated"
     ];
     var hi = 0, ci = hooks[0].length, erasing = false;
     caret.hidden = false;
