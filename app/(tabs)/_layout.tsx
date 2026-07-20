@@ -6,6 +6,7 @@ import { D, T, Shadow } from '@/constants/ds';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppHeader from '@/components/AppHeader';
 import AnimatedPressable from '@/components/AnimatedPressable';
+import ClipboardCatch from '@/components/ClipboardCatch';
 import { useAuth } from '@/context/AuthContext';
 
 const INACTIVE = 'rgba(26,20,38,0.34)';
@@ -145,21 +146,24 @@ export default function TabLayout() {
   if (!isAuthenticated) return <Redirect href="/" />;
 
   return (
-    <Tabs
-      tabBar={(props) => <CustomTabBar {...props} />}
-      screenOptions={{ headerShown: true, header: () => <AppHeader /> }}
-    >
-      <Tabs.Screen name="index"    options={{ title: 'Brain' }} />
-      <Tabs.Screen name="scripts"  options={{ title: 'Saved' }} />
-      <Tabs.Screen name="scriptiq" options={{ title: 'ScriptIQ' }} />
-      <Tabs.Screen name="products" options={{ title: 'Products' }} />
-      <Tabs.Screen name="profile"  options={{ title: 'Profile' }} />
-      <Tabs.Screen name="rewrite"       options={{ href: null }} />
-      <Tabs.Screen name="videos"        options={{ href: null }} />
-      <Tabs.Screen name="productscript" options={{ href: null }} />
-      <Tabs.Screen name="organicscript" options={{ href: null }} />
-      <Tabs.Screen name="viraltopic"    options={{ href: null }} />
-    </Tabs>
+    <>
+      <Tabs
+        tabBar={(props) => <CustomTabBar {...props} />}
+        screenOptions={{ headerShown: true, header: () => <AppHeader /> }}
+      >
+        <Tabs.Screen name="index"    options={{ title: 'Brain' }} />
+        <Tabs.Screen name="scripts"  options={{ title: 'Saved' }} />
+        <Tabs.Screen name="scriptiq" options={{ title: 'ScriptIQ' }} />
+        <Tabs.Screen name="products" options={{ title: 'Products' }} />
+        <Tabs.Screen name="profile"  options={{ title: 'Profile' }} />
+        <Tabs.Screen name="rewrite"       options={{ href: null }} />
+        <Tabs.Screen name="videos"        options={{ href: null }} />
+        <Tabs.Screen name="productscript" options={{ href: null }} />
+        <Tabs.Screen name="organicscript" options={{ href: null }} />
+        <Tabs.Screen name="viraltopic"    options={{ href: null }} />
+      </Tabs>
+      <ClipboardCatch />
+    </>
   );
 }
 

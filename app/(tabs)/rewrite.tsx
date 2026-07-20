@@ -739,7 +739,7 @@ function buildRewriteBody(videoUrl: string, choice: ProductChoice): ViralRewrite
 
 export default function RewriteScreen() {
   const { credits, refreshMe } = useAuth();
-  const { prefillUrl } = useLocalSearchParams<{ prefillUrl?: string }>();
+  const { prefillUrl, url: clipboardUrl } = useLocalSearchParams<{ prefillUrl?: string; url?: string }>();
   const [videoUrl, setVideoUrl] = useState(prefillUrl ?? '');
   const [productChoice, setProductChoice] = useState<ProductChoice | null>(null);
   const [showPicker, setShowPicker] = useState(!!prefillUrl);
@@ -763,6 +763,16 @@ export default function RewriteScreen() {
       }
     },
   });
+
+  // Clipboard-catch prefill: `url` param pushed by ClipboardCatch. Only fill
+  // when the input is empty — never clobber what the user typed, never submit.
+  useEffect(() => {
+    if (typeof clipboardUrl !== 'string' || !clipboardUrl) return;
+    if (!/(vm|vt|www)\.tiktok\.com|tiktok\.com\/(@[\w.-]+\/video\/\d+|t\/)/i.test(clipboardUrl)) return;
+    setVideoUrl((current) => (current.trim().length === 0 ? clipboardUrl.trim() : current));
+    Keyboard.dismiss();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clipboardUrl]);
 
   const canSubmit = videoUrl.trim().length > 0 && productChoice != null && !rewriteMutation.isPending;
   const hasProduct = productChoice != null;
