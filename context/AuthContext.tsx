@@ -94,7 +94,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    await clearTokens();
+    // Clear state unconditionally — a storage failure must never leave the UI
+    // stuck signed-in with no way out.
+    try { await clearTokens(); } catch {}
     setAuthenticated(false);
     setProfile(null);
     setMeData(null);

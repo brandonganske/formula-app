@@ -275,7 +275,11 @@ export default function ProfileScreen() {
     closeEdit();
   };
 
-  const handleLogout = () => logout();
+  const handleLogout = async () => {
+    await logout();
+    // Don't rely solely on the tab layout's auth redirect — navigate explicitly.
+    router.replace('/');
+  };
 
   // Apple Guideline 5.1.1(v): apps offering account creation must let users
   // delete their account in-app. Two confirmation steps guard against taps.
