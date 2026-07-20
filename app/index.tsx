@@ -1,11 +1,13 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Animated,
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect } from 'expo-router';
-import Svg, { Rect } from 'react-native-svg';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
+import Svg, { Rect, Path } from 'react-native-svg';
 import { AtSign, Mail, Lock, ArrowRight, CheckCircle } from 'lucide-react-native';
 import FadeInView from '@/components/FadeInView';
 import AnimatedPressable from '@/components/AnimatedPressable';
@@ -25,6 +27,41 @@ function FMark({ size = 44 }: { size?: number }) {
       <Rect x="22" y="44" width="42" height="15" rx="7.5" fill="#FFFFFF" />
     </Svg>
   );
+}
+
+// ─── TikTok glyph SVG ────────────────────────────────────────────────────────
+
+function TikTokMark({ size = 18 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path
+        d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"
+        fill="#FFFFFF"
+      />
+    </Svg>
+  );
+}
+
+// ─── TikTok OAuth ────────────────────────────────────────────────────────────
+
+const TIKTOK_REDIRECT = 'formula://tiktok-callback';
+const TIKTOK_AUTH_URL =
+  `https://iq.influenceish.com/api/v1/tiktok/login?app_redirect=${encodeURIComponent(TIKTOK_REDIRECT)}`;
+
+function parseCallbackParams(url: string): { code?: string; error?: string } {
+  const out: Record<string, string> = {};
+  const queryIdx = url.indexOf('?');
+  if (queryIdx < 0) return out;
+  const hashIdx = url.indexOf('#');
+  const query = url.slice(queryIdx + 1, hashIdx > queryIdx ? hashIdx : undefined);
+  query.split('&').forEach((pair) => {
+    const eq = pair.indexOf('=');
+    if (eq <= 0) return;
+    try {
+      out[decodeURIComponent(pair.slice(0, eq))] = decodeURIComponent(pair.slice(eq + 1));
+    } catch { /* malformed segment — skip */ }
+  });
+  return out;
 }
 
 // ─── Input ────────────────────────────────────────────────────────────────────
@@ -100,7 +137,54 @@ export default function AuthScreen() {
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
-  const { isAuthenticated, profile, login, register } = useAuth();
+  const [tiktokLoading, setTiktokLoading] = useState(false);
+  const { isAuthenticated, profile, login, register, loginWithTikTok } = useAuth();
+  const tiktokExchanged = useRef(false);
+
+  // Shared by the in-app auth session result and the cold-start deep link.
+  const exchangeTikTokCallback = async (url: string) => {
+    const params = parseCallbackParams(url);
+    if (params.error) {
+      setError(params.error);
+      return;
+    }
+    if (!params.code) return;
+    setTiktokLoading(true);
+    setError(null);
+    const result = await loginWithTikTok(params.code);
+    setTiktokLoading(false);
+    if (result.error) setError(result.error);
+  };
+
+  const handleTikTok = async () => {
+    setError(null);
+    try {
+      const result = await WebBrowser.openAuthSessionAsync(TIKTOK_AUTH_URL, TIKTOK_REDIRECT);
+      if (result.type === 'success' && result.url) {
+        tiktokExchanged.current = true;
+        await exchangeTikTokCallback(result.url);
+      }
+      // 'cancel' / 'dismiss' — user backed out, no error shown.
+    } catch (err: any) {
+      setError(err?.message ?? 'Could not open TikTok sign-in. Please try again.');
+    }
+  };
+
+  // Cold-start fallback: the auth session can end with the OS opening the app
+  // directly via formula://tiktok-callback?code=… instead of resolving the
+  // session. Catch that link here (only while signed out) and run the same
+  // exchange.
+  useEffect(() => {
+    if (isAuthenticated) return;
+    const handleUrl = (url: string | null) => {
+      if (!url || !url.includes('tiktok-callback') || tiktokExchanged.current) return;
+      tiktokExchanged.current = true;
+      exchangeTikTokCallback(url);
+    };
+    Linking.getInitialURL().then(handleUrl);
+    const sub = Linking.addEventListener('url', ({ url }) => handleUrl(url));
+    return () => sub.remove();
+  }, [isAuthenticated]);
 
   const handleForgot = async () => {
     if (!forgotEmail.trim()) { setError('Please enter your email address.'); return; }
@@ -327,6 +411,36 @@ export default function AuthScreen() {
                 }
               </AnimatedPressable>
 
+              {/* "or" divider */}
+              <View style={S.dividerRow}>
+                <View style={S.dividerLine} />
+                <View style={S.dividerPill}>
+                  <Text style={S.dividerText}>or</Text>
+                </View>
+                <View style={S.dividerLine} />
+              </View>
+
+              {/* Continue with TikTok */}
+              <AnimatedPressable
+                style={[S.tiktokBtn, tiktokLoading && S.btnDisabled]}
+                onPress={handleTikTok}
+                disabled={tiktokLoading}
+                haptic="light"
+              >
+                {tiktokLoading
+                  ? <ActivityIndicator color="#FFF" size="small" />
+                  : (
+                    <>
+                      <TikTokMark size={18} />
+                      <Text style={S.tiktokBtnText}>Continue with TikTok</Text>
+                    </>
+                  )
+                }
+              </AnimatedPressable>
+              <Text style={S.tiktokCaption}>
+                Connects your TikTok and builds your brain automatically
+              </Text>
+
               <Text style={S.footer}>By continuing you agree to our Terms of Service</Text>
             </>
           )}
@@ -435,6 +549,34 @@ const S = StyleSheet.create({
     width: 26, height: 26, borderRadius: 13,
     backgroundColor: 'rgba(255,255,255,0.22)',
     alignItems: 'center', justifyContent: 'center',
+  },
+
+  // ── TikTok OAuth ──────────────────────────────────────────────────────────
+  dividerRow: {
+    flexDirection: 'row', alignItems: 'center',
+    gap: 12, marginTop: 20, marginBottom: 20,
+  },
+  dividerLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: D.border },
+  dividerPill: {
+    paddingHorizontal: 12, paddingVertical: 4,
+    borderRadius: R.full,
+    backgroundColor: D.surface,
+    borderWidth: 1, borderColor: D.border,
+  },
+  dividerText: { ...T.medium, fontSize: 11, color: D.textMuted, letterSpacing: 0.3 },
+
+  tiktokBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#000000',
+    borderRadius: R.full,
+    paddingVertical: 17,
+    gap: 10,
+  },
+  tiktokBtnText: { ...T.bold, fontSize: 16, color: '#FFF', letterSpacing: -0.2 },
+  tiktokCaption: {
+    ...T.regular, fontSize: 12,
+    color: D.textMuted, textAlign: 'center',
+    marginTop: 10,
   },
 
   footer: {
