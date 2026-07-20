@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — Formula</title>
+<meta name="description" content="Formula's Privacy Policy — what the Formula app collects, how we use it, and the choices you have.">
+<meta name="robots" content="index,follow">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%23FF3755'/%3E%3Crect x='22' y='16' width='16' height='68' rx='8' fill='%23fff'/%3E%3Crect x='22' y='16' width='56' height='16' rx='8' fill='%23B6FF8A'/%3E%3Crect x='22' y='44' width='42' height='15' rx='7.5' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F4F3EF; --ink:#1A1426; --coral:#FF3755;
+    --grad:linear-gradient(135deg,#FF7A45,#FF3755,#FF5E8A);
+    --lime:#B6FF8A; --lime-dark:#2FA10C;
+    --muted:rgba(26,20,38,.62); --faint:rgba(26,20,38,.42);
+    --mono:ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--paper);color:var(--ink);font-family:'Inter',system-ui,sans-serif;line-height:1.7;font-size:16px;overflow-x:hidden}
+  a{color:inherit;text-decoration:none}
+  ::selection{background:var(--coral);color:#fff}
+  :focus-visible{outline:3px solid var(--coral);outline-offset:2px;border-radius:8px}
+  h1,h2,h3{font-family:'Space Grotesk',sans-serif;font-weight:700;line-height:1.08;letter-spacing:-.02em}
+  .wrap{max-width:1160px;margin:0 auto;padding:0 clamp(20px,5vw,48px)}
+  .accent{color:var(--coral)}
+
+  .pill-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:999px;padding:14px 28px;min-height:48px;font-weight:600;font-size:clamp(15px,1.6vw,16px);transition:transform .2s ease,box-shadow .2s ease;border:none;cursor:pointer;overflow:hidden}
+  .pill-btn:hover{transform:translateY(-2px)}
+  .pill-btn.primary{background:var(--grad);color:#fff;box-shadow:0 8px 24px rgba(255,55,85,.35)}
+  .pill-btn.primary:hover{box-shadow:0 12px 32px rgba(255,55,85,.45)}
+  .fmark{width:34px;height:34px;border-radius:9px;background:var(--coral);flex-shrink:0}
+  .fmark svg{width:100%;height:100%;display:block}
+  .wordmark{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px;letter-spacing:-.04em}
+
+  /* ---------- nav ---------- */
+  .nav{position:sticky;top:0;z-index:50;background:rgba(244,243,239,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid rgba(26,20,38,.06)}
+  .nav-inner{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px clamp(20px,5vw,48px);max-width:1160px;margin:0 auto}
+  .brand{display:flex;align-items:center;gap:10px}
+  .nav .pill-btn{padding:10px 22px;min-height:44px;font-size:14.5px}
+
+  /* ---------- legal prose ---------- */
+  .legal{max-width:760px;margin:0 auto;padding:clamp(48px,7vw,80px) clamp(20px,5vw,48px) clamp(72px,10vw,120px)}
+  .legal h1{font-size:clamp(34px,5.5vw,52px);margin-bottom:14px}
+  .legal .updated{font-family:var(--mono);font-size:13px;color:var(--faint);margin-bottom:clamp(32px,5vw,48px)}
+  .legal h2{position:relative;font-size:clamp(21px,2.8vw,25px);margin:clamp(36px,5vw,52px) 0 14px;padding-left:18px}
+  .legal h2::before{content:"";position:absolute;left:0;top:.12em;bottom:.12em;width:5px;border-radius:999px;background:var(--coral)}
+  .legal p{color:var(--muted);margin-bottom:14px}
+  .legal p strong{color:var(--ink)}
+  .legal ul{margin:0 0 14px;padding-left:22px;color:var(--muted)}
+  .legal li{margin-bottom:10px}
+  .legal li strong{color:var(--ink)}
+  .legal a{color:var(--coral);font-weight:600}
+  .legal a:hover{text-decoration:underline}
+  .legal .card{background:#fff;border-radius:24px;padding:clamp(22px,3.4vw,30px);box-shadow:0 6px 24px rgba(26,20,38,.05);margin:6px 0 18px}
+  .legal .card p:last-child,.legal .card ul:last-child{margin-bottom:0}
+
+  /* ---------- footer ---------- */
+  footer{border-top:1px solid rgba(26,20,38,.08);padding:36px 0}
+  .foot-inner{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
+  .foot-links{display:flex;gap:14px;align-items:center;font-size:14.5px;color:var(--muted);flex-wrap:wrap}
+  .foot-links a{display:inline-block;padding:13px 6px}
+  .foot-links a:hover{color:var(--ink)}
+  .copyright{font-size:13.5px;color:var(--faint)}
+
+  @media (max-width:480px){
+    .legal h1{font-size:30px}
+    .nav .pill-btn{padding:9px 18px;font-size:13.5px}
+    .wordmark{font-size:20px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    *,*::before,*::after{animation:none!important;transition:none!important}
+  }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="/" aria-label="Formula home">
+      <span class="fmark"><svg viewBox="0 0 100 100" aria-hidden="true"><rect x="22" y="16" width="16" height="68" rx="8" fill="#fff"/><rect x="22" y="16" width="56" height="16" rx="8" fill="#B6FF8A"/><rect x="22" y="44" width="42" height="15" rx="7.5" fill="#fff"/></svg></span>
+      <span class="wordmark">formula<span class="accent">.</span></span>
+    </a>
+    <a class="pill-btn primary" href="/#get">Get the app</a>
+  </div>
+</header>
+
+<main class="legal">
+  <h1>Privacy Policy<span class="accent">.</span></h1>
+  <p class="updated">Last updated: July 19, 2026</p>
+
+  <p>Formula (&ldquo;Formula,&rdquo; &ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) is operated by Influenceish LLC, 30 N Gould St, Ste R, Sheridan, WY 82801, United States. This Privacy Policy explains what information the Formula mobile app and website collect, how we use it, and the choices you have.</p>
+  <p>By using Formula, you agree to this Privacy Policy.</p>
+
+  <h2>Information we collect</h2>
+  <p>We collect only what we need to run the app:</p>
+  <ul>
+    <li><strong>Account &amp; contact information</strong> — your email address, the name you provide, and your TikTok handle. If you choose to, you may also provide a phone number (for example, for WhatsApp updates). Providing a phone number is optional.</li>
+    <li><strong>Content you create and analyze</strong> — the scripts Formula generates for you, and information derived from the public TikTok videos you ask Formula to analyze (for example, your account&rsquo;s content, or a video you paste in to rewrite). We do not collect private TikTok account credentials.</li>
+    <li><strong>Identifiers</strong> — a user account ID, and a device push token if you enable notifications.</li>
+    <li><strong>Purchase information</strong> — records of in-app purchases and subscriptions (handled through Apple and our payments partner RevenueCat). We never receive or store your full payment card details; those are handled by Apple.</li>
+  </ul>
+  <p>We do <strong>not</strong> collect health, financial account, precise location, browsing history, or contacts data.</p>
+
+  <h2>TikTok data</h2>
+  <div class="card">
+    <p>When you connect your TikTok account or handle, Formula analyzes your public TikTok content — videos, captions, and public profile stats — to build your creator profile. We access only what TikTok&rsquo;s APIs permit with your authorization, and we never see or store your TikTok password. You can disconnect your TikTok account at any time and request deletion of the data we derived from it.</p>
+  </div>
+
+  <h2>How we use your information</h2>
+  <ul>
+    <li>To provide the core service: building your &ldquo;creator brain,&rdquo; generating scripts, and saving your work.</li>
+    <li>To personalize results to your voice and content.</li>
+    <li>To process purchases, subscriptions, and credits.</li>
+    <li>To send you notifications you&rsquo;ve opted into (for example, when your analysis is ready), and account or support messages.</li>
+    <li>To provide customer support and keep the app secure and working.</li>
+  </ul>
+
+  <h2>Tracking</h2>
+  <p>We do <strong>not</strong> track you across other companies&rsquo; apps or websites, and we do not share your data with data brokers for advertising. Formula does not use third-party advertising.</p>
+
+  <h2>How your information is shared</h2>
+  <p>We share information only with service providers that help us run Formula, and only as needed:</p>
+  <ul>
+    <li><strong>Apple</strong> — for in-app purchases and subscriptions.</li>
+    <li><strong>RevenueCat</strong> — to manage subscriptions, credits, and purchase validation.</li>
+    <li><strong>Our backend (Influenceish IQ)</strong> — to analyze content and generate scripts.</li>
+    <li><strong>Push notification services</strong> — to deliver notifications you&rsquo;ve enabled.</li>
+  </ul>
+  <p>We do not sell your personal information.</p>
+
+  <h2>Data retention &amp; deletion</h2>
+  <p>We keep your information for as long as your account is active or as needed to provide the service. You can delete your account and its associated data directly in the app under <strong>Profile &rarr; Account</strong>, or request deletion at any time by emailing us at the address below.</p>
+
+  <h2>Your choices and rights</h2>
+  <ul>
+    <li><strong>Notifications</strong> — you control WhatsApp, SMS, push, and email opt-ins in the app and your device settings.</li>
+    <li><strong>Access or deletion</strong> — you may request a copy of your data, or delete your account in-app (Profile &rarr; Account) or by emailing us at the address below.</li>
+    <li>Depending on where you live, you may have additional rights under laws such as the GDPR or CCPA, including the rights to access, correct, delete, or port your data, and to object to certain processing.</li>
+  </ul>
+
+  <h2>Children</h2>
+  <p>Formula is not directed to children under 13 (or the minimum age in your country), and we do not knowingly collect data from them.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>We may update this Privacy Policy from time to time. We&rsquo;ll post the updated version here and change the &ldquo;Last updated&rdquo; date above.</p>
+
+  <h2>Contact us</h2>
+  <p>Questions or requests? Email <a href="mailto:support@thecreatorformula.com">support@thecreatorformula.com</a> (Influenceish LLC).</p>
+</main>
+
+<footer>
+  <div class="wrap foot-inner">
+    <a class="brand" href="/" aria-label="Formula home">
+      <span class="fmark"><svg viewBox="0 0 100 100" aria-hidden="true"><rect x="22" y="16" width="16" height="68" rx="8" fill="#fff"/><rect x="22" y="16" width="56" height="16" rx="8" fill="#B6FF8A"/><rect x="22" y="44" width="42" height="15" rx="7.5" fill="#fff"/></svg></span>
+      <span class="wordmark">formula<span class="accent">.</span></span>
+    </a>
+    <nav class="foot-links" aria-label="Footer">
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="mailto:support@thecreatorformula.com">Support</a>
+      <span class="copyright">&copy; 2026 Influenceish LLC</span>
+    </nav>
+  </div>
+</footer>
+
+</body>
+</html>
