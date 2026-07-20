@@ -96,6 +96,75 @@ export async function loginWithTikTokCode(
   }
 }
 
+// TikTok link flow: the OAuth callback flagged that this TikTok belongs to an
+// existing email account. The one-time password check binds them; the backend
+// returns the same LoginResponse as /auth/login.
+export async function loginWithTikTokLink(
+  ticket: string,
+  email: string,
+  password: string,
+): Promise<{ tokens: AuthTokens | null; error: string | null }> {
+  try {
+    const { data } = await axios.post(
+      `${BASE_URL}/auth/tiktok-link`,
+      { ticket, email, password },
+      { headers: { 'x-app-source': 'mobile_app' } },
+    );
+    const tokens: AuthTokens = {
+      access_token: String(data.access_token ?? ''),
+      refresh_token: String(data.refresh_token ?? ''),
+      expires_at: String(data.expires_at ?? ''),
+    };
+    await storeTokens(tokens);
+    return { tokens, error: null };
+  } catch (err: any) {
+    if (!err?.response) {
+      return { tokens: null, error: err?.message ?? 'Network error — check your connection' };
+    }
+    const body = err.response.data ?? {};
+    const msg =
+      body?.error?.message ||
+      (typeof body?.error === 'string' ? body.error : null) ||
+      body?.message ||
+      'Account linking failed';
+    return { tokens: null, error: typeof msg === 'string' ? msg : 'Account linking failed' };
+  }
+}
+
+// Sign in with Apple: the native credential's identity token is verified by the
+// backend, which returns the same LoginResponse as /auth/login. Apple only
+// provides the name on first authorization, so pass it along when present.
+export async function loginWithApple(
+  identityToken: string,
+  fullName?: string,
+): Promise<{ tokens: AuthTokens | null; error: string | null }> {
+  try {
+    const { data } = await axios.post(
+      `${BASE_URL}/auth/apple`,
+      fullName ? { identity_token: identityToken, full_name: fullName } : { identity_token: identityToken },
+      { headers: { 'x-app-source': 'mobile_app' } },
+    );
+    const tokens: AuthTokens = {
+      access_token: String(data.access_token ?? ''),
+      refresh_token: String(data.refresh_token ?? ''),
+      expires_at: String(data.expires_at ?? ''),
+    };
+    await storeTokens(tokens);
+    return { tokens, error: null };
+  } catch (err: any) {
+    if (!err?.response) {
+      return { tokens: null, error: err?.message ?? 'Network error — check your connection' };
+    }
+    const body = err.response.data ?? {};
+    const msg =
+      body?.error?.message ||
+      (typeof body?.error === 'string' ? body.error : null) ||
+      body?.message ||
+      'Apple sign-in failed';
+    return { tokens: null, error: typeof msg === 'string' ? msg : 'Apple sign-in failed' };
+  }
+}
+
 export async function register(
   handle: string,
   email: string,

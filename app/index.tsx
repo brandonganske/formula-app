@@ -7,9 +7,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-import Svg, { Rect, Path } from 'react-native-svg';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import Svg, { Rect } from 'react-native-svg';
 import { AtSign, Mail, Lock, ArrowRight, CheckCircle } from 'lucide-react-native';
 import FadeInView from '@/components/FadeInView';
+import TikTokMark from '@/components/TikTokMark';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
@@ -29,26 +31,15 @@ function FMark({ size = 44 }: { size?: number }) {
   );
 }
 
-// ─── TikTok glyph SVG ────────────────────────────────────────────────────────
-
-function TikTokMark({ size = 18 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Path
-        d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"
-        fill="#FFFFFF"
-      />
-    </Svg>
-  );
-}
-
 // ─── TikTok OAuth ────────────────────────────────────────────────────────────
 
 const TIKTOK_REDIRECT = 'formula://tiktok-callback';
 const TIKTOK_AUTH_URL =
   `https://iq.influenceish.com/api/v1/tiktok/login?app_redirect=${encodeURIComponent(TIKTOK_REDIRECT)}`;
 
-function parseCallbackParams(url: string): { code?: string; error?: string } {
+function parseCallbackParams(url: string): {
+  code?: string; error?: string; link_required?: string; handle?: string; ticket?: string;
+} {
   const out: Record<string, string> = {};
   const queryIdx = url.indexOf('?');
   if (queryIdx < 0) return out;
@@ -138,14 +129,30 @@ export default function AuthScreen() {
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
   const [tiktokLoading, setTiktokLoading] = useState(false);
-  const { isAuthenticated, profile, login, register, loginWithTikTok } = useAuth();
+  const [appleAvailable, setAppleAvailable] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
+  // Non-null → the TikTok callback said this TikTok matches an existing email
+  // account; show the one-time link view instead of the normal card.
+  const [linkInfo, setLinkInfo] = useState<{ handle: string; ticket: string } | null>(null);
+  const { isAuthenticated, profile, login, register, loginWithTikTok, loginWithTikTokLink, loginWithApple } = useAuth();
   const tiktokExchanged = useRef(false);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    AppleAuthentication.isAvailableAsync().then(setAppleAvailable).catch(() => {});
+  }, []);
 
   // Shared by the in-app auth session result and the cold-start deep link.
   const exchangeTikTokCallback = async (url: string) => {
     const params = parseCallbackParams(url);
     if (params.error) {
       setError(params.error);
+      return;
+    }
+    if (params.link_required === '1' && params.ticket) {
+      setError(null);
+      setLinkInfo({ handle: params.handle ?? '', ticket: params.ticket });
       return;
     }
     if (!params.code) return;
@@ -185,6 +192,51 @@ export default function AuthScreen() {
     const sub = Linking.addEventListener('url', ({ url }) => handleUrl(url));
     return () => sub.remove();
   }, [isAuthenticated]);
+
+  const handleApple = async () => {
+    setError(null);
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      if (!credential.identityToken) {
+        setError('Apple sign-in failed. Please try again.');
+        return;
+      }
+      // Apple only supplies the name on the very first authorization.
+      const name = [credential.fullName?.givenName, credential.fullName?.familyName]
+        .filter(Boolean)
+        .join(' ');
+      setAppleLoading(true);
+      const result = await loginWithApple(credential.identityToken, name || undefined);
+      setAppleLoading(false);
+      if (result.error) setError(result.error);
+    } catch (err: any) {
+      setAppleLoading(false);
+      if (err?.code === 'ERR_REQUEST_CANCELED') return; // user backed out — silent
+      setError(err?.message ?? 'Apple sign-in failed. Please try again.');
+    }
+  };
+
+  const handleLinkSubmit = async () => {
+    if (!linkInfo) return;
+    if (!email.trim() || !password.trim()) { setError('Please fill in all fields.'); return; }
+    setLoading(true);
+    setError(null);
+    const result = await loginWithTikTokLink(linkInfo.ticket, email.trim().toLowerCase(), password);
+    setLoading(false);
+    if (result.error) setError(result.error);
+  };
+
+  const exitLinkView = () => {
+    setLinkInfo(null);
+    setError(null);
+    setPassword('');
+    tiktokExchanged.current = false;
+  };
 
   const handleForgot = async () => {
     if (!forgotEmail.trim()) { setError('Please enter your email address.'); return; }
@@ -327,8 +379,129 @@ export default function AuthScreen() {
                 </>
               )}
             </>
+          ) : linkInfo ? (
+            <>
+              {/* ── TikTok → email link view ── */}
+              <Text style={S.linkTitle}>Welcome back, @{linkInfo.handle}</Text>
+              <Text style={S.linkCopy}>
+                This TikTok matches an existing Formula account. Enter your email and password once to link them — after this, TikTok sign-in is instant.
+              </Text>
+
+              <View style={S.fields}>
+                <Field
+                  label="Email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  icon={<Mail size={16} color={D.textMuted} strokeWidth={2} />}
+                />
+                <Field
+                  label="Password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  icon={<Lock size={16} color={D.textMuted} strokeWidth={2} />}
+                />
+              </View>
+
+              {error && (
+                <FadeInView direction="none" duration={200} style={S.errorBox}>
+                  <Text style={S.errorText}>{error}</Text>
+                </FadeInView>
+              )}
+
+              <AnimatedPressable
+                style={[S.btn, loading && S.btnDisabled]}
+                onPress={handleLinkSubmit}
+                disabled={loading}
+                haptic="light"
+              >
+                {loading
+                  ? <ActivityIndicator color="#FFF" size="small" />
+                  : (
+                    <>
+                      <Text style={S.btnText}>Link accounts</Text>
+                      <View style={S.btnArrow}>
+                        <ArrowRight size={15} color="#FFF" strokeWidth={2.5} />
+                      </View>
+                    </>
+                  )
+                }
+              </AnimatedPressable>
+
+              <TouchableOpacity style={S.linkAlt} onPress={exitLinkView} activeOpacity={0.7}>
+                <Text style={S.linkAltText}>Use a different account</Text>
+              </TouchableOpacity>
+            </>
           ) : (
             <>
+              {/* ── Continue with TikTok — primary path ── */}
+              <AnimatedPressable
+                style={[S.tiktokBtn, tiktokLoading && S.btnDisabled]}
+                onPress={handleTikTok}
+                disabled={tiktokLoading}
+                haptic="light"
+              >
+                {tiktokLoading
+                  ? <ActivityIndicator color="#FFF" size="small" />
+                  : (
+                    <>
+                      <TikTokMark size={18} />
+                      <Text style={S.tiktokBtnText}>Continue with TikTok</Text>
+                    </>
+                  )
+                }
+              </AnimatedPressable>
+              <Text style={S.tiktokCaption}>
+                Connects your TikTok and builds your brain automatically
+              </Text>
+
+              {/* ── Sign in with Apple (iOS only) ── */}
+              {Platform.OS === 'ios' && appleAvailable && (
+                appleLoading ? (
+                  <View style={S.appleLoadingBtn}>
+                    <ActivityIndicator color="#FFF" size="small" />
+                  </View>
+                ) : (
+                  <AppleAuthentication.AppleAuthenticationButton
+                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                    buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                    cornerRadius={R.full}
+                    style={S.appleBtn}
+                    onPress={handleApple}
+                  />
+                )
+              )}
+
+              {/* Social-flow errors (email-form errors render inside the form) */}
+              {error && !emailOpen && (
+                <FadeInView direction="none" duration={200} style={[S.errorBox, { marginTop: 16, marginBottom: 0 }]}>
+                  <Text style={S.errorText}>{error}</Text>
+                </FadeInView>
+              )}
+
+              {/* "or" divider */}
+              <View style={S.dividerRow}>
+                <View style={S.dividerLine} />
+                <View style={S.dividerPill}>
+                  <Text style={S.dividerText}>or</Text>
+                </View>
+                <View style={S.dividerLine} />
+              </View>
+
+              {!emailOpen ? (
+                <AnimatedPressable
+                  style={S.emailGhostBtn}
+                  onPress={() => { setEmailOpen(true); setError(null); }}
+                  haptic="light"
+                >
+                  <Mail size={16} color={D.textPrimary} strokeWidth={2} />
+                  <Text style={S.emailGhostText}>Continue with email</Text>
+                </AnimatedPressable>
+              ) : (
+                <>
               {/* Mode toggle */}
               <View style={S.toggle}>
                 {(['login', 'register'] as const).map((m) => (
@@ -410,36 +583,8 @@ export default function AuthScreen() {
                   )
                 }
               </AnimatedPressable>
-
-              {/* "or" divider */}
-              <View style={S.dividerRow}>
-                <View style={S.dividerLine} />
-                <View style={S.dividerPill}>
-                  <Text style={S.dividerText}>or</Text>
-                </View>
-                <View style={S.dividerLine} />
-              </View>
-
-              {/* Continue with TikTok */}
-              <AnimatedPressable
-                style={[S.tiktokBtn, tiktokLoading && S.btnDisabled]}
-                onPress={handleTikTok}
-                disabled={tiktokLoading}
-                haptic="light"
-              >
-                {tiktokLoading
-                  ? <ActivityIndicator color="#FFF" size="small" />
-                  : (
-                    <>
-                      <TikTokMark size={18} />
-                      <Text style={S.tiktokBtnText}>Continue with TikTok</Text>
-                    </>
-                  )
-                }
-              </AnimatedPressable>
-              <Text style={S.tiktokCaption}>
-                Connects your TikTok and builds your brain automatically
-              </Text>
+                </>
+              )}
 
               <Text style={S.footer}>By continuing you agree to our Terms of Service</Text>
             </>
@@ -578,6 +723,32 @@ const S = StyleSheet.create({
     color: D.textMuted, textAlign: 'center',
     marginTop: 10,
   },
+
+  // ── Sign in with Apple ────────────────────────────────────────────────────
+  appleBtn: { height: 52, marginTop: 14 },
+  appleLoadingBtn: {
+    height: 52, marginTop: 14,
+    borderRadius: R.full,
+    backgroundColor: '#000000',
+    alignItems: 'center', justifyContent: 'center',
+  },
+
+  // ── Collapsed email entry ─────────────────────────────────────────────────
+  emailGhostBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 9,
+    borderRadius: R.full,
+    borderWidth: 1.5, borderColor: D.border,
+    backgroundColor: D.surface,
+    paddingVertical: 15,
+  },
+  emailGhostText: { ...T.bold, fontSize: 15, color: D.textPrimary, letterSpacing: -0.2 },
+
+  // ── TikTok → email link view ──────────────────────────────────────────────
+  linkTitle: { ...T.bold, fontSize: 22, color: D.textPrimary, letterSpacing: -0.5, marginBottom: 8 },
+  linkCopy: { ...T.regular, fontSize: 14, color: D.textSecondary, lineHeight: 20, marginBottom: 20 },
+  linkAlt: { alignItems: 'center', marginTop: 18 },
+  linkAltText: { ...T.medium, fontSize: 13, color: D.coral },
 
   footer: {
     ...T.regular, fontSize: 12,

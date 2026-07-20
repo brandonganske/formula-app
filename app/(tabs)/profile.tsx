@@ -4,7 +4,9 @@ import {
   Modal, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Switch, Alert, Keyboard,
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import * as WebBrowser from 'expo-web-browser';
 import Constants from 'expo-constants';
+import TikTokMark from '@/components/TikTokMark';
 import FadeInView from '@/components/FadeInView';
 import TabFadeView from '@/components/TabFadeView';
 import AnimatedPressable from '@/components/AnimatedPressable';
@@ -196,6 +198,40 @@ export default function ProfileScreen() {
       res.ok ? 'Purchases restored' : 'Restore failed',
       res.ok ? 'Your plan and credits will update shortly.' : (res.error ?? 'Please try again.'),
     );
+  };
+
+  // ── TikTok connect (link this TikTok to the signed-in account) ──────────
+  const [connectingTikTok, setConnectingTikTok] = useState(false);
+  const handleConnectTikTok = async () => {
+    const redirect = 'formula://tiktok-connect';
+    try {
+      const url = `https://iq.influenceish.com/api/v1/tiktok/login?mode=connect&app_redirect=${encodeURIComponent(redirect)}`;
+      const result = await WebBrowser.openAuthSessionAsync(url, redirect);
+      if (result.type !== 'success' || !result.url) return; // user backed out
+      const match = result.url.match(/[?&]ticket=([^&#]+)/);
+      const ticket = match ? decodeURIComponent(match[1]) : null;
+      if (!ticket) {
+        Alert.alert('Connection failed', 'TikTok didn’t return a valid ticket. Please try again.');
+        return;
+      }
+      setConnectingTikTok(true);
+      await api.post('/creators/tiktok/connect', { ticket });
+      await refreshMe();
+      Alert.alert('TikTok connected', 'One-tap sign-in and auto ingest are now enabled.');
+    } catch (err: any) {
+      const body = err?.response?.data ?? {};
+      const msg =
+        (typeof body?.error === 'string' ? body.error : body?.error?.message) ||
+        body?.message ||
+        err?.message ||
+        'Could not connect TikTok. Please try again.';
+      Alert.alert(
+        err?.response?.status === 409 ? 'Already connected' : 'Connection failed',
+        typeof msg === 'string' ? msg : 'Could not connect TikTok. Please try again.',
+      );
+    } finally {
+      setConnectingTikTok(false);
+    }
   };
 
   const handleChangePassword = async () => {
@@ -591,6 +627,21 @@ export default function ProfileScreen() {
               icon={<Phone size={20} color={D.textMuted} strokeWidth={1.8} />}
               label="WhatsApp"
               sub={(profile as any).whatsapp}
+            />
+          )}
+          {profile?.tiktok_open_id == null ? (
+            <SettingsRow
+              icon={<TikTokMark size={20} color={D.textPrimary} />}
+              label="Connect TikTok"
+              sub={connectingTikTok ? 'Connecting…' : 'One-tap sign-in + auto ingest'}
+              onPress={connectingTikTok ? undefined : handleConnectTikTok}
+            />
+          ) : (
+            <SettingsRow
+              icon={<TikTokMark size={20} color={D.textPrimary} />}
+              label="TikTok connected"
+              sub={profile?.handle ? `@${profile.handle}` : undefined}
+              rightElement={<Check size={16} color={D.limeDeep} strokeWidth={2.5} />}
             />
           )}
           <SettingsRow

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { login as doLogin, register as doRegister, loginWithTikTokCode as doTikTokLogin, clearTokens, loadStoredAuth } from '@/lib/auth';
+import { login as doLogin, register as doRegister, loginWithTikTokCode as doTikTokLogin, loginWithTikTokLink as doTikTokLink, loginWithApple as doAppleLogin, clearTokens, loadStoredAuth } from '@/lib/auth';
 import { api, extractData, setSessionExpiredHandler } from '@/lib/api';
 import { CreatorProfile, CreatorMeData, OnboardingPatch } from '@/types/api';
 
@@ -12,6 +12,8 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ error: string | null }>;
   register: (handle: string, email: string, password: string) => Promise<{ error: string | null }>;
   loginWithTikTok: (code: string) => Promise<{ error: string | null }>;
+  loginWithTikTokLink: (ticket: string, email: string, password: string) => Promise<{ error: string | null }>;
+  loginWithApple: (identityToken: string, fullName?: string) => Promise<{ error: string | null }>;
   logout: () => Promise<void>;
   refreshMe: () => Promise<void>;
   patchMe: (patch: OnboardingPatch) => Promise<{ error: string | null }>;
@@ -93,6 +95,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: null };
   };
 
+  const loginWithTikTokLink = async (ticket: string, email: string, password: string) => {
+    const result = await doTikTokLink(ticket, email, password);
+    if (result.error) return { error: result.error };
+    setAuthenticated(true);
+    return { error: null };
+  };
+
+  const loginWithApple = async (identityToken: string, fullName?: string) => {
+    const result = await doAppleLogin(identityToken, fullName);
+    if (result.error) return { error: result.error };
+    setAuthenticated(true);
+    return { error: null };
+  };
+
   const logout = async () => {
     // Clear state unconditionally — a storage failure must never leave the UI
     // stuck signed-in with no way out.
@@ -135,7 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider value={{
       isAuthenticated, isLoading, profile, meData,
       credits: profile?.ai_generations_remaining ?? 0,
-      login, register, loginWithTikTok, logout, refreshMe, patchMe, setAuthenticated,
+      login, register, loginWithTikTok, loginWithTikTokLink, loginWithApple, logout, refreshMe, patchMe, setAuthenticated,
     }}>
       {children}
     </AuthContext.Provider>

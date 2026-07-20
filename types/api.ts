@@ -17,6 +17,7 @@ export interface CreatorProfile {
   video_count?: number | null;
   ingest_status?: string | null;
   onboarding_completed_at?: string | null;
+  tiktok_open_id?: string | null; // set when a TikTok account is linked
   // Onboarding fields
   gender?: string | null;
   age_range?: string | null;
