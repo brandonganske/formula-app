@@ -39,6 +39,8 @@ function RootLayoutNav() {
       <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
       <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
       <Stack.Screen name="script/[id]" options={{ animation: 'slide_from_right', fullScreenGestureEnabled: true }} />
+      {/* Design-preview route (no auth guard) — /shop-preview on web */}
+      <Stack.Screen name="shop-preview" />
       <Stack.Screen name="+not-found" />
     </Stack>
   );
