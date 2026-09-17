@@ -584,6 +584,55 @@ export interface ProductFolder {
   created_at: string;
 }
 
+// ── Shop Dashboard (GET /creators/me/shop-dashboard) ─────────────────────────
+
+export interface ShopDashboard {
+  connected: boolean;
+  connect_url?: string;
+  tier: 'authorized' | 'estimated' | 'none';
+  handle?: string;
+  display_name?: string;
+  avatar_url?: string;
+  currency?: string;
+  summary?: {
+    gmv_30d: number;
+    gmv_trend: { date: string; gmv: number }[];
+    commission_earned_30d: number;
+    commission_pending: number;
+    orders_30d: number;
+    units_30d: number;
+  };
+  collaborations?: {
+    id: string;
+    brand_name: string;
+    brand_logo?: string;
+    status: string;
+    gmv: number;
+    commission: number;
+    product_count: number;
+    video_count: number;
+  }[];
+  products?: {
+    product_id: string;
+    name: string;
+    image?: string;
+    revenue: number;
+    commission_earned: number;
+    commission_rate: number;
+    units: number;
+    video_count: number;
+    revenue_per_video: number;
+  }[];
+  insights?: {
+    id: string;
+    title: string;
+    body: string;
+    product_id?: string;
+    cta: 'generate_scripts';
+  }[];
+  data_freshness?: string;
+}
+
 // ── Rewrite History ─────────────────────────────────────────────────────────
 
 export interface RewriteHistoryItem {

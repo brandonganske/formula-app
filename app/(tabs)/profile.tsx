@@ -18,7 +18,7 @@ import { D, T, R, Shadow, Gradient, SectionLabelStyle } from '@/constants/ds';
 import {
   LogOut, ExternalLink, Shield, Brain, ChevronRight,
   Zap, AtSign, X, Bell, Mail, HelpCircle, FileText,
-  Users, Video, BookOpen, Target, KeyRound, Check, Phone, CreditCard, Trash2,
+  Users, Video, BookOpen, Target, KeyRound, Check, Phone, CreditCard, Trash2, Store,
 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { api, extractData } from '@/lib/api';
@@ -615,6 +615,12 @@ export default function ProfileScreen() {
       <FadeInView delay={80} style={S.section}>
         <Text style={S.sectionLabel}>ACCOUNT</Text>
         <View style={S.group}>
+          <SettingsRow
+            icon={<Store size={20} color={D.coral} strokeWidth={1.8} />}
+            label="Your Shop"
+            sub="Your collaborations & earnings"
+            onPress={() => router.push('/(tabs)/shop')}
+          />
           {(profile as any)?.email && (
             <SettingsRow
               icon={<Mail size={20} color={D.textMuted} strokeWidth={1.8} />}

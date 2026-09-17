@@ -156,6 +156,7 @@ export default function TabLayout() {
         <Tabs.Screen name="scriptiq" options={{ title: 'ScriptIQ' }} />
         <Tabs.Screen name="products" options={{ title: 'Products' }} />
         <Tabs.Screen name="profile"  options={{ title: 'Profile' }} />
+        <Tabs.Screen name="shop"          options={{ href: null }} />
         <Tabs.Screen name="rewrite"       options={{ href: null }} />
         <Tabs.Screen name="videos"        options={{ href: null }} />
         <Tabs.Screen name="productscript" options={{ href: null }} />

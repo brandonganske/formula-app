@@ -17,7 +17,7 @@ import { Skeleton } from '@/components/Skeleton';
 import {
   Brain, Mic, Film, Activity,
   CheckCircle, RefreshCw, AlertCircle,
-  Clapperboard, ShoppingBag, Copy, Check, Zap,
+  Clapperboard, ShoppingBag, Copy, Check, Zap, Store, ArrowRight,
 } from 'lucide-react-native';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -1292,6 +1292,20 @@ export default function BrainScreen() {
           </View>
         </FadeInView>
 
+        {/* Your Shop — performance dashboard link */}
+        <FadeInView delay={20}>
+          <AnimatedPressable style={S.shopLink} haptic="light" onPress={() => router.push('/(tabs)/shop')}>
+            <View style={S.shopLinkIcon}>
+              <Store size={20} color={D.coral} strokeWidth={1.9} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={S.shopLinkTitle}>Your Shop</Text>
+              <Text style={S.shopLinkSub}>Collaborations, commissions & top earners</Text>
+            </View>
+            <ArrowRight size={18} color={D.textDisabled} strokeWidth={2} />
+          </AnimatedPressable>
+        </FadeInView>
+
         {/* How the brain works */}
         <FadeInView delay={30} style={S.howCard}>
           <View style={S.howAccent} />
@@ -1618,6 +1632,24 @@ const S = StyleSheet.create({
   heroDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.24)', marginTop: 18 },
   heroStats: { flexDirection: 'row', paddingTop: 16 },
   heroStatDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.24)', marginVertical: 4 },
+
+  // Your Shop link card
+  shopLink: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    marginHorizontal: 16, marginBottom: 12,
+    backgroundColor: D.card, borderRadius: R.xl,
+    borderWidth: 1, borderColor: D.cardBorder,
+    paddingVertical: 14, paddingHorizontal: 16,
+    ...Shadow.soft,
+  },
+  shopLinkIcon: {
+    width: 42, height: 42, borderRadius: 13, flexShrink: 0,
+    backgroundColor: D.coralSubtle,
+    borderWidth: 1, borderColor: D.coral + '22',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  shopLinkTitle: { ...T.bold, fontSize: 15, color: D.textPrimary, letterSpacing: -0.2 },
+  shopLinkSub: { ...T.regular, fontSize: 12.5, color: D.textMuted, marginTop: 2 },
 
   // How the brain works card
   howCard: {
