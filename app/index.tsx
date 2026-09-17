@@ -423,13 +423,11 @@ export default function AuthScreen() {
       />
 
       {/* ── Hero ─────────────────────────────────────────── */}
-      <View style={[S.hero, { paddingTop: Math.max(insets.top, 24) + (Platform.OS === 'web' ? 48 : 56) }]}>
+      <View style={[S.hero, { paddingTop: Math.max(insets.top, 24) }]}>
         <Animated.View style={{ opacity: markOpacity, transform: [{ scale: markScale }], alignItems: 'center' }}>
-          {/* Logo mark */}
-          <View style={S.markOuter}>
-            <View style={S.markInner}>
-              <FMark size={92} />
-            </View>
+          {/* Logo mark — bare glyph, no containers: clean and minimal */}
+          <View style={S.markPlain}>
+            <FMark size={96} />
           </View>
 
           {/* Wordmark */}
@@ -460,13 +458,11 @@ export default function AuthScreen() {
 
         {/* Typing hook line */}
         <TypingHook startDelay={860} />
-      </View>
 
-      {/* ── Bottom action stack ──────────────────────────── */}
+      {/* ── Action stack — part of the centered composition ── */}
       <Animated.View
         style={[
           S.stack,
-          { paddingBottom: Math.max(insets.bottom, 16) + 12 },
           { opacity: stackOpacity, transform: [{ translateY: stackRise }] },
         ]}
       >
@@ -521,6 +517,7 @@ export default function AuthScreen() {
           </Text>
         </TouchableOpacity>
       </Animated.View>
+      </View>
 
       {/* ── Email sign-in / forgot-password sheet ────────── */}
       <Modal
@@ -737,29 +734,16 @@ const S = StyleSheet.create({
   hero: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 28,
   },
 
-  markOuter: {
-    width: 108, height: 108,
-    borderRadius: 29,
-    backgroundColor: 'rgba(255,255,255,0.16)',
+  markPlain: {
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 20,
-    elevation: 8,
-  },
-  markInner: {
-    width: 84, height: 84,
-    borderRadius: 21,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 10,
   },
 
-  wordmarkRow: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 24 },
+  wordmarkRow: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 18 },
   wordmark: { ...T.bold, fontSize: 36, color: '#FFFFFF', letterSpacing: -1.2 },
   wordmarkDot: { ...T.bold, fontSize: 36, color: '#B6FF8A', letterSpacing: -1.2 },
 
@@ -793,7 +777,10 @@ const S = StyleSheet.create({
 
   // ── Bottom action stack ───────────────────────────────────────────────────
   stack: {
-    paddingHorizontal: 28,
+    marginTop: 44,
+    width: '100%',
+    maxWidth: 360,
+    alignSelf: 'center',
   },
 
   gradientErrorBox: {
