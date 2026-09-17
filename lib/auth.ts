@@ -5,7 +5,7 @@ import { storage } from './storage';
 
 const PROXY_URL = 'https://xrxnpetqsqwsxfbsgybu.supabase.co/functions/v1/iq-proxy';
 const DIRECT_URL = 'https://iq.influenceish.com/api/v1';
-const BASE_URL = Platform.OS === 'web' ? PROXY_URL : DIRECT_URL;
+const BASE_URL = DIRECT_URL; // web now uses direct API (CORS enabled); PROXY_URL retired
 
 export const TOKEN_KEY = 'iq_access_token';
 export const REFRESH_KEY = 'iq_refresh_token';
