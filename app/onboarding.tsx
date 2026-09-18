@@ -1,22 +1,37 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ScrollView, ActivityIndicator, Platform, KeyboardAvoidingView, Switch,
+  View, Text, StyleSheet, TouchableOpacity, TextInput, Image,
+  Animated, ActivityIndicator, Platform, KeyboardAvoidingView, Switch, ScrollView,
 } from 'react-native';
-import FadeInView from '@/components/FadeInView';
-import AnimatedPressable from '@/components/AnimatedPressable';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
-import { D, T, R, Shadow } from '@/constants/ds';
+import { D, T, R, Shadow, Ease } from '@/constants/ds';
 import { Check, ArrowRight, ArrowLeft, MapPin, Phone } from 'lucide-react-native';
-import Svg, { Rect } from 'react-native-svg';
+import Svg, { Rect, Defs, RadialGradient, Stop } from 'react-native-svg';
+import AnimatedPressable from '@/components/AnimatedPressable';
 import { OnboardingPatch } from '@/types/api';
-import { NICHE_OPTIONS, POST_FREQUENCY_OPTIONS, CREATION_GOAL_OPTIONS } from '@/constants/onboarding';
+import { GENDER_OPTIONS, AGE_RANGE_OPTIONS, COUNTRIES } from '@/constants/onboarding';
 
 // ─── Formula F mark ───────────────────────────────────────────────────────────
 
-function FormulaMark({ size = 14 }: { size?: number }) {
-  const scale = size / 20;
+// Soft ambient glow across the top — a radial gradient that fades fully to
+// transparent (no hard edge / circle).
+function TopGlow() {
+  return (
+    <Svg style={glowS.svg} width="100%" height={300} pointerEvents="none">
+      <Defs>
+        <RadialGradient id="topGlow" cx="50%" cy="0%" rx="75%" ry="100%" fx="50%" fy="0%">
+          <Stop offset="0%" stopColor={D.coral} stopOpacity={0.20} />
+          <Stop offset="55%" stopColor={D.coral} stopOpacity={0.05} />
+          <Stop offset="100%" stopColor={D.coral} stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100%" height="300" fill="url(#topGlow)" />
+    </Svg>
+  );
+}
+
+function FormulaMark({ size = 18 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 100 100">
       <Rect x="22" y="16" width="16" height="68" rx="8" fill="#FFFFFF" />
@@ -26,536 +41,525 @@ function FormulaMark({ size = 14 }: { size?: number }) {
   );
 }
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Step model ───────────────────────────────────────────────────────────────
 
 interface Option { label: string; value: string; sub?: string }
-
-const TOTAL_STEPS = 4;
-
-// ─── Screen definitions ───────────────────────────────────────────────────────
-
-type FieldDef = {
-  key: keyof OnboardingPatch;
-  label: string;
-  sub: string;
+type StepKind = 'welcome' | 'options' | 'name' | 'country' | 'contact';
+type Step = {
+  id: string;
+  kind: StepKind;
+  field?: keyof OnboardingPatch;
+  title: string;
+  subtitle: string;
   options?: Option[];
-  textInput?: boolean;
-  placeholder?: string;
-  keyboardType?: any;
-  autoCapitalize?: any;
 };
 
-const SCREEN_1_FIELDS: FieldDef[] = [
-  {
-    key: 'display_name',
-    label: 'Your name',
-    sub: 'How we\'ll address you in the app.',
-    textInput: true,
-    placeholder: 'e.g. Alex Rivera',
-    autoCapitalize: 'words',
-  },
-  {
-    key: 'gender',
-    label: 'Your gender',
-    sub: 'Helps us write scripts in your authentic voice.',
-    options: [
-      { label: 'Male', value: 'male' },
-      { label: 'Female', value: 'female' },
-      { label: 'Non-binary', value: 'non_binary' },
-      { label: 'Prefer not to say', value: 'prefer_not_to_say' },
-    ],
-  },
-  {
-    key: 'age_range',
-    label: 'Age range',
-    sub: 'Tunes vocabulary and cultural references.',
-    options: [
-      { label: '18 – 24', value: '18-24' },
-      { label: '25 – 34', value: '25-34' },
-      { label: '35 – 44', value: '35-44' },
-      { label: '45+', value: '45+' },
-    ],
-  },
-  {
-    key: 'region',
-    label: 'Where you\'re based',
-    sub: 'Filters trending content to your market.',
-    textInput: true,
-    placeholder: 'e.g. United States',
-  },
-];
+// Shared with Settings (constants/onboarding.ts) so the two never drift.
+const GENDER_OPTS: Option[] = GENDER_OPTIONS;
+const AGE_OPTS: Option[] = AGE_RANGE_OPTIONS;
 
-const SCREEN_2_FIELDS: FieldDef[] = [
-  {
-    key: 'primary_niche',
-    label: 'Your niche',
-    sub: 'Pre-seeds your brain before the AI analysis.',
-    options: NICHE_OPTIONS,
-  },
-  {
-    key: 'experience_level',
-    label: 'Experience level',
-    sub: 'Calibrates how confident your rewrites sound.',
-    options: [
-      { label: 'Just starting out', value: 'just_starting', sub: 'Less than 6 months' },
-      { label: '1 – 2 years', value: '1-2_years' },
-      { label: '3+ years', value: '3+_years' },
-    ],
-  },
-  {
-    key: 'post_frequency',
-    label: 'How often you post',
-    sub: 'Drives cadence recommendations.',
-    options: POST_FREQUENCY_OPTIONS,
-  },
-];
-
-const SCREEN_3_FIELDS: FieldDef[] = [
-  {
-    key: 'creation_goal',
-    label: 'Why you create',
-    sub: 'Shapes the CTA style in every rewrite.',
-    options: CREATION_GOAL_OPTIONS,
-  },
-  {
-    key: 'audience_gender',
-    label: 'Audience gender',
-    sub: 'Targets rewrites to your viewer, not you.',
-    options: [
-      { label: 'Mostly men', value: 'mostly_men' },
-      { label: 'Mostly women', value: 'mostly_women' },
-      { label: 'Mixed', value: 'mixed' },
-    ],
-  },
-  {
-    key: 'biggest_challenge',
-    label: 'Your biggest challenge',
-    sub: 'Personalises what we surface first.',
-    options: [
-      { label: 'Writing hooks', value: 'hooks' },
-      { label: 'Scripting content', value: 'scripts' },
-      { label: 'Staying consistent', value: 'consistency' },
-      { label: 'Converting viewers', value: 'conversion' },
-    ],
-  },
-];
-
-const SCREEN_4_FIELDS: FieldDef[] = [
-  {
-    key: 'whatsapp',
-    label: 'WhatsApp number',
-    sub: 'Optional — for support and important account updates. We\'ll never share it.',
-    textInput: true,
-    placeholder: 'e.g. +1 555 123 4567',
-    keyboardType: 'phone-pad',
-    autoCapitalize: 'none',
-  },
-];
-
-// Contact-channel consent opt-ins shown on the final step.
 const OPTIN_CHANNELS: { key: 'whatsapp' | 'sms' | 'push' | 'email'; label: string; sub: string }[] = [
-  { key: 'whatsapp', label: 'WhatsApp', sub: 'Support and account updates.' },
-  { key: 'sms', label: 'Text messages', sub: 'Time-sensitive alerts via SMS.' },
   { key: 'push', label: 'Push notifications', sub: 'When your creator brain is ready.' },
   { key: 'email', label: 'Email', sub: 'Tips, updates, and the occasional offer.' },
+  { key: 'sms', label: 'Text messages', sub: 'Time-sensitive alerts via SMS.' },
+  { key: 'whatsapp', label: 'WhatsApp', sub: 'Support and account updates.' },
 ];
 
-// ─── Small components ─────────────────────────────────────────────────────────
+// ─── Option card ──────────────────────────────────────────────────────────────
 
-function OptionChip({
+function OptionCard({
   option, selected, onPress,
 }: { option: Option; selected: boolean; onPress: () => void }) {
   return (
-    <TouchableOpacity
-      style={[chipS.wrap, selected && chipS.wrapSelected]}
+    <AnimatedPressable
+      style={[cardS.wrap, selected && cardS.wrapSelected]}
       onPress={onPress}
-      activeOpacity={0.75}
+      haptic="light"
     >
-      <View style={chipS.inner}>
-        <View style={{ flex: 1 }}>
-          <Text style={[chipS.label, selected && chipS.labelSelected]}>{option.label}</Text>
-          {option.sub ? <Text style={chipS.sub}>{option.sub}</Text> : null}
-        </View>
-        {selected && (
-          <View style={chipS.check}>
-            <Check size={12} color="#FFF" strokeWidth={3} />
+      <Text style={[cardS.label, selected && cardS.labelSelected]}>{option.label}</Text>
+      {option.sub ? <Text style={cardS.sub}>{option.sub}</Text> : null}
+      <View style={[cardS.tick, selected && cardS.tickSelected]}>
+        {selected && <Check size={13} color="#FFF" strokeWidth={3} />}
+      </View>
+    </AnimatedPressable>
+  );
+}
+
+// ─── Animated step wrapper (slide + fade entrance) ─────────────────────────────
+
+function StepView({ dir, children }: { dir: number; children: React.ReactNode }) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const tx = useRef(new Animated.Value(dir * 44)).current;
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 1, duration: 340, easing: Ease.out, useNativeDriver: true }),
+      Animated.timing(tx, { toValue: 0, duration: 380, easing: Ease.out, useNativeDriver: true }),
+    ]).start();
+  }, []);
+  return (
+    <Animated.View style={{ flex: 1, opacity, transform: [{ translateX: tx }] }}>
+      {children}
+    </Animated.View>
+  );
+}
+
+// ─── Avatar (TikTok picture, coral ring) ───────────────────────────────────────
+
+function Avatar({ uri, fallback }: { uri?: string | null; fallback: string }) {
+  const ring = useRef(new Animated.Value(0.9)).current;
+  const fade = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fade, { toValue: 1, duration: 500, easing: Ease.out, useNativeDriver: true }),
+      Animated.spring(ring, { toValue: 1, friction: 6, tension: 80, useNativeDriver: true }),
+    ]).start();
+  }, []);
+  return (
+    <Animated.View style={[avaS.wrap, { opacity: fade, transform: [{ scale: ring }] }]}>
+      <View style={avaS.glow} />
+      <View style={avaS.ring}>
+        {uri ? (
+          <Image source={{ uri }} style={avaS.img} />
+        ) : (
+          <View style={avaS.fallback}>
+            <Text style={avaS.fallbackText}>{fallback}</Text>
           </View>
         )}
       </View>
-    </TouchableOpacity>
+    </Animated.View>
   );
 }
 
-function FieldBlock({
-  field,
-  value,
-  onChange,
-  delay,
-}: {
-  field: (typeof SCREEN_1_FIELDS)[number];
-  value: string;
-  onChange: (v: string) => void;
-  delay: number;
-}) {
-  return (
-    <FadeInView delay={delay} direction="down" style={fbS.wrap}>
-      <Text style={fbS.label}>{field.label}</Text>
-      <Text style={fbS.sub}>{field.sub}</Text>
-      {field.textInput ? (
-        <View style={fbS.textRow}>
-          <View style={fbS.textIcon}>
-            {field.key === 'whatsapp'
-              ? <Phone size={14} color={D.textMuted} strokeWidth={2} />
-              : <MapPin size={14} color={D.textMuted} strokeWidth={2} />}
-          </View>
-          <TextInput
-            style={fbS.textInput}
-            placeholder={field.placeholder}
-            placeholderTextColor={D.textDisabled}
-            value={value}
-            onChangeText={onChange}
-            keyboardType={field.keyboardType}
-            autoCapitalize={field.autoCapitalize ?? 'words'}
-            autoCorrect={false}
-          />
-        </View>
-      ) : (
-        <View style={fbS.chips}>
-          {field.options!.map((opt) => (
-            <OptionChip
-              key={opt.value}
-              option={opt}
-              selected={value === opt.value}
-              onPress={() => onChange(value === opt.value ? '' : opt.value)}
-            />
-          ))}
-        </View>
-      )}
-    </FadeInView>
-  );
-}
-
-function ProgressDots({ step, total }: { step: number; total: number }) {
-  return (
-    <View style={progS.row}>
-      {Array.from({ length: total }).map((_, i) => (
-        <View key={i} style={[progS.dot, i < step && progS.dotActive, i === step - 1 && progS.dotCurrent]} />
-      ))}
-    </View>
-  );
-}
-
-// ─── Main screen ─────────────────────────────────────────────────────────────
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { patchMe, refreshMe } = useAuth();
+  const { profile, patchMe, refreshMe } = useAuth();
 
-  const [step, setStep] = useState(1);
+  const tiktokName = (profile?.display_name ?? '').trim();
+  const handle = (profile?.handle ?? '').trim();
+  const hasName = tiktokName.length > 0;
+  const firstName = hasName ? tiktokName.split(/\s+/)[0] : (handle || 'there');
+  const avatarUrl = profile?.avatar_url ?? null;
+  const initials = (tiktokName || handle || 'F').slice(0, 1).toUpperCase();
+
+  const steps: Step[] = useMemo(() => {
+    const list: Step[] = [
+      {
+        id: 'welcome', kind: 'welcome',
+        title: `Nice to meet you, ${firstName}.`,
+        subtitle: 'Help us learn a little more about you so every script sounds authentically like you.',
+      },
+    ];
+    if (!hasName) {
+      list.push({
+        id: 'name', kind: 'name', field: 'display_name',
+        title: 'What should we call you?',
+        subtitle: 'The name we\'ll use across the app.',
+      });
+    }
+    list.push(
+      {
+        id: 'gender', kind: 'options', field: 'gender',
+        title: 'A little about you.',
+        subtitle: 'This helps us write in your authentic voice.',
+        options: GENDER_OPTS,
+      },
+      {
+        id: 'age', kind: 'options', field: 'age_range',
+        title: 'Your age range.',
+        subtitle: 'Tunes vocabulary and cultural references.',
+        options: AGE_OPTS,
+      },
+      {
+        id: 'country', kind: 'country', field: 'region',
+        title: 'Where are you based?',
+        subtitle: 'Filters trending content to your market.',
+      },
+      {
+        id: 'contact', kind: 'contact',
+        title: 'Stay in the loop.',
+        subtitle: 'All optional — pick what you\'re comfortable with. We never share your info.',
+      },
+    );
+    return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasName, firstName]);
+
+  const total = steps.length;
+  const dataTotal = total - 1; // exclude the welcome hero from the progress count
+  const [index, setIndex] = useState(0);
+  const [dir, setDir] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // All answers live in one flat object
   const [answers, setAnswers] = useState<Partial<OnboardingPatch>>({});
-
-  // Contact-channel consent opt-ins (default OFF — user actively consents).
   const [optins, setOptins] = useState({ whatsapp: false, sms: false, push: false, email: false });
-  const toggleOptin = (k: keyof typeof optins) => setOptins((p) => ({ ...p, [k]: !p[k] }));
-
   const set = (key: keyof OnboardingPatch, val: string) =>
-    setAnswers((prev) => ({ ...prev, [key]: val || undefined }));
+    setAnswers((p) => ({ ...p, [key]: val || undefined }));
 
-  const handleNext = async () => {
+  const step = steps[index];
+  const isWelcome = step.kind === 'welcome';
+  const isLast = index === total - 1;
+
+  // Animated progress bar over the DATA steps (welcome excluded).
+  const progress = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(progress, {
+      toValue: isWelcome ? 0 : index / dataTotal,
+      duration: 340, easing: Ease.out, useNativeDriver: false,
+    }).start();
+  }, [index, dataTotal, isWelcome]);
+
+  const goNext = () => {
     setError(null);
-    setSaving(true);
-
-    // Build the patch for this screen
-    const screenKeys: (keyof OnboardingPatch)[][] = [
-      ['display_name', 'gender', 'age_range', 'region'],
-      ['primary_niche', 'experience_level', 'post_frequency'],
-      ['creation_goal', 'audience_gender', 'biggest_challenge'],
-      ['whatsapp'],
-    ];
-    const keys = screenKeys[step - 1];
-    const patch: OnboardingPatch = {};
-    for (const k of keys) {
-      if (answers[k]) (patch as any)[k] = answers[k];
-    }
-    // Final step also carries the contact-channel consent opt-ins.
-    if (step === TOTAL_STEPS) {
-      patch.whatsapp_optin = optins.whatsapp;
-      patch.sms_optin = optins.sms;
-      patch.push_optin = optins.push;
-      patch.email_optin = optins.email;
-      patch.complete = true;
-    }
-
-    const result = await patchMe(patch);
-    setSaving(false);
-
-    if (result.error) {
-      setError(result.error);
-      return;
-    }
-
-    if (step < TOTAL_STEPS) {
-      setStep((s) => s + 1);
-    } else {
-      // Confirm onboarding_completed_at is set, then enter the app
-      await refreshMe();
-      router.replace('/(tabs)');
-    }
+    if (isLast) { finish(); return; }
+    setDir(1);
+    setIndex((i) => Math.min(i + 1, total - 1));
+  };
+  const goBack = () => {
+    setError(null);
+    setDir(-1);
+    setIndex((i) => Math.max(i - 1, 0));
   };
 
-  const screenTitles = ['About You', 'Your Content', 'Your Goals', 'Stay Connected'];
-  const screenSubs = [
-    'Tell us a bit about yourself.',
-    'Help us understand your content.',
-    'Tell us what you\'re here to achieve.',
-    'Last step — how we reach you if needed.',
-  ];
+  const selectOption = (field: keyof OnboardingPatch, value: string) => {
+    set(field, value);
+    setTimeout(goNext, 230);
+  };
 
-  const currentFields =
-    step === 1 ? SCREEN_1_FIELDS
-    : step === 2 ? SCREEN_2_FIELDS
-    : step === 3 ? SCREEN_3_FIELDS
-    : SCREEN_4_FIELDS;
+  const finish = async () => {
+    setSaving(true);
+    setError(null);
+    const patch: OnboardingPatch = { ...answers };
+    patch.whatsapp_optin = optins.whatsapp;
+    patch.sms_optin = optins.sms;
+    patch.push_optin = optins.push;
+    patch.email_optin = optins.email;
+    patch.complete = true;
+    const result = await patchMe(patch);
+    if (result.error) { setSaving(false); setError(result.error); return; }
+    await refreshMe();
+    setSaving(false);
+    // Straight into the Creator Brain build — the forced full-page step everyone
+    // without a brain sees (also gated in app/index.tsx).
+    router.replace('/create-brain');
+  };
+
+  const canContinue =
+    step.kind === 'welcome' || step.kind === 'contact' ? true
+    : step.kind === 'country' ? !!(answers.region && answers.region.trim())
+    : step.kind === 'name' ? !!(answers.display_name && answers.display_name.trim())
+    : !!answers[step.field as keyof OnboardingPatch];
+
+  const progressWidth = progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
+  const ctaText = isWelcome ? 'Get started' : isLast ? 'Finish setup' : 'Continue';
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={S.root}
     >
-      <View style={S.bgGlow} />
+      <TopGlow />
 
       {/* Header */}
-      <View style={S.topBar}>
-        {step > 1 ? (
-          <TouchableOpacity style={S.backBtn} onPress={() => setStep((s) => s - 1)} hitSlop={12}>
-            <ArrowLeft size={18} color={D.textSecondary} strokeWidth={2} />
-          </TouchableOpacity>
-        ) : <View style={S.backBtn} />}
-
-        <ProgressDots step={step} total={TOTAL_STEPS} />
-
-        <TouchableOpacity onPress={handleNext} hitSlop={12} style={S.skipBtn} disabled={saving}>
-          <Text style={S.skipText}>Skip</Text>
-        </TouchableOpacity>
+      <View style={S.header}>
+        <View style={S.headerTop}>
+          {index > 0 ? (
+            <TouchableOpacity style={S.backBtn} onPress={goBack} hitSlop={12}>
+              <ArrowLeft size={19} color={D.textSecondary} strokeWidth={2} />
+            </TouchableOpacity>
+          ) : <View style={S.backBtn} />}
+          <View style={S.brandMark}><FormulaMark size={15} /></View>
+          <Text style={S.counter}>{isWelcome ? '' : `${index}/${dataTotal}`}</Text>
+        </View>
+        {!isWelcome && (
+          <View style={S.track}>
+            <Animated.View style={[S.trackFill, { width: progressWidth }]} />
+          </View>
+        )}
       </View>
 
-      <ScrollView
-        contentContainerStyle={S.scroll}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Logo */}
-        <FadeInView direction="none" duration={300} style={S.logoRow}>
-          <View style={S.logoMark}>
-            <FormulaMark size={18} />
-          </View>
-          <Text style={S.stepLabel}>{step} of {TOTAL_STEPS}</Text>
-        </FadeInView>
+      {/* Body */}
+      <View style={S.body}>
+        <StepView key={step.id} dir={dir}>
+          {isWelcome ? (
+            <View style={S.welcome}>
+              <Avatar uri={avatarUrl} fallback={initials} />
+              {handle ? <Text style={S.welcomeHandle}>@{handle}</Text> : null}
+              <Text style={S.welcomeTitle}>{step.title}</Text>
+              <Text style={S.welcomeSub}>{step.subtitle}</Text>
+            </View>
+          ) : (
+            <ScrollView
+              contentContainerStyle={S.scroll}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={S.title}>{step.title}</Text>
+              <Text style={S.subtitle}>{step.subtitle}</Text>
 
-        {/* Title */}
-        <FadeInView key={`title-${step}`} direction="down" style={S.headline}>
-          <Text style={S.title}>{screenTitles[step - 1]}</Text>
-          <Text style={S.sub}>{screenSubs[step - 1]}</Text>
-        </FadeInView>
-
-        {/* Fields */}
-        <View style={S.fields}>
-          {(currentFields as typeof SCREEN_1_FIELDS).map((field, i) => (
-            <FieldBlock
-              key={`${step}-${field.key}`}
-              field={field}
-              value={(answers as any)[field.key] ?? ''}
-              onChange={(v) => set(field.key, v)}
-              delay={i * 60}
-            />
-          ))}
-        </View>
-
-        {/* Contact opt-ins (final step) */}
-        {step === TOTAL_STEPS && (
-          <FadeInView delay={120} direction="down" style={S.optinWrap}>
-            <Text style={S.optinLabel}>How can we reach you?</Text>
-            <Text style={S.optinHint}>All optional — choose what you're comfortable with.</Text>
-            {OPTIN_CHANNELS.map((c) => (
-              <View key={c.key} style={S.optinRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={S.optinName}>{c.label}</Text>
-                  <Text style={S.optinSub}>{c.sub}</Text>
+              {step.kind === 'options' && (
+                <View style={S.options}>
+                  {step.options!.map((opt) => (
+                    <OptionCard
+                      key={opt.value}
+                      option={opt}
+                      selected={answers[step.field as keyof OnboardingPatch] === opt.value}
+                      onPress={() => selectOption(step.field!, opt.value)}
+                    />
+                  ))}
                 </View>
-                <Switch
-                  value={optins[c.key]}
-                  onValueChange={() => toggleOptin(c.key)}
-                  trackColor={{ false: D.border, true: D.coral + 'AA' }}
-                  thumbColor={optins[c.key] ? D.coral : D.textDisabled}
-                />
-              </View>
-            ))}
-          </FadeInView>
-        )}
+              )}
 
-        {/* Error */}
-        {error && (
-          <FadeInView direction="none" duration={200} style={S.errorBox}>
-            <Text style={S.errorText}>{error}</Text>
-          </FadeInView>
-        )}
+              {step.kind === 'name' && (
+                <View style={S.inputRow}>
+                  <TextInput
+                    style={S.input}
+                    placeholder="e.g. Alex Rivera"
+                    placeholderTextColor={D.textDisabled}
+                    value={answers.display_name ?? ''}
+                    onChangeText={(v) => set('display_name', v)}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    returnKeyType="next"
+                    onSubmitEditing={() => canContinue && goNext()}
+                    autoFocus
+                  />
+                </View>
+              )}
 
-        {/* CTA */}
-        <FadeInView delay={220} direction="down" style={undefined}>
+              {step.kind === 'country' && (
+                <View style={S.countryWrap}>
+                  {COUNTRIES.map((c) => {
+                    const sel = answers.region === c.name;
+                    return (
+                      <AnimatedPressable
+                        key={c.name}
+                        style={[S.countryChip, sel && S.countryChipSel]}
+                        onPress={() => selectOption('region', c.name)}
+                        haptic="light"
+                      >
+                        <Text style={S.countryFlag}>{c.flag}</Text>
+                        <Text style={[S.countryName, sel && S.countryNameSel]}>{c.name}</Text>
+                      </AnimatedPressable>
+                    );
+                  })}
+                </View>
+              )}
+
+              {step.kind === 'contact' && (
+                <View>
+                  <View style={S.inputRow}>
+                    <Phone size={16} color={D.textMuted} strokeWidth={2} style={{ marginLeft: 14 }} />
+                    <TextInput
+                      style={S.input}
+                      placeholder="Phone number (optional)"
+                      placeholderTextColor={D.textDisabled}
+                      value={answers.whatsapp ?? ''}
+                      onChangeText={(v) => set('whatsapp', v)}
+                      keyboardType="phone-pad"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                  </View>
+
+                  <Text style={S.consentLabel}>How can we reach you?</Text>
+                  <View style={S.consentCard}>
+                    {OPTIN_CHANNELS.map((c, i) => (
+                      <View key={c.key} style={[S.consentRow, i > 0 && S.consentDivider]}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={S.consentName}>{c.label}</Text>
+                          <Text style={S.consentSub}>{c.sub}</Text>
+                        </View>
+                        <Switch
+                          value={optins[c.key]}
+                          onValueChange={() => setOptins((p) => ({ ...p, [c.key]: !p[c.key] }))}
+                          trackColor={{ false: D.border, true: D.coral }}
+                          thumbColor="#FFF"
+                          ios_backgroundColor={D.border}
+                        />
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {error && (
+                <View style={S.errorBox}>
+                  <Text style={S.errorText}>{error}</Text>
+                </View>
+              )}
+
+              <View style={{ height: 24 }} />
+            </ScrollView>
+          )}
+        </StepView>
+      </View>
+
+      {/* CTA — shown on everything except auto-advancing (options / country) steps */}
+      {step.kind !== 'options' && step.kind !== 'country' && (
+        <View style={S.footer}>
           <AnimatedPressable
-            style={[S.nextBtn, saving && S.nextBtnDisabled]}
-            onPress={handleNext}
-            disabled={saving}
-            haptic="light"
+            style={[S.cta, (!canContinue || saving) && S.ctaDisabled]}
+            onPress={goNext}
+            disabled={!canContinue || saving}
+            haptic="medium"
           >
             {saving ? (
               <ActivityIndicator color="#FFF" size="small" />
             ) : (
               <>
-                <Text style={S.nextBtnText}>
-                  {step < TOTAL_STEPS ? 'Continue' : 'Finish Setup'}
-                </Text>
-                <View style={S.nextArrow}>
-                  <ArrowRight size={15} color="#FFF" strokeWidth={2.5} />
-                </View>
+                <Text style={S.ctaText}>{ctaText}</Text>
+                <View style={S.ctaArrow}><ArrowRight size={15} color="#FFF" strokeWidth={2.5} /></View>
               </>
             )}
           </AnimatedPressable>
-        </FadeInView>
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const chipS = StyleSheet.create({
-  wrap: {
-    borderRadius: R.md,
-    borderWidth: 1,
-    borderColor: D.border,
-    backgroundColor: D.card,
+const glowS = StyleSheet.create({
+  svg: { position: 'absolute', top: 0, left: 0, right: 0 },
+});
+
+const avaS = StyleSheet.create({
+  wrap: { alignItems: 'center', justifyContent: 'center', marginBottom: 26 },
+  glow: {
+    position: 'absolute', width: 150, height: 150, borderRadius: 75,
+    backgroundColor: D.coralGlow, opacity: 0.5,
   },
-  wrapSelected: {
-    borderColor: D.coral,
-    backgroundColor: D.coralFaint,
+  ring: {
+    width: 108, height: 108, borderRadius: 54,
+    borderWidth: 3, borderColor: D.coral,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: D.card, ...Shadow.coral,
   },
-  inner: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 13, gap: 10,
-  },
-  label: { ...T.medium, fontSize: 14, color: D.textSecondary },
-  labelSelected: { color: D.textPrimary },
-  sub: { ...T.regular, fontSize: 11, color: D.textMuted, marginTop: 2 },
-  check: {
-    width: 20, height: 20, borderRadius: 10,
-    backgroundColor: D.coral,
+  img: { width: 96, height: 96, borderRadius: 48 },
+  fallback: {
+    width: 96, height: 96, borderRadius: 48, backgroundColor: D.coral,
     alignItems: 'center', justifyContent: 'center',
   },
+  fallbackText: { ...T.bold, fontSize: 40, color: '#FFF' },
 });
 
-const fbS = StyleSheet.create({
-  wrap: { gap: 10, marginBottom: 4 },
-  label: { ...T.bold, fontSize: 15, color: D.textPrimary, letterSpacing: -0.2 },
-  sub: { ...T.regular, fontSize: 13, color: D.textMuted, lineHeight: 19, marginBottom: 2 },
-  chips: { gap: 8 },
-  textRow: {
+const cardS = StyleSheet.create({
+  wrap: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: D.card, borderRadius: R.md,
-    borderWidth: 1, borderColor: D.border,
+    backgroundColor: D.card, borderRadius: R.lg,
+    borderWidth: 1.5, borderColor: D.border,
+    paddingVertical: 18, paddingHorizontal: 18,
   },
-  textIcon: { paddingLeft: 14, paddingRight: 4 },
-  textInput: {
-    flex: 1, ...T.regular, fontSize: 15,
-    color: D.textPrimary, paddingVertical: 14, paddingHorizontal: 8,
+  wrapSelected: { borderColor: D.coral, backgroundColor: D.coralFaint },
+  label: { ...T.medium, fontSize: 16, color: D.textSecondary, flex: 1 },
+  labelSelected: { color: D.textPrimary },
+  sub: { ...T.regular, fontSize: 12, color: D.textMuted, marginRight: 10 },
+  tick: {
+    width: 24, height: 24, borderRadius: 12,
+    borderWidth: 1.5, borderColor: D.border,
+    alignItems: 'center', justifyContent: 'center',
   },
-});
-
-const progS = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dot: {
-    width: 6, height: 6, borderRadius: 3,
-    backgroundColor: D.surface,
-    borderWidth: 1, borderColor: D.border,
-  },
-  dotActive: { backgroundColor: D.coral + '50', borderColor: D.coral + '40' },
-  dotCurrent: { width: 20, backgroundColor: D.coral, borderColor: D.coral },
+  tickSelected: { backgroundColor: D.coral, borderColor: D.coral },
 });
 
 const S = StyleSheet.create({
   root: { flex: 1, backgroundColor: D.bg },
-
   bgGlow: {
-    position: 'absolute', top: -100, right: -80,
-    width: 300, height: 300, borderRadius: 150,
-    backgroundColor: D.coralGlow, opacity: 0.25,
+    position: 'absolute', top: -120, right: -90,
+    width: 320, height: 320, borderRadius: 160,
+    backgroundColor: D.coralGlow, opacity: 0.18,
   },
 
-  topBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  header: {
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'web' ? 24 : 56,
-    paddingBottom: 12,
+    paddingTop: Platform.OS === 'web' ? 20 : 58,
+    paddingBottom: 14,
   },
-  backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  skipBtn: { paddingHorizontal: 4, paddingVertical: 6 },
-  skipText: { ...T.medium, fontSize: 13, color: D.textMuted },
-
-  scroll: { paddingHorizontal: 24, paddingBottom: 40 },
-
-  logoRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 28, marginTop: 8,
+  headerTop: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginBottom: 16,
   },
-  logoMark: {
-    width: 28, height: 28, borderRadius: 8,
-    backgroundColor: D.coral,
-    alignItems: 'center', justifyContent: 'center',
+  backBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
+  brandMark: {
+    width: 30, height: 30, borderRadius: 9, backgroundColor: D.coral,
+    alignItems: 'center', justifyContent: 'center', ...Shadow.coral,
   },
-  stepLabel: { ...T.medium, fontSize: 12, color: D.textMuted, letterSpacing: 0.3 },
+  counter: { ...T.medium, fontSize: 13, color: D.textMuted, width: 38, textAlign: 'right' },
 
-  headline: { marginBottom: 28 },
-  title: { ...T.bold, fontSize: 30, color: D.textPrimary, letterSpacing: -0.8, lineHeight: 38 },
-  sub: { ...T.regular, fontSize: 14, color: D.textSecondary, marginTop: 8, lineHeight: 22 },
+  track: { height: 4, borderRadius: 2, backgroundColor: D.border, overflow: 'hidden' },
+  trackFill: { height: 4, borderRadius: 2, backgroundColor: D.coral },
 
-  fields: { gap: 28, marginBottom: 24 },
+  body: { flex: 1 },
 
-  optinWrap: {
-    backgroundColor: D.coralFaint, borderRadius: R.md,
-    borderWidth: 1, borderColor: D.border,
-    padding: 18, marginBottom: 24,
-  },
-  optinLabel: { ...T.bold, fontSize: 15, color: D.textPrimary, letterSpacing: -0.2 },
-  optinHint: { ...T.regular, fontSize: 12.5, color: D.textSecondary, marginTop: 3, marginBottom: 6, lineHeight: 18 },
-  optinRow: {
+  // Welcome hero
+  welcome: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, paddingBottom: 40 },
+  welcomeHandle: { ...T.medium, fontSize: 14, color: D.coral, marginBottom: 12, letterSpacing: 0.2 },
+  welcomeTitle: { ...T.bold, fontSize: 30, color: D.textPrimary, letterSpacing: -0.9, lineHeight: 37, textAlign: 'center' },
+  welcomeSub: { ...T.regular, fontSize: 15.5, color: D.textSecondary, marginTop: 14, lineHeight: 24, textAlign: 'center' },
+
+  // Question steps
+  scroll: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 8 },
+  title: { ...T.bold, fontSize: 30, color: D.textPrimary, letterSpacing: -0.9, lineHeight: 37, marginTop: 18 },
+  subtitle: { ...T.regular, fontSize: 15, color: D.textSecondary, marginTop: 10, lineHeight: 22, marginBottom: 30 },
+
+  options: { gap: 12 },
+
+  inputRow: {
     flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 12, borderTopWidth: 1, borderTopColor: D.border,
+    backgroundColor: D.card, borderRadius: R.lg,
+    borderWidth: 1.5, borderColor: D.border,
   },
-  optinName: { ...T.medium, fontSize: 14.5, color: D.textPrimary },
-  optinSub: { ...T.regular, fontSize: 12, color: D.textSecondary, marginTop: 2, lineHeight: 16 },
+  input: {
+    flex: 1, ...T.regular, fontSize: 17,
+    color: D.textPrimary, paddingVertical: 17, paddingHorizontal: 14,
+  },
+
+  countryWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  countryChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingVertical: 12, paddingHorizontal: 15,
+    borderRadius: R.full, borderWidth: 1.5, borderColor: D.border, backgroundColor: D.card,
+  },
+  countryChipSel: { borderColor: D.coral, backgroundColor: D.coralFaint },
+  countryFlag: { fontSize: 17 },
+  countryName: { ...T.medium, fontSize: 14.5, color: D.textSecondary },
+  countryNameSel: { color: D.coral },
+
+  consentLabel: { ...T.bold, fontSize: 15, color: D.textPrimary, letterSpacing: -0.2, marginTop: 26, marginBottom: 12 },
+  consentCard: {
+    backgroundColor: D.card, borderRadius: R.lg,
+    borderWidth: 1.5, borderColor: D.border, paddingHorizontal: 16,
+  },
+  consentRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14 },
+  consentDivider: { borderTopWidth: 1, borderTopColor: D.borderSubtle },
+  consentName: { ...T.medium, fontSize: 15, color: D.textPrimary },
+  consentSub: { ...T.regular, fontSize: 12.5, color: D.textSecondary, marginTop: 2, lineHeight: 17 },
 
   errorBox: {
-    backgroundColor: D.errorSubtle, borderRadius: R.sm,
-    padding: 13, borderWidth: 1, borderColor: D.errorBorder, marginBottom: 16,
+    backgroundColor: D.errorSubtle, borderRadius: R.md,
+    padding: 13, borderWidth: 1, borderColor: D.errorBorder, marginTop: 18,
   },
   errorText: { ...T.regular, fontSize: 13, color: D.error },
 
-  nextBtn: {
+  footer: {
+    paddingHorizontal: 24,
+    paddingBottom: Platform.OS === 'web' ? 24 : 40,
+    paddingTop: 10,
+  },
+  cta: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     backgroundColor: D.coral, borderRadius: R.full,
-    paddingVertical: 16, gap: 10,
-    ...Shadow.coral,
+    paddingVertical: 17, gap: 10, ...Shadow.coral,
   },
-  nextBtnDisabled: { opacity: 0.55 },
-  nextBtnText: { ...T.bold, fontSize: 16, color: '#FFF', letterSpacing: -0.2 },
-  nextArrow: {
+  ctaDisabled: { opacity: 0.4 },
+  ctaText: { ...T.bold, fontSize: 16.5, color: '#FFF', letterSpacing: -0.2 },
+  ctaArrow: {
     width: 26, height: 26, borderRadius: 13,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center', justifyContent: 'center',
   },
 });

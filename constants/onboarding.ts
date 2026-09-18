@@ -3,6 +3,39 @@
 
 export interface OptionDef { label: string; value: string; sub?: string }
 
+// The questions the onboarding flow actually asks (gender → age → where based).
+// Settings edits the same fields with the same lists.
+export const GENDER_OPTIONS: OptionDef[] = [
+  { label: 'Male', value: 'male' },
+  { label: 'Female', value: 'female' },
+  { label: 'Non-binary', value: 'non_binary' },
+  { label: 'Prefer not to say', value: 'prefer_not_to_say' },
+];
+
+export const AGE_RANGE_OPTIONS: OptionDef[] = [
+  { label: '18 – 24', value: '18-24' },
+  { label: '25 – 34', value: '25-34' },
+  { label: '35 – 44', value: '35-44' },
+  { label: '45 +', value: '45+' },
+];
+
+export const COUNTRIES: { flag: string; name: string }[] = [
+  { flag: '🇺🇸', name: 'United States' },
+  { flag: '🇬🇧', name: 'United Kingdom' },
+  { flag: '🇨🇦', name: 'Canada' },
+  { flag: '🇦🇺', name: 'Australia' },
+  { flag: '🇮🇪', name: 'Ireland' },
+  { flag: '🇳🇿', name: 'New Zealand' },
+  { flag: '🇮🇳', name: 'India' },
+  { flag: '🇵🇭', name: 'Philippines' },
+  { flag: '🇿🇦', name: 'South Africa' },
+  { flag: '🇳🇬', name: 'Nigeria' },
+  { flag: '🌍', name: 'Somewhere else' },
+];
+
+// Country list as select options (flag + name) for the Settings editor.
+export const COUNTRY_OPTIONS: OptionDef[] = COUNTRIES.map((c) => ({ label: `${c.flag}  ${c.name}`, value: c.name }));
+
 // Clean a TikTok handle from whatever the user pastes — a bare handle, an
 // @handle, or a full profile URL (https://www.tiktok.com/@username?lang=en).
 export function normalizeTikTokHandle(input: string | null | undefined): string {
