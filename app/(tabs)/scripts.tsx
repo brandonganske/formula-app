@@ -10,6 +10,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
 import FadeInView from '@/components/FadeInView';
 import { Skeleton } from '@/components/Skeleton';
+import SavedProductsView from '@/components/products/SavedProductsView';
+import SavedVideosView from '@/components/SavedVideosView';
+import { SavedProductItem, ShopDashboard } from '@/types/api';
 import * as Haptics from 'expo-haptics';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, extractData } from '@/lib/api';
@@ -689,6 +692,27 @@ export default function ToolkitScreen() {
     Animated.timing(screenOpacity, { toValue: 1, duration: 180, easing: Ease.out, useNativeDriver: true }).start();
   }, []));
 
+  const [seg, setSeg]                                 = useState<'scripts' | 'products' | 'videos'>('scripts');
+
+  // Counts for the asset tiles (cheap, cached; the views own the full data).
+  const { data: savedProductsLite } = useQuery({
+    queryKey: ['saved-products-lite'],
+    queryFn: async () => {
+      const res = await api.get('/creators/saved-products');
+      return extractData<{ products?: SavedProductItem[] }>(res)?.products ?? [];
+    },
+    staleTime: 60_000,
+  });
+  const { data: shopLite } = useQuery<ShopDashboard>({
+    queryKey: ['shop-dashboard'],
+    queryFn: async () => {
+      const res = await api.get('/creators/me/shop-dashboard');
+      return extractData<ShopDashboard>(res) as ShopDashboard;
+    },
+    staleTime: 5 * 60_000,
+  });
+  const productCount = savedProductsLite?.length ?? 0;
+  const videoCount = shopLite?.top_videos?.length ?? 0;
   const [selectedFolderId, setSelectedFolderId]       = useState<string | null>(null);
   const [showCreateFolder, setShowCreateFolder]       = useState(false);
   const [addingScript, setAddingScript]               = useState<SavedScriptItem | null>(null);
@@ -987,39 +1011,33 @@ export default function ToolkitScreen() {
       ref={rootViewRef as any}
       onLayout={() => rootViewRef.current?.measureInWindow((x, y) => { rootScreenXRef.current = x; rootScreenYRef.current = y; })}
     >
-      <FadeInView style={S.hero}>
-        <LinearGradient
-          colors={Gradient.hero}
-          start={{ x: 0.13, y: 0 }} end={{ x: 0.87, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={S.heroRadial} pointerEvents="none" />
-
-        <View style={S.heroTop}>
-          <View style={S.heroIconBox}>
-            <BookOpen size={20} color="#FFF" strokeWidth={2} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={S.heroTitle}>Toolkit</Text>
-            <Text style={S.heroSub}>
-              {scripts.length} script{scripts.length !== 1 ? 's' : ''}
-              {folders.length > 0 ? ` · ${folders.length} folder${folders.length !== 1 ? 's' : ''}` : ''}
-            </Text>
-          </View>
-          <TouchableOpacity style={S.heroRefresh} onPress={() => refetch()} disabled={isFetching} hitSlop={12} activeOpacity={0.7}>
-            {isFetching
-              ? <ActivityIndicator size="small" color="#FFF" />
-              : <RefreshCw size={15} color="#FFF" strokeWidth={2.2} />
-            }
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity style={S.heroNewBtn} onPress={() => setShowCreateFolder(true)} activeOpacity={0.85}>
-          <FolderPlus size={15} color={D.coral} strokeWidth={2.4} />
-          <Text style={S.heroNewText}>New folder</Text>
-        </TouchableOpacity>
+      {/* Header */}
+      <FadeInView style={S.head}>
+        <Text style={S.title}>Saved</Text>
+        <Text style={S.sub}>Everything you've kept, in one place.</Text>
       </FadeInView>
 
+      {/* Asset tiles double as the switcher */}
+      <View style={S.tiles}>
+        {([
+          { k: 'scripts' as const, label: 'Scripts', n: scripts.length, Icon: BookOpen },
+          { k: 'products' as const, label: 'Products', n: productCount, Icon: ShoppingBag },
+          { k: 'videos' as const, label: 'Videos', n: videoCount, Icon: Film },
+        ]).map(({ k, label, n, Icon }) => {
+          const on = seg === k;
+          return (
+            <TouchableOpacity key={k} style={[S.tile, on && S.tileOn]} onPress={() => setSeg(k)} activeOpacity={0.85}>
+              <View style={[S.tileIcon, on && S.tileIconOn]}>
+                <Icon size={15} color={on ? '#FFF' : D.textMuted} strokeWidth={2.2} />
+              </View>
+              <Text style={[S.tileNum, on && S.tileNumOn]}>{n}</Text>
+              <Text style={[S.tileLabel, on && S.tileLabelOn]}>{label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {seg === 'products' ? <SavedProductsView /> : seg === 'videos' ? <SavedVideosView /> : (
       <ScrollView
         contentContainerStyle={S.scroll}
         showsVerticalScrollIndicator={false}
@@ -1027,11 +1045,17 @@ export default function ToolkitScreen() {
       >
 
         {/* Folders section */}
+        <View style={S.toolbar}>
+          <Text style={[S.sectionLabel, { marginBottom: 0 }]}>
+            FOLDERS{dragScript ? <Text style={{ color: D.coral }}>{'   ↑ drop to file'}</Text> : ''}
+          </Text>
+          <TouchableOpacity style={S.newBtn} onPress={() => setShowCreateFolder(true)} activeOpacity={0.85} hitSlop={6}>
+            <FolderPlus size={13} color={D.coral} strokeWidth={2.4} />
+            <Text style={S.newBtnText}>New folder</Text>
+          </TouchableOpacity>
+        </View>
         {foldersLoaded && folders.length > 0 && (
           <View style={S.section}>
-            <Text style={S.sectionLabel}>
-              FOLDERS{dragScript ? <Text style={{ color: D.coral }}>{'   ↑ drop to file'}</Text> : ''}
-            </Text>
             <View style={S.folderGrid}>
               {folders.map((f) => {
                 const count = scripts.filter((s) => f.scriptIds.includes(s.id)).length;
@@ -1121,6 +1145,7 @@ export default function ToolkitScreen() {
 
         <View style={{ height: 90 }} />
       </ScrollView>
+      )}
 
       {/* Add to folder overlay */}
       {addingScript && (
@@ -1205,7 +1230,27 @@ const S = StyleSheet.create({
   },
   heroNewText: { ...T.bold, fontSize: 14, color: D.coral, letterSpacing: -0.2 },
 
-  scroll: { paddingHorizontal: 20, paddingBottom: 20, paddingTop: 4 },
+  scroll: { paddingHorizontal: 16, paddingBottom: 20, paddingTop: 4 },
+  head: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 16 },
+  title: { ...T.bold, fontSize: 30, color: D.textPrimary, letterSpacing: -0.8, lineHeight: 34 },
+  sub: { ...T.regular, fontSize: 14, color: D.textMuted, marginTop: 4 },
+  tiles: { flexDirection: 'row', gap: 10, marginHorizontal: 16, marginBottom: 14 },
+  tile: { flex: 1, backgroundColor: D.card, borderRadius: 18, borderWidth: 1, borderColor: D.border, padding: 12, gap: 6 },
+  tileOn: { backgroundColor: D.ink, borderColor: D.ink },
+  tileIcon: { width: 28, height: 28, borderRadius: 9, backgroundColor: D.inkHairline, alignItems: 'center', justifyContent: 'center' },
+  tileIconOn: { backgroundColor: 'rgba(255,255,255,0.16)' },
+  tileNum: { ...T.bold, fontSize: 22, color: D.textPrimary, letterSpacing: -0.6, marginTop: 2 },
+  tileNumOn: { color: '#FFF' },
+  tileLabel: { ...T.medium, fontSize: 12.5, color: D.textMuted },
+  tileLabelOn: { color: 'rgba(255,255,255,0.72)' },
+  toolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, marginTop: 4 },
+  newBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: D.coralSubtle, borderRadius: R.full, paddingHorizontal: 11, paddingVertical: 6 },
+  newBtnText: { ...T.bold, fontSize: 12.5, color: D.coral },
+  seg: { flexDirection: 'row', gap: 6, marginHorizontal: 20, marginTop: 14, marginBottom: 10, backgroundColor: D.inkHairline, borderRadius: R.full, padding: 4 },
+  segBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, borderRadius: R.full },
+  segBtnOn: { backgroundColor: D.ink },
+  segTxt: { ...T.bold, fontSize: 13.5, color: D.textMuted },
+  segTxtOn: { color: '#FFF' },
 
   section: { marginBottom: 8 },
   sectionLabel: { ...T.bold, ...SectionLabelStyle, marginBottom: 12 },

@@ -626,9 +626,9 @@ const VS = StyleSheet.create({
 
 export default function ViralTopicScreen() {
   const { credits, refreshMe } = useAuth();
-  const { prefillUrl } = useLocalSearchParams<{ prefillUrl?: string }>();
+  const { prefillUrl, topic: prefillTopic } = useLocalSearchParams<{ prefillUrl?: string; topic?: string }>();
   const [videoUrl, setVideoUrl]     = useState(prefillUrl ?? '');
-  const [topic, setTopic]           = useState('');
+  const [topic, setTopic]           = useState(prefillTopic ?? '');
   const [direction, setDirection]   = useState('');
   const [result, setResult]         = useState<ViralTopicResult | null>(null);
   const [view, setView]             = useState<'input' | 'result'>('input');

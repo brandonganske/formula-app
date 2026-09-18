@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from 'expo-router';
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
@@ -7,10 +8,10 @@ import * as Clipboard from 'expo-clipboard';
 import FadeInView from '@/components/FadeInView';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, extractData } from '@/lib/api';
+import { parseProductParam, fromSaved, coverOf } from '@/lib/product-handoff';
 import {
   VideoStyle, ContentTone, ProductScriptBody, ProductScriptResult,
-  ProductScriptOption, ProductSearchResult, ProductSearchResponse,
-} from '@/types/api';
+  ProductScriptOption, ProductSearchResult, ProductSearchResponse, SavedProductItem } from '@/types/api';
 import { D, T, R, Shadow, Ease, SectionLabelStyle } from '@/constants/ds';
 import {
   Sparkles, Copy, Check, Search, X, ChevronDown,
@@ -154,6 +155,18 @@ function ProductSearchSheet({
     debounceRef.current = setTimeout(() => setSearchQuery(text), 550);
   }, []);
 
+  // The creator's own shelf comes first — no need to search for a product
+  // they already researched on the Products tab.
+  const { data: savedRaw } = useQuery({
+    queryKey: ['saved-products-lite'],
+    queryFn: async () => {
+      const res = await api.get('/creators/saved-products');
+      return extractData<{ products?: SavedProductItem[] }>(res)?.products ?? [];
+    },
+    staleTime: 60_000,
+  });
+  const saved = (savedRaw ?? []).map(fromSaved);
+
   return (
     <FadeInView direction="up" style={PS.panel}>
       <View style={PS.hdr}>
@@ -190,8 +203,27 @@ function ProductSearchSheet({
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {!query && saved.length > 0 && (
+          <>
+            <Text style={PS.browseLabel}>Your saved products</Text>
+            {saved.map((p) => (
+              <TouchableOpacity key={'s-' + p.external_id} style={PS.item} onPress={() => onPick({ product: p })} activeOpacity={0.8}>
+                {coverOf(p) ? (
+                  <Image source={{ uri: coverOf(p)! }} style={PS.thumb} resizeMode="cover" />
+                ) : (
+                  <View style={[PS.thumb, PS.thumbFallback]}><ShoppingBag size={14} color={D.textDisabled} strokeWidth={1.5} /></View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={PS.itemTitle} numberOfLines={2}>{p.title}</Text>
+                  {p.commission_rate != null && <Text style={PS.itemSub}>{fmtPct(p.commission_rate)} commission</Text>}
+                </View>
+                <View style={PS.selectBtn}><Text style={PS.selectBtnText}>Use</Text></View>
+              </TouchableOpacity>
+            ))}
+          </>
+        )}
         {!query && (
-          <Text style={PS.browseLabel}>Trending products</Text>
+          <Text style={[PS.browseLabel, saved.length > 0 && { marginTop: 18 }]}>Trending products</Text>
         )}
         {(data?.products ?? []).map((p) => (
           <TouchableOpacity
@@ -200,8 +232,8 @@ function ProductSearchSheet({
             onPress={() => onPick({ product: p })}
             activeOpacity={0.8}
           >
-            {p.cover_url ? (
-              <Image source={{ uri: p.cover_url }} style={PS.thumb} resizeMode="cover" />
+            {coverOf(p) ? (
+              <Image source={{ uri: coverOf(p)! }} style={PS.thumb} resizeMode="cover" />
             ) : (
               <View style={[PS.thumb, PS.thumbFallback]}>
                 <ShoppingBag size={14} color={D.textDisabled} strokeWidth={1.5} />
@@ -697,7 +729,8 @@ const VM = StyleSheet.create({
 
 export default function ProductScriptScreen() {
   const { credits, refreshMe } = useAuth();
-  const [product, setProduct] = useState<ProductSearchResult | null>(null);
+  const { product: productParamRaw } = useLocalSearchParams<{ product?: string }>();
+  const [product, setProduct] = useState<ProductSearchResult | null>(() => parseProductParam(productParamRaw));
   const [videoStyle, setVideoStyle] = useState<VideoStyle | null>(null);
   const [contentTone, setContentTone] = useState<ContentTone | null>(null);
   const [direction, setDirection] = useState('');

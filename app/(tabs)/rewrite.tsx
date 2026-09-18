@@ -9,10 +9,10 @@ import * as Clipboard from 'expo-clipboard';
 import FadeInView from '@/components/FadeInView';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, extractData } from '@/lib/api';
+import { parseProductParam, fromSaved, coverOf } from '@/lib/product-handoff';
 import {
   ViralRewriteBody, ViralRewriteResult, RewriteOption,
-  ProductSearchResult, ProductBrain, ProductSearchResponse,
-} from '@/types/api';
+  ProductSearchResult, ProductBrain, ProductSearchResponse, SavedProductItem } from '@/types/api';
 import { D, T, R, Shadow, Ease, SectionLabelStyle } from '@/constants/ds';
 import {
   Sparkles, Copy, Check, Search, X, ChevronDown,
@@ -168,6 +168,17 @@ function ProductPickerSheet({ onPick, onClose }: {
     debounceRef.current = setTimeout(() => setSearchQuery(text), 550);
   }, []);
 
+  // Saved products first — they already researched these on the Products tab.
+  const { data: savedRaw } = useQuery({
+    queryKey: ['saved-products-lite'],
+    queryFn: async () => {
+      const res = await api.get('/creators/saved-products');
+      return extractData<{ products?: SavedProductItem[] }>(res)?.products ?? [];
+    },
+    staleTime: 60_000,
+  });
+  const saved = (savedRaw ?? []).map(fromSaved);
+
   return (
     <FadeInView delay={0} duration={200} direction="up" style={PP.panel}>
       <View style={PP.hdr}>
@@ -240,11 +251,26 @@ function ProductPickerSheet({ onPick, onClose }: {
             {isLoading && <ActivityIndicator size="small" color={D.coral} />}
           </View>
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            {!query && <Text style={PP.browseLabel}>Trending products</Text>}
+            {!query && saved.length > 0 && (
+              <>
+                <Text style={PP.browseLabel}>Your saved products</Text>
+                {saved.map((p) => (
+                  <TouchableOpacity key={'s-' + p.external_id} style={PP.searchItem} onPress={() => onPick({ source: 'brain', product: p })} activeOpacity={0.8}>
+                    {coverOf(p) ? <Image source={{ uri: coverOf(p)! }} style={PP.searchThumb} resizeMode="cover" /> : <View style={[PP.searchThumb, PP.searchThumbFallback]}><ShoppingBag size={14} color={D.textDisabled} strokeWidth={1.5} /></View>}
+                    <View style={{ flex: 1 }}>
+                      <Text style={PP.searchItemTitle} numberOfLines={2}>{p.title}</Text>
+                      {p.commission_rate != null && <Text style={PP.searchItemSub}>{fmtPct(p.commission_rate)} commission</Text>}
+                    </View>
+                    <View style={PP.useBtn}><Text style={PP.useBtnText}>Use</Text></View>
+                  </TouchableOpacity>
+                ))}
+              </>
+            )}
+            {!query && <Text style={[PP.browseLabel, saved.length > 0 && { marginTop: 18 }]}>Trending products</Text>}
             {(data?.products ?? []).map((p) => (
               <TouchableOpacity key={p.external_id} style={PP.searchItem} onPress={() => onPick({ source: 'brain', product: p })} activeOpacity={0.8}>
-                {p.cover_url ? (
-                  <Image source={{ uri: p.cover_url }} style={PP.searchThumb} resizeMode="cover" />
+                {coverOf(p) ? (
+                  <Image source={{ uri: coverOf(p)! }} style={PP.searchThumb} resizeMode="cover" />
                 ) : (
                   <View style={[PP.searchThumb, PP.searchThumbFallback]}>
                     <ShoppingBag size={14} color={D.textDisabled} strokeWidth={1.5} />
@@ -739,10 +765,11 @@ function buildRewriteBody(videoUrl: string, choice: ProductChoice): ViralRewrite
 
 export default function RewriteScreen() {
   const { credits, refreshMe } = useAuth();
-  const { prefillUrl, url: clipboardUrl } = useLocalSearchParams<{ prefillUrl?: string; url?: string }>();
+  const { prefillUrl, url: clipboardUrl, product: productParamRaw } = useLocalSearchParams<{ prefillUrl?: string; url?: string; product?: string }>();
+  const handedProduct = parseProductParam(productParamRaw);
   const [videoUrl, setVideoUrl] = useState(prefillUrl ?? '');
-  const [productChoice, setProductChoice] = useState<ProductChoice | null>(null);
-  const [showPicker, setShowPicker] = useState(!!prefillUrl);
+  const [productChoice, setProductChoice] = useState<ProductChoice | null>(handedProduct ? { source: 'brain', product: handedProduct } : null);
+  const [showPicker, setShowPicker] = useState(!!prefillUrl && !handedProduct);
   const [result, setResult] = useState<ViralRewriteResult | null>(null);
   const [view, setView] = useState<'input' | 'result'>('input');
   const [showTranscript, setShowTranscript] = useState(false);

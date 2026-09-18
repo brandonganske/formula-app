@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
@@ -549,7 +550,8 @@ const RB = StyleSheet.create({
 export default function OrganicScriptScreen() {
   const { credits, refreshMe } = useAuth();
   const [showNoCredits, setShowNoCredits] = useState(false);
-  const [topic, setTopic]               = useState('');
+  const { topic: prefillTopic } = useLocalSearchParams<{ topic?: string }>();
+  const [topic, setTopic]               = useState(prefillTopic ?? '');
   const [videoStyle, setVideoStyle]     = useState<VideoStyle | null>(null);
   const [contentTone, setContentTone]   = useState<ContentTone | null>(null);
   const [direction, setDirection]       = useState('');
