@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -20,7 +20,7 @@ function ProfileAvatarIcon() {
 
 export default function AppHeader() {
   const router = useRouter();
-  const { credits, isAuthenticated } = useAuth();
+  const { credits, isAuthenticated, profile } = useAuth();
   const insets = useSafeAreaInsets();
 
   const lowCredits = credits <= 3;
@@ -35,7 +35,7 @@ export default function AppHeader() {
         </View>
       </TouchableOpacity>
 
-      {/* Right — credits + profile */}
+      {/* Right — credits (→ Settings, where the plan lives) + avatar (→ Profile) */}
       <View style={S.rightRow}>
         {isAuthenticated && (
           <TouchableOpacity
@@ -58,18 +58,22 @@ export default function AppHeader() {
 
         <TouchableOpacity
           style={S.profileBtnOuter}
-          onPress={() => router.push('/(tabs)/profile')}
+          onPress={() => router.push('/(tabs)')}
           activeOpacity={0.8}
           hitSlop={8}
         >
-          <LinearGradient
-            colors={Gradient.hero}
-            start={{ x: 0.13, y: 0 }}
-            end={{ x: 0.87, y: 1 }}
-            style={S.profileBtn}
-          >
-            <ProfileAvatarIcon />
-          </LinearGradient>
+          {profile?.avatar_url ? (
+            <Image source={{ uri: profile.avatar_url }} style={S.profileImg} />
+          ) : (
+            <LinearGradient
+              colors={Gradient.hero}
+              start={{ x: 0.13, y: 0 }}
+              end={{ x: 0.87, y: 1 }}
+              style={S.profileBtn}
+            >
+              <ProfileAvatarIcon />
+            </LinearGradient>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -136,5 +140,9 @@ const S = StyleSheet.create({
   profileBtn: {
     width: 42, height: 42, borderRadius: 21,
     alignItems: 'center', justifyContent: 'center',
+  },
+  profileImg: {
+    width: 42, height: 42, borderRadius: 21,
+    borderWidth: 2, borderColor: D.coral, backgroundColor: D.surface,
   },
 });

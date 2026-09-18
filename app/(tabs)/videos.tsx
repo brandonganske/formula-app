@@ -102,7 +102,7 @@ export default function VideosScreen() {
             <Film size={28} color={D.textDisabled} strokeWidth={1.5} />
           </View>
           <Text style={S.emptyTitle}>No videos yet</Text>
-          <Text style={S.emptySub}>Run an analysis from the Brain tab to populate your videos.</Text>
+          <Text style={S.emptySub}>Refresh your profile to populate your videos.</Text>
         </View>
       )}
 

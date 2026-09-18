@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  ActivityIndicator, Platform, Image, Animated, Alert,
+  ActivityIndicator, Platform, Image, Animated, Alert, LayoutAnimation, Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Rect } from 'react-native-svg';
+import Svg, { Rect, Circle } from 'react-native-svg';
 import { useAuth } from '@/context/AuthContext';
 import { api, extractData } from '@/lib/api';
+import { useQuery } from '@tanstack/react-query';
 import { CREDIT_COSTS } from '@/lib/iap/catalog';
-import { RunData, AnalyzeResponse, CreatorMeData, SpeechTemplate, PacingTemplate, ProductInsights, VideoStyleProfile } from '@/types/api';
+import { buildInsights, archetype, playbook, explainHook, distList, type Insight, type InsightKey, type Play } from '@/lib/profile-insights';
+import { RunData, AnalyzeResponse, CreatorMeData, CreatorProfile, SpeechTemplate, PacingTemplate, ProductInsights, VideoStyleProfile, ShopDashboard } from '@/types/api';
 import { D, T, R, Shadow, Ease, Gradient, SectionLabelStyle } from '@/constants/ds';
 import FadeInView from '@/components/FadeInView';
 import AnimatedPressable from '@/components/AnimatedPressable';
@@ -17,7 +19,8 @@ import { Skeleton } from '@/components/Skeleton';
 import {
   Brain, Mic, Film, Activity,
   CheckCircle, RefreshCw, AlertCircle,
-  Clapperboard, ShoppingBag, Copy, Check, Zap, Store, ArrowRight,
+  Clapperboard, ShoppingBag, Copy, Check, Zap, Store, ArrowRight, ChevronDown,
+  Clock, Scissors, Heart, Camera, Share2, Lightbulb, TrendingUp, AlertTriangle,
 } from 'lucide-react-native';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -932,7 +935,7 @@ const STEP_LABELS = [
   'Fetching creator profile',
   'Scanning recent videos',
   'Detecting patterns & hooks',
-  'Building your brain model',
+  'Building your profile',
 ];
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
 const SUCCESS_STATUSES = new Set(['completed', 'complete', 'done', 'success']);
@@ -950,9 +953,644 @@ function isSuccess(status: string | undefined, progress: number): boolean {
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
+// ─── Plain-English brain (no jargon) ─────────────────────────────────────────
+
+const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
+// Turn backend slugs (talking_head, question_hook, 45+, product-focused) into
+// clean readable text: separators → spaces, first letter capitalized.
+const humanize = (s: string | null | undefined): string => {
+  const t = (s ?? '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+};
+
+function soundHeadline(speech: SpeechTemplate | null, energy: number | null): string | undefined {
+  const bits: string[] = [];
+  const pace = speech?.pace_band;
+  if (pace === 'rapid' || pace === 'fast') bits.push('fast and punchy');
+  else if (pace === 'conversational') bits.push('relaxed and conversational');
+  else if (pace === 'slow') bits.push('calm and deliberate');
+  else if (energy != null) bits.push(energy >= 60 ? 'high-energy' : 'easygoing');
+  if (speech?.tone) bits.push(speech.tone.toLowerCase());
+  if (!bits.length) return undefined;
+  return cap(bits.join(', ')) + '.';
+}
+
+function filmHeadline(p: PacingTemplate | null): string | undefined {
+  const bits: string[] = [];
+  if (p?.avg_video_length_sec != null) bits.push(`~${fmtSec(p.avg_video_length_sec)} videos`);
+  if (p?.cuts_per_30s != null) {
+    bits.push(p.cuts_per_30s >= 8 ? 'lots of quick cuts' : p.cuts_per_30s >= 4 ? 'a steady mix of cuts' : 'longer, steady shots');
+  }
+  return bits.length ? cap(bits.join(' · ')) : undefined;
+}
+
+// One teaching row: a metric + what it says about them.
+function DetailRow({ label, value, meaning }: { label: string; value?: string; meaning: string }) {
+  return (
+    <View style={brainS.dRow}>
+      <Text style={brainS.dLabel}>{label}</Text>
+      {value ? <Text style={brainS.dValue}>{value}</Text> : null}
+      <Text style={brainS.dMeaning}>{meaning}</Text>
+    </View>
+  );
+}
+
+function wpmMeaning(t: SpeechTemplate): string {
+  const w = t.avg_wpm ?? 0;
+  if (t.pace_band === 'rapid' || w >= 180) return "That's fast — it keeps your energy high and people watching.";
+  if (t.pace_band === 'fast' || w >= 160) return 'A little quicker than average — punchy and easy to stay with.';
+  if (t.pace_band === 'slow' || (w > 0 && w < 120)) return 'Calm and clear — the kind of pace people find easy to follow.';
+  return 'A natural, conversational pace that feels easy to watch.';
+}
+
+// A natural-language "read" of the creator, composed from their real data.
+function creatorRead(profile: CreatorProfile, speech: SpeechTemplate | null, pacing: PacingTemplate | null): string[] {
+  const out: string[] = [];
+
+  const pace = speech?.pace_band;
+  let voice = 'You have a natural, easy way of talking to camera';
+  if (pace === 'rapid' || pace === 'fast') voice = "You're a fast, high-energy talker";
+  else if (pace === 'conversational') voice = "You're a relaxed, conversational talker";
+  else if (pace === 'slow') voice = "You're a calm, deliberate talker";
+  else if (profile.energy_level != null) voice = profile.energy_level >= 60 ? "You're a high-energy talker" : "You're an easygoing talker";
+  if (speech?.tone) voice += ` with a ${speech.tone.toLowerCase()} tone`;
+  out.push(voice + '.');
+
+  const motion: string[] = [];
+  if (pacing?.avg_hook_duration_sec != null) motion.push(`you grab attention in the first ${fmtSec(pacing.avg_hook_duration_sec)}`);
+  if (pacing?.cuts_per_30s != null) motion.push(pacing.cuts_per_30s >= 8 ? 'keep things moving with quick cuts' : 'keep a steady, easy-to-follow rhythm');
+  if (motion.length) out.push(cap(motion.join(' and ')) + '.');
+
+  const shape: string[] = [];
+  if (pacing?.avg_video_length_sec != null) shape.push(`your videos run about ${fmtSec(pacing.avg_video_length_sec)}`);
+  if (pacing?.typical_cta_position) {
+    const p = pacing.typical_cta_position.toLowerCase();
+    shape.push(p.includes('end') ? 'you make your ask right at the end' : `you make your ask in the ${p}`);
+  }
+  if (shape.length) out.push(cap(shape.join(', and ')) + '.');
+
+  if (speech && speech.signature_phrases.length > 0) {
+    const ph = speech.signature_phrases.slice(0, 2).map((p) => `“${p}”`).join(' and ');
+    out.push(`You come back to lines like ${ph} — little tells that make your content unmistakably yours.`);
+  }
+
+  if (profile.authenticity_score != null && profile.authenticity_score >= 60) {
+    out.push("Above all, you come across as genuinely real — and that's exactly what we protect in every script we write for you.");
+  }
+
+  return out;
+}
+
+// ── Visual modules ───────────────────────────────────────────────────────────
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+// Apple-style activity ring.
+function Ring({ value, color, label }: { value: number; color: string; label: string }) {
+  const size = 96, stroke = 9, r = (size - stroke) / 2, circ = 2 * Math.PI * r;
+  const pct = Math.max(0, Math.min(100, value));
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(anim, { toValue: pct, duration: 1000, easing: Ease.out, useNativeDriver: false }).start();
+  }, [pct]);
+  const offset = anim.interpolate({ inputRange: [0, 100], outputRange: [circ, 0] });
+  return (
+    <View style={brainS.ring}>
+      <Svg width={size} height={size}>
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke={D.border} strokeWidth={stroke} fill="none" />
+        <AnimatedCircle
+          cx={size / 2} cy={size / 2} r={r} stroke={color} strokeWidth={stroke} fill="none"
+          strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+          rotation={-90} origin={`${size / 2}, ${size / 2}`}
+        />
+      </Svg>
+      <View style={brainS.ringCenter}><Text style={brainS.ringNum}>{Math.round(pct)}</Text></View>
+      <Text style={brainS.ringLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function StatTile({ value, unit, label }: { value: string; unit?: string; label: string }) {
+  return (
+    <View style={brainS.stat}>
+      <View style={brainS.statValRow}>
+        <Text style={brainS.statVal}>{value}</Text>
+        {unit ? <Text style={brainS.statUnit}>{unit}</Text> : null}
+      </View>
+      <Text style={brainS.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function signatureTagline(profile: CreatorProfile, speech: SpeechTemplate | null): string {
+  const adjs: string[] = [];
+  const pace = speech?.pace_band;
+  if (pace === 'rapid' || pace === 'fast') adjs.push('Fast');
+  else if (pace === 'conversational') adjs.push('Conversational');
+  else if (pace === 'slow') adjs.push('Calm');
+  if (profile.energy_level != null && profile.energy_level >= 60) adjs.push('high-energy');
+  else if (speech?.tone && speech.tone.length <= 16) adjs.push(humanize(speech.tone).toLowerCase());
+  const lead = adjs.slice(0, 2).join(', ');
+  return lead ? `${cap(lead)} — and unmistakably you.` : 'Unmistakably you.';
+}
+
+function deriveTraits(profile: CreatorProfile, speech: SpeechTemplate | null, pacing: PacingTemplate | null): string[] {
+  const t: string[] = [];
+  const pace = speech?.pace_band;
+  if (pace === 'rapid' || pace === 'fast') t.push('Fast talker');
+  else if (pace === 'conversational') t.push('Conversational');
+  else if (pace === 'slow') t.push('Calm & clear');
+  if (profile.energy_level != null && profile.energy_level >= 60) t.push('High energy');
+  if (pacing?.cuts_per_30s != null) t.push(pacing.cuts_per_30s >= 8 ? 'Quick cuts' : 'Steady pace');
+  if (pacing?.typical_cta_position?.toLowerCase().includes('end')) t.push('Ask at the end');
+  if (profile.authenticity_score != null && profile.authenticity_score >= 60) t.push('Keeps it real');
+  (profile.top_performing_formats ?? []).slice(0, 2).forEach((f) => t.push(f));
+  return Array.from(new Set(t)).slice(0, 8);
+}
+
+// Inline "See more" — reveals detail rows in place, per section.
+function SeeMore({ children, label = 'See more' }: { children: React.ReactNode; label?: string }) {
+  const [open, setOpen] = useState(false);
+  const toggle = () => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setOpen((o) => !o); };
+  return (
+    <>
+      {open ? <View style={brainS.seeMoreBody}>{children}</View> : null}
+      <TouchableOpacity style={brainS.seeMoreBtn} onPress={toggle} activeOpacity={0.7}>
+        <Text style={brainS.seeMoreText}>{open ? 'See less' : label}</Text>
+        <ChevronDown size={15} color={D.coral} strokeWidth={2.5} style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }} />
+      </TouchableOpacity>
+    </>
+  );
+}
+
+function soundPaceWord(t: SpeechTemplate): string {
+  switch (t.pace_band) {
+    case 'rapid': return 'Rapid';
+    case 'fast': return 'Fast';
+    case 'conversational': return 'Conversational';
+    case 'slow': return 'Slow';
+    default: return 'Pace';
+  }
+}
+
+// Deep breakdown, collapsed by default — keeps the page glanceable up top.
+function BrainBreakdown({ speech, pacing }: { speech: SpeechTemplate | null; pacing: PacingTemplate | null }) {
+  const [open, setOpen] = useState(false);
+  const toggle = () => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setOpen((o) => !o); };
+  return (
+    <View style={brainS.breakdown}>
+      <TouchableOpacity style={brainS.breakdownBtn} onPress={toggle} activeOpacity={0.7}>
+        <Text style={brainS.breakdownText}>The full breakdown</Text>
+        <ChevronDown size={18} color={D.textMuted} strokeWidth={2.2} style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }} />
+      </TouchableOpacity>
+      {open && (
+        <View style={brainS.breakdownBody}>
+          {speech?.avg_wpm != null && <DetailRow label="Speaking speed" value={`${speech.avg_wpm} wpm`} meaning={wpmMeaning(speech)} />}
+          {speech?.tone && <DetailRow label="Tone" value={cap(speech.tone)} meaning="The mood people feel when they watch you." />}
+          {speech?.opening_style && <DetailRow label="How you open" value={cap(speech.opening_style)} meaning="Your go-to way to pull people in." />}
+          {speech && speech.filler_words.length > 0 && <DetailRow label="Words you lean on" value={speech.filler_words.slice(0, 4).join(', ')} meaning="The little habits that make you sound human." />}
+          {pacing?.avg_hook_duration_sec != null && <DetailRow label="Hook window" value={`first ${fmtSec(pacing.avg_hook_duration_sec)}`} meaning="How fast you grab attention." />}
+          {pacing?.cuts_per_30s != null && <DetailRow label="Cut rate" value={`~${pacing.cuts_per_30s} / 30s`} meaning={pacing.cuts_per_30s >= 8 ? 'Quick, high-energy cuts.' : 'A steady, easy rhythm.'} />}
+          {pacing?.typical_cta_position && <DetailRow label="Your ask lands" value={cap(pacing.typical_cta_position)} meaning="Where your call-to-action usually goes." />}
+          {speech && <Text style={brainS.basedOn}>Learned from {speech.sample_count} of your videos.</Text>}
+        </View>
+      )}
+    </View>
+  );
+}
+
+function PlainCard({
+  icon, tint, title, headline, body, children, details, delay = 0,
+}: {
+  icon: React.ReactNode; tint: string; title: string;
+  headline?: string; body?: string; children?: React.ReactNode; details?: React.ReactNode; delay?: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const toggle = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setOpen((o) => !o);
+  };
+  return (
+    <FadeInView delay={delay} style={brainS.card}>
+      <View style={brainS.cardHead}>
+        <View style={[brainS.cardIcon, { backgroundColor: tint + '18' }]}>{icon}</View>
+        <Text style={brainS.cardTitle}>{title}</Text>
+      </View>
+      {headline ? <Text style={brainS.cardHeadline}>{headline}</Text> : null}
+      {body ? <Text style={brainS.cardBody}>{body}</Text> : null}
+      {children}
+
+      {details ? (
+        <>
+          {open ? <View style={brainS.details}>{details}</View> : null}
+          <TouchableOpacity style={brainS.learnBtn} onPress={toggle} activeOpacity={0.7}>
+            <Text style={brainS.learnText}>{open ? 'Show less' : 'Learn more about you'}</Text>
+            <ChevronDown
+              size={16} color={D.coral} strokeWidth={2.5}
+              style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }}
+            />
+          </TouchableOpacity>
+        </>
+      ) : null}
+    </FadeInView>
+  );
+}
+
+// Brain area uses the platform system font (San Francisco on iOS) for a clean,
+// native, Apple feel — set via fontWeight with no fontFamily (system default).
+const brainS = StyleSheet.create({
+  readyCard: { backgroundColor: D.inkCard, borderRadius: 22, padding: 24, marginTop: 14 },
+  readyIcon: {
+    width: 46, height: 46, borderRadius: 15, backgroundColor: D.coral,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+  },
+  readyTitle: { fontSize: 22, fontWeight: '700', letterSpacing: -0.5, color: '#FFF' },
+  readyBody: { fontSize: 15, fontWeight: '400', color: 'rgba(255,255,255,0.8)', lineHeight: 23, marginTop: 8 },
+
+  readCard: { backgroundColor: D.card, borderRadius: 22, borderWidth: 1, borderColor: D.border, padding: 24, marginTop: 14 },
+  readLabel: { fontSize: 12, fontWeight: '600', letterSpacing: 0.6, textTransform: 'uppercase', color: D.textMuted, marginBottom: 16 },
+  readLine: { fontSize: 18, fontWeight: '400', color: D.textPrimary, lineHeight: 27, letterSpacing: -0.2 },
+
+  // Compact identity strip
+  hero: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    borderRadius: 20, padding: 16, marginTop: 14, marginHorizontal: 16, overflow: 'hidden',
+  },
+  heroAvatar: { width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: 'rgba(255,255,255,0.7)' },
+  heroAvatarFallback: { backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center' },
+  heroAvatarLetter: { fontSize: 22, fontWeight: '700', color: '#FFF' },
+  heroNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  heroName: { fontSize: 18, fontWeight: '700', color: '#FFF', letterSpacing: -0.4, flexShrink: 1 },
+  heroMeta: { fontSize: 13, fontWeight: '500', color: 'rgba(255,255,255,0.9)', marginTop: 3, letterSpacing: -0.1 },
+
+  // Your performance — real sales + top 3 videos
+  perfCard: {
+    backgroundColor: D.card, borderRadius: 22, borderWidth: 1, borderColor: D.border,
+    padding: 20, marginTop: 14, marginHorizontal: 16,
+  },
+  perfHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  perfVidsLabel: { fontSize: 12, fontWeight: '600', color: D.textMuted, letterSpacing: 0.4, textTransform: 'uppercase', marginTop: 18, marginBottom: 12 },
+  perfGmv: { fontSize: 24, fontWeight: '700', color: D.textPrimary, letterSpacing: -0.6, marginTop: -6 },
+  perfGmvLabel: { fontSize: 12.5, fontWeight: '500', color: D.textMuted, letterSpacing: 0 },
+  perfSub: { fontSize: 15, fontWeight: '500', color: D.textMuted, letterSpacing: -0.2, marginTop: -6 },
+  perfAll: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingVertical: 4, paddingLeft: 6 },
+  perfAllText: { fontSize: 13.5, fontWeight: '600', color: D.coral, letterSpacing: -0.1 },
+  perfEmpty: { fontSize: 13.5, fontWeight: '400', color: D.textSecondary, lineHeight: 20 },
+
+  vidGrid: { flexDirection: 'row', gap: 10 },
+  vidCol: { flex: 1, minWidth: 0 },
+  vidThumbWrap: { width: '100%', aspectRatio: 9 / 16, borderRadius: 14, overflow: 'hidden', backgroundColor: D.surface },
+  vidThumbImg: { width: '100%', height: '100%' },
+  vidThumbPh: { alignItems: 'center', justifyContent: 'center' },
+  vidViews: {
+    position: 'absolute', left: 6, right: 6, bottom: 6,
+    backgroundColor: 'rgba(26,20,38,0.72)', borderRadius: 8, paddingVertical: 4, paddingHorizontal: 6,
+  },
+  vidViewsText: { fontSize: 10.5, fontWeight: '600', color: '#FFF', textAlign: 'center', letterSpacing: 0.1 },
+  vidUseBtn: {
+    marginTop: 8, backgroundColor: D.coral, borderRadius: 999, paddingVertical: 8,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  vidUseText: { fontSize: 12, fontWeight: '700', color: '#FFF', letterSpacing: -0.1 },
+
+  // Signature line
+  sigCard: { backgroundColor: D.inkCard, borderRadius: 22, padding: 24, marginTop: 14, marginHorizontal: 16 },
+  sigLabel: { fontSize: 12, fontWeight: '600', letterSpacing: 1, textTransform: 'uppercase', color: D.coral, marginBottom: 12 },
+  sigTagline: { fontSize: 26, fontWeight: '700', color: '#FFF', letterSpacing: -0.6, lineHeight: 33 },
+
+  // Rings + stats
+  voiceCard: { backgroundColor: D.card, borderRadius: 24, borderWidth: 1, borderColor: D.border, padding: 24, marginTop: 14 },
+  rings: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },
+  ring: { alignItems: 'center' },
+  ringCenter: { position: 'absolute', width: 96, height: 96, top: 0, alignItems: 'center', justifyContent: 'center' },
+  ringNum: { fontSize: 28, fontWeight: '700', color: D.textPrimary, letterSpacing: -0.8 },
+  ringLabel: { fontSize: 13, fontWeight: '600', color: D.textSecondary, marginTop: 10, letterSpacing: -0.1 },
+  statStrip: { flexDirection: 'row', alignItems: 'center' },
+  statStripBordered: { marginTop: 22, borderTopWidth: 1, borderTopColor: D.borderSubtle, paddingTop: 20 },
+  stat: { flex: 1, alignItems: 'center' },
+  statValRow: { flexDirection: 'row', alignItems: 'baseline', gap: 3 },
+  statVal: { fontSize: 26, fontWeight: '700', color: D.textPrimary, letterSpacing: -0.7 },
+  statUnit: { fontSize: 13, fontWeight: '600', color: D.textMuted },
+  statLabel: { fontSize: 12.5, fontWeight: '500', color: D.textMuted, marginTop: 5 },
+  statDivider: { width: 1, height: 34, backgroundColor: D.borderSubtle },
+
+  sectionLabel: { fontSize: 12.5, fontWeight: '600', color: D.textMuted, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 16 },
+  dnaTagline: { fontSize: 22, fontWeight: '700', color: D.textPrimary, letterSpacing: -0.5, lineHeight: 28, marginTop: -4 },
+  groupLabel: { fontSize: 12, fontWeight: '600', color: D.textMuted, letterSpacing: 0.4, textTransform: 'uppercase', marginTop: 22, marginBottom: 12 },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
+  tag: {
+    backgroundColor: D.coralSubtle, borderWidth: 1, borderColor: D.coral + '20',
+    borderRadius: 999, paddingHorizontal: 15, paddingVertical: 10,
+  },
+  tagText: { fontSize: 14.5, fontWeight: '600', color: D.coral, letterSpacing: -0.2 },
+
+  sellRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14, paddingVertical: 12 },
+  sellDivider: { borderTopWidth: 1, borderTopColor: D.borderSubtle },
+  sellName: { fontSize: 15, fontWeight: '500', color: D.textPrimary, flex: 1, letterSpacing: -0.2 },
+  sellGmv: { fontSize: 15, fontWeight: '700', color: D.limeDeep, letterSpacing: -0.2 },
+
+  seeMoreBody: { marginTop: 20, paddingTop: 20, borderTopWidth: 1, borderTopColor: D.borderSubtle, gap: 18 },
+  seeMoreBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 16, paddingVertical: 2 },
+  seeMoreText: { fontSize: 13.5, fontWeight: '600', color: D.coral, letterSpacing: -0.1 },
+
+  breakdown: { marginTop: 14 },
+  breakdownBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12 },
+  breakdownText: { fontSize: 14, fontWeight: '600', color: D.textMuted, letterSpacing: -0.1 },
+  breakdownBody: {
+    backgroundColor: D.card, borderRadius: 22, borderWidth: 1, borderColor: D.border,
+    padding: 22, marginTop: 4, gap: 20,
+  },
+
+  card: { backgroundColor: D.card, borderRadius: 22, borderWidth: 1, borderColor: D.border, padding: 20, marginTop: 14, marginHorizontal: 16 },
+  cardHead: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
+  cardIcon: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  cardTitle: { fontSize: 12.5, fontWeight: '600', color: D.textMuted, letterSpacing: 0.5, textTransform: 'uppercase' },
+  cardHeadline: { fontSize: 22, fontWeight: '700', color: D.textPrimary, letterSpacing: -0.5, lineHeight: 28 },
+  cardBody: { fontSize: 15, fontWeight: '400', color: D.textSecondary, lineHeight: 22, marginTop: 8 },
+
+  miniLabel: { fontSize: 12, fontWeight: '600', color: D.textMuted, letterSpacing: 0.4, textTransform: 'uppercase', marginTop: 20, marginBottom: 12 },
+  phrases: { alignItems: 'flex-start', gap: 8, alignSelf: 'stretch' },
+  phrase: {
+    maxWidth: '100%', backgroundColor: D.coralSubtle,
+    borderWidth: 1, borderColor: D.coral + '22', borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 10,
+  },
+  phraseText: { fontSize: 15, fontWeight: '500', color: D.coral, lineHeight: 20 },
+
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16 },
+  chip: {
+    backgroundColor: D.surface, borderWidth: 1, borderColor: D.border,
+    borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9,
+  },
+  chipText: { fontSize: 14, fontWeight: '500', color: D.textSecondary },
+  inkChip: { backgroundColor: D.inkCard, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 },
+  inkChipText: { fontSize: 14, fontWeight: '500', color: '#FFF' },
+
+  learnBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 18, paddingVertical: 4 },
+  learnText: { fontSize: 14, fontWeight: '600', color: D.coral, letterSpacing: -0.1 },
+  details: { marginTop: 18, paddingTop: 18, borderTopWidth: 1, borderTopColor: D.borderSubtle, gap: 18 },
+  dRow: { gap: 3 },
+  dLabel: { fontSize: 12, fontWeight: '600', color: D.textMuted, letterSpacing: 0.4, textTransform: 'uppercase' },
+  dValue: { fontSize: 16, fontWeight: '600', color: D.textPrimary, letterSpacing: -0.2, lineHeight: 22 },
+  dMeaning: { fontSize: 13, fontWeight: '400', color: D.textSecondary, lineHeight: 19, marginTop: 1 },
+  basedOn: { fontSize: 12.5, fontWeight: '400', color: D.textMuted, lineHeight: 18, marginTop: 14 },
+
+  cta: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: D.coral, borderRadius: 999, paddingVertical: 17, gap: 10,
+    marginTop: 18, marginHorizontal: 16, ...Shadow.coral,
+  },
+  ctaText: { fontSize: 17, fontWeight: '700', color: '#FFF', letterSpacing: -0.3 },
+  ctaArrow: {
+    width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+});
+
+// ─── Profile: teaching modules ───────────────────────────────────────────────
+// Everything below turns the brain into things a creator learns from: a named
+// archetype, insight cards benchmarked against a typical creator, explained
+// hooks, distribution bars and a short playbook. Logic lives in
+// lib/profile-insights.ts; these are just the visuals.
+
+const CARD_W = Dimensions.get('window').width - 32;
+
+function CompareBar({ you, typical, youLabel, typicalLabel }: { you: number; typical: number; youLabel: string; typicalLabel: string }) {
+  const max = Math.max(you, typical) * 1.12 || 1;
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => { Animated.timing(anim, { toValue: 1, duration: 900, easing: Ease.out, useNativeDriver: false }).start(); }, []);
+  const w = (v: number) => anim.interpolate({ inputRange: [0, 1], outputRange: ['0%', `${Math.max(4, (v / max) * 100)}%`] });
+  return (
+    <View style={pS.cmp}>
+      <View style={pS.cmpRow}>
+        <Text style={pS.cmpName}>You</Text>
+        <View style={pS.cmpTrack}><Animated.View style={[pS.cmpFill, { width: w(you), backgroundColor: D.coral }]} /></View>
+        <Text style={pS.cmpVal}>{youLabel}</Text>
+      </View>
+      <View style={pS.cmpRow}>
+        <Text style={pS.cmpName}>Typical</Text>
+        <View style={pS.cmpTrack}><Animated.View style={[pS.cmpFill, { width: w(typical), backgroundColor: 'rgba(26,20,38,0.22)' }]} /></View>
+        <Text style={[pS.cmpVal, { color: D.textMuted }]}>{typicalLabel}</Text>
+      </View>
+    </View>
+  );
+}
+
+function InsightIcon({ k }: { k: InsightKey }) {
+  const c = D.coral, s = 15, sw = 2.2;
+  switch (k) {
+    case 'pace': return <Mic size={s} color={c} strokeWidth={sw} />;
+    case 'hook': return <Zap size={s} color={c} strokeWidth={sw} />;
+    case 'length': return <Clock size={s} color={c} strokeWidth={sw} />;
+    case 'cuts': return <Scissors size={s} color={c} strokeWidth={sw} />;
+    case 'energy': return <Activity size={s} color={c} strokeWidth={sw} />;
+    case 'real': return <Heart size={s} color={c} strokeWidth={sw} />;
+    case 'oncamera': return <Camera size={s} color={c} strokeWidth={sw} />;
+    default: return <Share2 size={s} color={c} strokeWidth={sw} />;
+  }
+}
+
+function InsightCard({ it }: { it: Insight }) {
+  return (
+    <View style={[pS.insCard, { width: CARD_W }]}>
+      <View style={pS.insHead}>
+        <View style={pS.insIcon}><InsightIcon k={it.key} /></View>
+        <Text style={pS.insLabel}>{it.label}</Text>
+      </View>
+      <View style={pS.insValRow}>
+        <Text style={pS.insVal}>{it.value}</Text>
+        {it.unit ? <Text style={pS.insUnit}>{it.unit}</Text> : null}
+      </View>
+      <Text style={pS.insHeadline}>{it.headline}</Text>
+      <CompareBar
+        you={it.you} typical={it.typical}
+        youLabel={it.unit ? (it.unit === '%' || it.unit.startsWith('/') ? `${it.value}${it.unit}` : `${it.value} ${it.unit}`) : it.value}
+        typicalLabel={it.typicalLabel}
+      />
+      <Text style={pS.insBody}>{it.meaning}</Text>
+      <View style={pS.insWhy}>
+        <Text style={pS.insWhyText}><Text style={pS.insWhyLabel}>Why it matters  </Text>{it.why}</Text>
+      </View>
+      <View style={{ flex: 1 }} />
+      <View style={pS.insTip}>
+        <View style={pS.insTipIcon}><Lightbulb size={14} color={D.limeDeep} strokeWidth={2.4} /></View>
+        <View style={{ flex: 1 }}>
+          <Text style={pS.insTipLabel}>Try this</Text>
+          <Text style={pS.insTipText}>{it.tip}</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function InsightCarousel({ items }: { items: Insight[] }) {
+  const [idx, setIdx] = useState(0);
+  const step = CARD_W + 12;
+  return (
+    <FadeInView delay={30} style={pS.carWrap}>
+      <View style={pS.carHead}>
+        <Text style={pS.carTitle}>What we learned about you</Text>
+        <Text style={pS.carCount}>{idx + 1} of {items.length}</Text>
+      </View>
+      <Text style={pS.carSub}>Swipe — each one compares you to a typical creator.</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={step}
+        decelerationRate="fast"
+        contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+        onMomentumScrollEnd={(e) => setIdx(Math.min(items.length - 1, Math.max(0, Math.round(e.nativeEvent.contentOffset.x / step))))}
+      >
+        {items.map((it) => <InsightCard key={it.key} it={it} />)}
+      </ScrollView>
+      <View style={pS.dots}>
+        {items.map((it, i) => <View key={it.key} style={[pS.dot, i === idx && pS.dotOn]} />)}
+      </View>
+    </FadeInView>
+  );
+}
+
+function PlayRow({ p, last }: { p: Play; last?: boolean }) {
+  const meta = p.kind === 'more'
+    ? { icon: <TrendingUp size={16} color={D.limeDeep} strokeWidth={2.4} />, bg: D.limeSubtle, tag: 'Do more of' }
+    : p.kind === 'watch'
+      ? { icon: <AlertTriangle size={16} color={D.coral} strokeWidth={2.4} />, bg: D.coralSubtle, tag: 'Watch out for' }
+      : { icon: <Lightbulb size={16} color={D.ink} strokeWidth={2.4} />, bg: D.inkHairline, tag: 'Try next' };
+  return (
+    <View style={[pS.play, !last && pS.playDivider]}>
+      <View style={[pS.playIcon, { backgroundColor: meta.bg }]}>{meta.icon}</View>
+      <View style={{ flex: 1 }}>
+        <Text style={pS.playTag}>{meta.tag}</Text>
+        <Text style={pS.playTitle}>{p.title}</Text>
+        <Text style={pS.playBody}>{p.body}</Text>
+      </View>
+    </View>
+  );
+}
+
+function DistRow({ label, pct, color = D.coral }: { label: string; pct: number; color?: string }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => { Animated.timing(anim, { toValue: pct, duration: 800, easing: Ease.out, useNativeDriver: false }).start(); }, [pct]);
+  return (
+    <View style={pS.dist}>
+      <View style={pS.distTop}>
+        <Text style={pS.distLabel}>{humanize(label)}</Text>
+        <Text style={pS.distPct}>{pct}%</Text>
+      </View>
+      <View style={pS.distTrack}>
+        <Animated.View style={[pS.distFill, { backgroundColor: color, width: anim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }]} />
+      </View>
+    </View>
+  );
+}
+
+function HookRow({ slug, last }: { slug: string; last?: boolean }) {
+  const h = explainHook(slug);
+  return (
+    <View style={[pS.hook, !last && pS.playDivider]}>
+      <Text style={pS.hookName}>{h.name}</Text>
+      <Text style={pS.hookWhat}>{h.what}</Text>
+      {h.example ? <Text style={pS.hookEx}>{h.example}</Text> : null}
+    </View>
+  );
+}
+
+function Lead({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <View style={pS.lead}>
+      <Text style={pS.leadLabel}>{label}</Text>
+      <Text style={pS.leadText}>{children}</Text>
+    </View>
+  );
+}
+
+const pS = StyleSheet.create({
+  archName: { fontSize: 30, fontWeight: '800', color: '#FFF', letterSpacing: -0.9, lineHeight: 34, marginTop: 6 },
+  archBlurb: { fontSize: 15, color: 'rgba(255,255,255,0.78)', lineHeight: 21, marginTop: 8 },
+
+  carWrap: { marginTop: 28, marginBottom: 6 },
+  carHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginHorizontal: 16 },
+  carTitle: { fontSize: 20, fontWeight: '800', color: D.textPrimary, letterSpacing: -0.5 },
+  carCount: { fontSize: 13, fontWeight: '600', color: D.textMuted },
+  carSub: { fontSize: 13.5, color: D.textMuted, marginHorizontal: 16, marginTop: 3, marginBottom: 14, lineHeight: 18 },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 12 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(26,20,38,0.16)' },
+  dotOn: { width: 18, backgroundColor: D.coral },
+
+  insCard: {
+    backgroundColor: D.card, borderRadius: 22, borderWidth: 1, borderColor: D.border,
+    padding: 20,
+  },
+  insHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  insIcon: { width: 28, height: 28, borderRadius: 9, backgroundColor: D.coralSubtle, alignItems: 'center', justifyContent: 'center' },
+  insLabel: { fontSize: 12, fontWeight: '700', color: D.textMuted, letterSpacing: 0.6, textTransform: 'uppercase' },
+  insValRow: { flexDirection: 'row', alignItems: 'baseline', gap: 3, marginTop: 10 },
+  insVal: { fontSize: 46, fontWeight: '800', color: D.textPrimary, letterSpacing: -1.8, lineHeight: 50 },
+  insUnit: { fontSize: 15, fontWeight: '600', color: D.textMuted },
+  insHeadline: { fontSize: 19, fontWeight: '700', color: D.textPrimary, letterSpacing: -0.4, lineHeight: 25, marginTop: 2 },
+  insBody: { fontSize: 15, color: D.textPrimary, lineHeight: 22, marginTop: 16 },
+  insWhy: { marginTop: 12 },
+  insWhyLabel: { fontWeight: '700', color: D.textMuted },
+  insWhyText: { fontSize: 13.5, color: D.textMuted, lineHeight: 19 },
+  insTip: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', backgroundColor: D.limeSubtle, borderRadius: 16, padding: 14, marginTop: 18 },
+  insTipIcon: { width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  insTipLabel: { fontSize: 11, fontWeight: '700', color: D.limeDeep, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 3 },
+  insTipText: { fontSize: 14.5, fontWeight: '600', color: D.ink, lineHeight: 20 },
+
+  cmp: { marginTop: 16, gap: 8 },
+  cmpRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  cmpName: { width: 50, fontSize: 12, fontWeight: '600', color: D.textMuted },
+  cmpTrack: { flex: 1, height: 10, borderRadius: 5, backgroundColor: D.inkHairline, overflow: 'hidden' },
+  cmpFill: { height: '100%', borderRadius: 5 },
+  cmpVal: { width: 66, textAlign: 'right', fontSize: 12.5, fontWeight: '700', color: D.textPrimary, fontVariant: ['tabular-nums'] },
+
+  play: { flexDirection: 'row', gap: 14, paddingVertical: 14 },
+  playDivider: { borderBottomWidth: 1, borderBottomColor: D.divider },
+  playIcon: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  playTag: { fontSize: 11, fontWeight: '700', color: D.textMuted, letterSpacing: 0.6, textTransform: 'uppercase' },
+  playTitle: { fontSize: 16, fontWeight: '700', color: D.textPrimary, letterSpacing: -0.2, marginTop: 3, lineHeight: 21 },
+  playBody: { fontSize: 14, color: D.textSecondary, lineHeight: 20, marginTop: 4 },
+
+  dist: { marginTop: 12 },
+  distTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  distLabel: { fontSize: 14, fontWeight: '600', color: D.textPrimary },
+  distPct: { fontSize: 13, fontWeight: '700', color: D.textMuted, fontVariant: ['tabular-nums'] },
+  distTrack: { height: 8, borderRadius: 4, backgroundColor: D.inkHairline, overflow: 'hidden' },
+  distFill: { height: '100%', borderRadius: 4 },
+
+  hook: { paddingVertical: 14 },
+  hookName: { fontSize: 16, fontWeight: '700', color: D.textPrimary, letterSpacing: -0.2 },
+  hookWhat: { fontSize: 14, color: D.textSecondary, lineHeight: 20, marginTop: 4 },
+  hookEx: { fontSize: 14, fontStyle: 'italic', color: D.coral, marginTop: 6 },
+
+  lead: { marginTop: 14 },
+  leadLabel: { fontSize: 11, fontWeight: '700', color: D.textMuted, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 4 },
+  leadText: { fontSize: 15, color: D.textPrimary, lineHeight: 22 },
+
+  moves: { marginTop: 14, gap: 10 },
+  move: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  moveDot: { width: 22, height: 22, borderRadius: 11, backgroundColor: D.limeSubtle, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  moveText: { flex: 1, fontSize: 14, color: D.textSecondary, lineHeight: 20 },
+
+  glance: { marginTop: 4 },
+  footnote: { fontSize: 12, color: D.textDisabled, marginHorizontal: 20, marginTop: 8, marginBottom: 6, lineHeight: 17, textAlign: 'center' },
+});
+
 export default function BrainScreen() {
   const { meData, profile, refreshMe, credits } = useAuth();
   const router = useRouter();
+
+  // Real performance data (shared cache with the Shop tab): top videos from the
+  // brain ingest + real API-sourced GMV when the creator has it. Never estimates.
+  const shopQ = useQuery({
+    queryKey: ['shop-dashboard'],
+    queryFn: async () => extractData<ShopDashboard>(await api.get('/creators/me/shop-dashboard')),
+    retry: false,
+    staleTime: 60_000,
+  });
+  const topVideos = (shopQ.data?.top_videos ?? []).slice(0, 3);
+  const shopGmv = shopQ.data?.summary && shopQ.data.summary.gmv_30d > 0 ? shopQ.data.summary.gmv_30d : null;
   const [runId, setRunId] = useState<string | null>(null);
   const [run, setRun] = useState<RunData | null>(null);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
@@ -1030,7 +1668,7 @@ export default function BrainScreen() {
     if (hasBrain && credits < CREDIT_COSTS.brainRefresh) {
       Alert.alert(
         'Not enough credits',
-        `Refreshing your brain costs ${CREDIT_COSTS.brainRefresh} credits — you have ${credits}.`,
+        `Refreshing your profile costs ${CREDIT_COSTS.brainRefresh} credits — you have ${credits}.`,
         [
           { text: 'Get credits', onPress: () => router.push('/(tabs)/profile') },
           { text: 'Cancel', style: 'cancel' },
@@ -1115,7 +1753,7 @@ export default function BrainScreen() {
   if (timedOut) {
     return (
       <View style={S.root}>
-        <View style={S.hdr}><Text style={S.hdrTitle}>My Brain</Text></View>
+        <View style={S.hdr}><Text style={S.hdrTitle}>Profile</Text></View>
         <View style={S.centerWrap}>
           <AlertCircle size={40} color={D.warning} strokeWidth={1.5} />
           <Text style={S.emptyTitle}>Still processing</Text>
@@ -1235,164 +1873,283 @@ export default function BrainScreen() {
     return (
       <ScrollView style={S.root} contentContainerStyle={S.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* Hero card */}
-        <FadeInView style={[S.heroCard, { marginTop: 14 }]}>
+        {/* Compact identity strip */}
+        <FadeInView style={brainS.hero}>
           <LinearGradient
             colors={Gradient.hero}
             start={{ x: 0.13, y: 0 }}
             end={{ x: 0.87, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
-          {/* Radial white highlight top-right */}
-          <View style={S.heroRadial} pointerEvents="none" />
-
-          {/* Avatar + Identity row */}
-          <View style={S.heroRow}>
-            <View style={S.heroAvatarRing}>
-              <View style={S.heroAvatarFrame}>
-                {profile.avatar_url
-                  ? <Image source={{ uri: profile.avatar_url }} style={S.heroAvatarImg} />
-                  : (
-                    <View style={S.heroAvatarFallback}>
-                      <Text style={S.heroAvatarLetter}>{(profile.handle[0] ?? 'C').toUpperCase()}</Text>
-                    </View>
-                  )
-                }
+          {profile.avatar_url
+            ? <Image source={{ uri: profile.avatar_url }} style={brainS.heroAvatar} />
+            : (
+              <View style={[brainS.heroAvatar, brainS.heroAvatarFallback]}>
+                <Text style={brainS.heroAvatarLetter}>{(profile.handle[0] ?? 'C').toUpperCase()}</Text>
               </View>
+            )}
+          <View style={{ flex: 1 }}>
+            <View style={brainS.heroNameRow}>
+              <Text style={brainS.heroName} numberOfLines={1}>{profile.display_name ?? `@${profile.handle}`}</Text>
+              <VerifiedSeal />
             </View>
-            <View style={S.heroIdentity}>
-              <View style={S.heroNameRow}>
-                <Text style={S.heroName} numberOfLines={1}>
-                  {profile.display_name ?? `@${profile.handle}`}
+            <Text style={brainS.heroMeta} numberOfLines={1}>
+              {profile.display_name ? `@${profile.handle} · ` : ''}{fmtNum(profile.follower_count)} followers · {fmtNum(profile.video_count)} videos
+            </Text>
+          </View>
+        </FadeInView>
+
+        {/* Your performance — real sales (if on record) + top 3 videos as screengrabs */}
+        <FadeInView delay={20} style={brainS.perfCard}>
+          <View style={brainS.perfHead}>
+            <View style={{ flex: 1 }}>
+              <Text style={brainS.sectionLabel}>Shop performance</Text>
+              {shopGmv != null ? (
+                <Text style={brainS.perfGmv}>
+                  ${fmtNum(shopGmv)}<Text style={brainS.perfGmvLabel}>  sales · 30d</Text>
                 </Text>
-                <VerifiedSeal />
-              </View>
-              {profile.display_name && (
-                <Text style={S.heroHandleText}>@{profile.handle}</Text>
+              ) : (
+                <Text style={brainS.perfSub}>No sales on record yet</Text>
               )}
-              {(profile.niche?.length ?? 0) > 0 && (
-                <View style={S.heroNicheRow}>
-                  {profile.niche!.map((n, i) => (
-                    <View key={i} style={S.heroNichePill}>
-                      <View style={S.heroNicheDot} />
-                      <Text style={S.heroNicheText}>{n}</Text>
+            </View>
+            <AnimatedPressable style={brainS.perfAll} haptic="light" onPress={() => router.push('/(tabs)/shop')}>
+              <Text style={brainS.perfAllText}>See all</Text>
+              <ArrowRight size={14} color={D.coral} strokeWidth={2.5} />
+            </AnimatedPressable>
+          </View>
+
+          <Text style={brainS.perfVidsLabel}>Your top videos</Text>
+          {topVideos.length > 0 ? (
+            <View style={brainS.vidGrid}>
+              {topVideos.map((v) => {
+                const useVideo = () => {
+                  if (v.url) router.push({ pathname: '/(tabs)/rewrite', params: { url: v.url } });
+                  else router.push('/(tabs)/scriptiq');
+                };
+                return (
+                  <View key={v.id} style={brainS.vidCol}>
+                    <AnimatedPressable style={brainS.vidThumbWrap} haptic="light" onPress={useVideo}>
+                      {v.thumbnail_url ? (
+                        <Image source={{ uri: v.thumbnail_url }} style={brainS.vidThumbImg} resizeMode="cover" />
+                      ) : (
+                        <View style={[brainS.vidThumbImg, brainS.vidThumbPh]}>
+                          <Film size={22} color={D.textDisabled} strokeWidth={1.8} />
+                        </View>
+                      )}
+                      <View style={brainS.vidViews}>
+                        <Text style={brainS.vidViewsText}>{fmtNum(v.views)} views</Text>
+                      </View>
+                    </AnimatedPressable>
+                    <AnimatedPressable style={brainS.vidUseBtn} haptic="light" onPress={useVideo}>
+                      <Text style={brainS.vidUseText}>Recreate video</Text>
+                    </AnimatedPressable>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={brainS.perfEmpty}>
+              {shopQ.isLoading ? 'Loading your top videos…' : 'Your top videos will show here once your profile has finished building.'}
+            </Text>
+          )}
+        </FadeInView>
+
+        {/* Your creator archetype — the one-line identity */}
+        {(() => {
+          const arch = archetype(profile, speech, pacing, styleProfile);
+          return (
+            <FadeInView delay={20} style={brainS.sigCard}>
+              <Text style={brainS.sigLabel}>Your creator archetype</Text>
+              <Text style={pS.archName}>{arch.name}</Text>
+              <Text style={pS.archBlurb}>{arch.blurb}</Text>
+            </FadeInView>
+          );
+        })()}
+
+        {/* At a glance — rings + the headline numbers */}
+        {(profile.energy_level != null || profile.authenticity_score != null || speech?.avg_wpm != null || pacing?.avg_hook_duration_sec != null) && (
+          <FadeInView delay={30} style={brainS.card}>
+            <Text style={brainS.sectionLabel}>At a glance</Text>
+            {(profile.energy_level != null || profile.authenticity_score != null) && (
+              <View style={[brainS.rings, { marginTop: 6 }]}>
+                {profile.energy_level != null && <Ring value={profile.energy_level} color={D.coral} label="Energy" />}
+                {profile.authenticity_score != null && <Ring value={profile.authenticity_score} color={D.limeDeep} label="Real" />}
+              </View>
+            )}
+            {(() => {
+              const tiles: React.ReactNode[] = [];
+              if (speech?.avg_wpm != null) tiles.push(<StatTile key="p" value={String(speech.avg_wpm)} unit="wpm" label={soundPaceWord(speech)} />);
+              if (pacing?.avg_hook_duration_sec != null) tiles.push(<StatTile key="h" value={fmtSec(pacing.avg_hook_duration_sec)} label="Hook" />);
+              if (pacing?.avg_video_length_sec != null) tiles.push(<StatTile key="l" value={fmtSec(pacing.avg_video_length_sec)} label="Length" />);
+              if (pacing?.cuts_per_30s != null) tiles.push(<StatTile key="c" value={String(Math.round(pacing.cuts_per_30s))} label="Cuts / 30s" />);
+              return tiles.length ? (
+                <View style={[brainS.statStrip, brainS.statStripBordered]}>
+                  {tiles.map((t, i) => (
+                    <React.Fragment key={i}>
+                      {i > 0 && <View style={brainS.statDivider} />}
+                      {t}
+                    </React.Fragment>
+                  ))}
+                </View>
+              ) : null;
+            })()}
+            {speech && <Text style={brainS.basedOn}>Learned by watching {speech.sample_count} of your videos.</Text>}
+          </FadeInView>
+        )}
+
+        {/* What we learned — benchmarked insight cards */}
+        {(() => {
+          const items = buildInsights(profile, speech, pacing, styleProfile);
+          return items.length > 0 ? <InsightCarousel items={items} /> : null;
+        })()}
+
+        {/* Your playbook — do more / watch / try */}
+        {(() => {
+          const plays = playbook(profile, speech, pacing, styleProfile);
+          return plays.length > 0 ? (
+            <FadeInView delay={40} style={brainS.card}>
+              <Text style={[brainS.sectionLabel, { marginBottom: 2 }]}>Your playbook</Text>
+              {plays.map((p, i) => <PlayRow key={i} p={p} last={i === plays.length - 1} />)}
+            </FadeInView>
+          ) : null;
+        })()}
+
+        {/* Your voice, decoded */}
+        {speech && (speech.tone || speech.opening_style || speech.sentence_structure || speech.signature_phrases.length > 0) && (
+          <FadeInView delay={50} style={brainS.card}>
+            <Text style={brainS.sectionLabel}>Your voice, decoded</Text>
+            {speech.tone && <Text style={brainS.dnaTagline}>{humanize(speech.tone)}</Text>}
+            {speech.opening_style && <Lead label="How you open">{humanize(speech.opening_style)}</Lead>}
+            {speech.sentence_structure && <Lead label="How you build a line">{humanize(speech.sentence_structure)}</Lead>}
+            {pacing?.typical_cta_position && (
+              <Lead label="When you make the ask">
+                {pacing.typical_cta_position.toLowerCase().includes('end')
+                  ? 'Right at the end — you earn it first, then ask.'
+                  : `In the ${humanize(pacing.typical_cta_position).toLowerCase()} — you ask before people drift.`}
+              </Lead>
+            )}
+            {speech.signature_phrases.length > 0 && (
+              <>
+                <Text style={[brainS.groupLabel, { marginTop: 16 }]}>Lines that are yours</Text>
+                <View style={brainS.phrases}>
+                  {speech.signature_phrases.slice(0, 5).map((p, i) => (
+                    <View key={i} style={brainS.phrase}><Text style={brainS.phraseText}>“{p}”</Text></View>
+                  ))}
+                </View>
+              </>
+            )}
+            {speech.filler_words.length > 0 && (
+              <>
+                <Text style={[brainS.groupLabel, { marginTop: 16 }]}>Your human tells</Text>
+                <View style={brainS.tags}>
+                  {speech.filler_words.slice(0, 5).map((w) => (
+                    <View key={w} style={brainS.tag}><Text style={brainS.tagText}>{w}</Text></View>
+                  ))}
+                </View>
+                <Text style={brainS.basedOn}>Most people edit these out. They're why you sound like a person, not an ad — we keep them in your scripts.</Text>
+              </>
+            )}
+          </FadeInView>
+        )}
+
+        {/* Your hooks, explained */}
+        {(profile.top_hook_types?.length ?? 0) > 0 && (
+          <FadeInView delay={60} style={brainS.card}>
+            <Text style={brainS.sectionLabel}>How you stop the scroll</Text>
+            <Text style={[brainS.basedOn, { marginTop: -6 }]}>The hook styles you reach for most, and what each one does.</Text>
+            {profile.top_hook_types!.slice(0, 4).map((h, i, arr) => <HookRow key={h} slug={h} last={i === arr.length - 1} />)}
+          </FadeInView>
+        )}
+
+        {/* How you shoot — formats, shots, signature moves */}
+        {styleProfile && (styleProfile.style_summary || styleProfile.format_distribution || styleProfile.shot_style_distribution || (styleProfile.production_notes?.length ?? 0) > 0) && (
+          <FadeInView delay={70} style={brainS.card}>
+            <Text style={brainS.sectionLabel}>How you shoot</Text>
+            {styleProfile.style_summary && <Text style={brainS.dnaTagline}>{styleProfile.style_summary}</Text>}
+            {(() => {
+              const fmts = distList(styleProfile.format_distribution, 'format').slice(0, 4);
+              const shots = distList(styleProfile.shot_style_distribution, 'style').slice(0, 4);
+              return (
+                <>
+                  {fmts.length > 0 && (
+                    <>
+                      <Text style={[brainS.groupLabel, { marginTop: 14 }]}>Your formats</Text>
+                      {fmts.map((f) => <DistRow key={f.label} label={f.label} pct={f.pct} />)}
+                    </>
+                  )}
+                  {shots.length > 0 && (
+                    <>
+                      <Text style={[brainS.groupLabel, { marginTop: 18 }]}>What's on screen</Text>
+                      {shots.map((s) => <DistRow key={s.label} label={s.label} pct={s.pct} color={D.ink} />)}
+                    </>
+                  )}
+                </>
+              );
+            })()}
+            {(styleProfile.production_notes?.length ?? 0) > 0 && (
+              <>
+                <Text style={[brainS.groupLabel, { marginTop: 18 }]}>Your signature moves</Text>
+                <View style={pS.moves}>
+                  {Array.from(new Set(styleProfile.production_notes!.map((n) => n.trim()))).slice(0, 4).map((n) => (
+                    <View key={n} style={pS.move}>
+                      <View style={pS.moveDot}><Check size={12} color={D.limeDeep} strokeWidth={3} /></View>
+                      <Text style={pS.moveText}>{n}</Text>
                     </View>
                   ))}
                 </View>
-              )}
-            </View>
-          </View>
+              </>
+            )}
+          </FadeInView>
+        )}
 
-          {profile.bio && <Text style={S.heroBio}>{profile.bio}</Text>}
-          <View style={S.heroDivider} />
-          <View style={S.heroStats}>
-            <HeroStat value={fmtNum(profile.follower_count)} label="Followers" />
-            <View style={S.heroStatDivider} />
-            <HeroStat value={fmtNum(profile.video_count)} label="Videos" />
-          </View>
-        </FadeInView>
+        {/* Who you're for */}
+        {(styleProfile?.typical_target_audience || (profile.niche?.length ?? 0) > 0) && (
+          <FadeInView delay={80} style={brainS.card}>
+            <Text style={brainS.sectionLabel}>Who you're for</Text>
+            {styleProfile?.typical_target_audience && <Text style={brainS.dnaTagline}>{styleProfile.typical_target_audience}</Text>}
+            {(profile.niche?.length ?? 0) > 0 && (
+              <View style={[brainS.tags, { marginTop: 12 }]}>
+                {profile.niche!.map((n) => (
+                  <View key={n} style={brainS.inkChip}><Text style={brainS.inkChipText}>{humanize(n)}</Text></View>
+                ))}
+              </View>
+            )}
+          </FadeInView>
+        )}
 
-        {/* Your Shop — performance dashboard link */}
-        <FadeInView delay={20}>
-          <AnimatedPressable style={S.shopLink} haptic="light" onPress={() => router.push('/(tabs)/shop')}>
-            <View style={S.shopLinkIcon}>
-              <Store size={20} color={D.coral} strokeWidth={1.9} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={S.shopLinkTitle}>Your Shop</Text>
-              <Text style={S.shopLinkSub}>Collaborations, commissions & top earners</Text>
-            </View>
-            <ArrowRight size={18} color={D.textDisabled} strokeWidth={2} />
+        {/* What sells for you */}
+        {insights && ((insights.top_products?.length ?? 0) > 0 || (insights.recommended_categories?.length ?? 0) > 0) && (
+          <FadeInView delay={90} style={brainS.card}>
+            <Text style={brainS.sectionLabel}>What sells for you</Text>
+            {insights.top_products.slice(0, 3).map((p, i) => (
+              <View key={i} style={[brainS.sellRow, i > 0 && brainS.sellDivider]}>
+                <Text style={brainS.sellName} numberOfLines={1}>{p.name}</Text>
+                <Text style={brainS.sellGmv}>${fmtNum(p.gmv)}</Text>
+              </View>
+            ))}
+            {(insights.recommended_categories?.length ?? 0) > 0 && (
+              <>
+                <Text style={brainS.groupLabel}>Categories to lean into</Text>
+                <View style={brainS.tags}>
+                  {insights.recommended_categories.slice(0, 6).map((c) => (
+                    <View key={c} style={brainS.chip}><Text style={brainS.chipText}>{humanize(c)}</Text></View>
+                  ))}
+                </View>
+              </>
+            )}
+          </FadeInView>
+        )}
+
+        <Text style={pS.footnote}>“Typical creator” = short-form talking-video norms, not a specific account.</Text>
+
+        {/* CTA */}
+        <FadeInView delay={120}>
+          <AnimatedPressable style={brainS.cta} haptic="medium" onPress={() => router.push('/(tabs)/scriptiq')}>
+            <Text style={brainS.ctaText}>Write a script in your voice</Text>
+            <View style={brainS.ctaArrow}><ArrowRight size={16} color="#FFF" strokeWidth={2.5} /></View>
           </AnimatedPressable>
         </FadeInView>
 
-        {/* How the brain works */}
-        <FadeInView delay={30} style={S.howCard}>
-          <View style={S.howAccent} />
-          <View style={S.howTop}>
-            <View style={S.howIconWrap}>
-              <Brain size={18} color={D.coral} strokeWidth={1.8} />
-            </View>
-            <Text style={S.howTitle}>How Your Brain Was Built</Text>
-          </View>
-          <Text style={S.howBody}>
-            Formula didn't just read your captions — it actually watched your videos. Frame by frame, it studied your delivery, your pacing, how you open, where you pause, and what hooks land. It looked for patterns across your content and used them to build a model that writes in your voice, not a generic one.
-          </Text>
-          <View style={S.howPills}>
-            {['Watched your footage', 'Mapped your hooks', 'Learned your pacing', 'Built your voice model'].map((t) => (
-              <View key={t} style={S.howPill}>
-                <View style={S.howPillDot} />
-                <Text style={S.howPillText}>{t}</Text>
-              </View>
-            ))}
-          </View>
-        </FadeInView>
-
-        {/* Brain Summary */}
-        {(profile.energy_level != null || profile.authenticity_score != null
-          || (profile.top_hook_types?.length ?? 0) > 0
-          || (profile.top_performing_formats?.length ?? 0) > 0) && (
-          <SectionCard delay={50}>
-            <CardHead icon={<SummaryIcon color="#FFF" />} title="Brain Summary" sub="Your on-camera fingerprint" />
-
-            {profile.energy_level != null && (
-              <GradientMeter
-                label="Energy"
-                value={profile.energy_level}
-                fromColor="#FF5E7A"
-                toColor={D.coral}
-                textColor={D.coral}
-              />
-            )}
-            {profile.authenticity_score != null && (
-              <GradientMeter
-                label="Authenticity"
-                value={profile.authenticity_score}
-                fromColor="#7BE06A"
-                toColor={D.limeDeep}
-                textColor={D.limeDeep}
-              />
-            )}
-            {(profile.energy_level != null || profile.authenticity_score != null) && (
-              <Explainer text="The AI uses these scores to calibrate how punchy vs. conversational your scripts feel — high energy gets fast hooks, high authenticity keeps the language raw and real." />
-            )}
-
-            {(profile.niche?.length ?? 0) > 0 && (
-              <View style={S.chipSection}>
-                <Text style={S.chipLabel}>Niche</Text>
-                <View style={S.chips}>
-                  {profile.niche!.map((n, i) => <Chip key={i} label={n} color={D.coral} />)}
-                </View>
-                <Explainer text="Your niche filters which product angles, pain points, and audiences the AI leans into when writing. Scripts outside your niche will still work — the AI just defaults to what fits you." />
-              </View>
-            )}
-
-            {(profile.top_hook_types?.length ?? 0) > 0 && (
-              <View style={S.chipSection}>
-                <Text style={S.chipLabel}>Top hook types</Text>
-                <View style={S.chips}>
-                  {profile.top_hook_types!.map((h, i) => <InkChip key={i} label={h} />)}
-                </View>
-                <Explainer text="These are your proven openers — the ones that actually appear in your content. Every script Formula writes will open with one of these patterns because that's what already works for you." />
-              </View>
-            )}
-
-            {(profile.top_performing_formats?.length ?? 0) > 0 && (
-              <View style={S.chipSection}>
-                <Text style={S.chipLabel}>Top formats</Text>
-                <View style={S.chips}>
-                  {profile.top_performing_formats!.map((f, i) => <Chip key={i} label={f} color={D.coral} />)}
-                </View>
-                <Explainer text="The AI structures your scripts around these formats first. A talking head creator gets a different script shape than someone who does demo-first or voiceover content." />
-              </View>
-            )}
-          </SectionCard>
-        )}
-
-        {speech && <SpeechSection t={speech} delay={90} />}
-        {pacing && <PacingSection t={pacing} delay={130} />}
-        {insights && <ProductInsightsSection p={insights} delay={170} />}
-        {styleProfile && <VideoStyleSection s={styleProfile} delay={210} />}
 
         {analyzeError && (
           <View style={S.errorBox}>
@@ -1465,7 +2222,7 @@ export default function BrainScreen() {
 
         {/* Text */}
         <View style={{ gap: 8 }}>
-          <Text style={S.heroCtaTitle}>Build Your Creator Brain</Text>
+          <Text style={S.heroCtaTitle}>Build Your Creator Profile</Text>
           <Text style={S.heroCtaSub}>
             Our engine actually <Text style={{ color: '#FFF', fontWeight: '700' }}>watches your videos</Text>
             {' '}— footage, delivery, timing and all — then learns your voice so every rewrite sounds exactly like you.
@@ -1521,7 +2278,7 @@ export default function BrainScreen() {
             { icon: <Film size={16} color={D.coral} strokeWidth={2} />, text: 'Plays your recent videos in full', bg: D.coralSubtle },
             { icon: <Activity size={16} color={D.cyan} strokeWidth={2} />, text: 'Detects hook patterns and pacing rhythms', bg: D.cyanSubtle },
             { icon: <Mic size={16} color={D.warning} strokeWidth={2} />, text: 'Maps your energy level and speaking pace', bg: D.warningSubtle },
-            { icon: <Brain size={16} color={D.limeDeep} strokeWidth={2} />, text: 'Builds a personalized rewrite brain model', bg: D.limeSubtle },
+            { icon: <Brain size={16} color={D.limeDeep} strokeWidth={2} />, text: 'Builds a personalized model of your voice', bg: D.limeSubtle },
           ].map((item, i, arr) => (
             <View key={i} style={[S.featureRow, i < arr.length - 1 && S.featureRowBorder]}>
               <View style={[S.featureIcon, { backgroundColor: item.bg }]}>{item.icon}</View>

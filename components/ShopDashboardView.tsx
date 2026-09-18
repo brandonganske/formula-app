@@ -43,6 +43,14 @@ export function formatMoneyCompact(n: number | null | undefined, currency?: stri
 
 // Commission rate — may arrive as basis points (3500 → 35%), a >1 percent
 // value (35 → 35%), or a fraction (0.35 → 35%).
+export function formatCompactNum(n: number | null | undefined): string {
+  const v = Number(n ?? 0);
+  if (!Number.isFinite(v)) return '0';
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(v >= 10_000_000 ? 0 : 1)}M`;
+  if (v >= 1_000) return `${(v / 1_000).toFixed(v >= 10_000 ? 0 : 1)}K`;
+  return String(Math.round(v));
+}
+
 export function formatPct(v: number | null | undefined): string {
   if (v == null || isNaN(v)) return '—';
   let pct: number;
@@ -103,6 +111,11 @@ export const SAMPLE_SHOP_DASHBOARD: ShopDashboard = {
   insights: [
     { id: 'i1', title: 'Your serum videos convert 2x', body: 'The GlowLab serum earns $3,550 per video — double your average. Cut three more angles this week while it is hot.', product_id: 'p1', cta: 'generate_scripts' },
     { id: 'i2', title: 'Gummies are under-filmed', body: 'Peak gummies pull strong revenue per video but you have only posted 5. There is clear headroom to scale.', product_id: 'p2', cta: 'generate_scripts' },
+  ],
+  top_videos: [
+    { id: 'v1', title: 'I tested this serum for 30 days — here’s the truth', url: null, thumbnail_url: null, views: 1_240_000, likes: 98_400, comments: 3_120, shares: 14_800, posted_at: '2026-09-01', duration_sec: 34, gmv: 8_900, units: 310 },
+    { id: 'v2', title: 'The creatine gummies that actually taste good', url: null, thumbnail_url: null, views: 612_000, likes: 41_200, comments: 1_480, shares: 6_900, posted_at: '2026-08-24', duration_sec: 28, gmv: 4_100, units: 162 },
+    { id: 'v3', title: 'My desk setup for filming at home', url: null, thumbnail_url: null, views: 388_000, likes: 22_100, comments: 910, shares: 2_300, posted_at: '2026-08-18', duration_sec: 41, gmv: null, units: null },
   ],
 };
 
@@ -182,22 +195,13 @@ type Props = {
   onDisconnect?: () => void | Promise<void>;
 };
 
-export default function ShopDashboardView({ data, onGenerate, onDisconnect }: Props) {
-  const [disconnecting, setDisconnecting] = useState(false);
+export default function ShopDashboardView({ data, onGenerate }: Props) {
   const currency = data.currency;
   const sum = data.summary;
   const freshness = timeAgo(data.data_freshness);
   const products = [...(data.products ?? [])].sort((a, b) => b.revenue_per_video - a.revenue_per_video);
-
-  const handleDisconnect = async () => {
-    if (!onDisconnect) return;
-    setDisconnecting(true);
-    try {
-      await onDisconnect();
-    } finally {
-      setDisconnecting(false);
-    }
-  };
+  const videos = data.top_videos ?? [];
+  const isReal = data.tier === 'authorized';
 
   return (
     <>
@@ -214,10 +218,12 @@ export default function ShopDashboardView({ data, onGenerate, onDisconnect }: Pr
             ? <Text style={S.headerHandle}>@{data.handle}</Text>
             : null}
         </View>
-        <View style={S.connectedPill}>
-          <Check size={12} color={D.limeDeep} strokeWidth={3} />
-          <Text style={S.connectedPillText}>TikTok Shop connected</Text>
-        </View>
+        {isReal && (
+          <View style={S.connectedPill}>
+            <Check size={12} color={D.limeDeep} strokeWidth={3} />
+            <Text style={S.connectedPillText}>Real data</Text>
+          </View>
+        )}
       </FadeInView>
       {freshness && <Text style={S.freshness}>{freshness}</Text>}
 
@@ -226,8 +232,14 @@ export default function ShopDashboardView({ data, onGenerate, onDisconnect }: Pr
         <FadeInView delay={40} style={S.moneyHero}>
           <View style={S.moneyTop}>
             <View style={{ flex: 1 }}>
-              <Text style={S.moneyValue}>{formatMoney(sum.commission_earned_30d, currency)}</Text>
-              <Text style={S.moneyLabel}>Commissions earned · 30d</Text>
+              <Text style={S.moneyValue}>
+                {sum.commission_earned_30d != null
+                  ? formatMoney(sum.commission_earned_30d, currency)
+                  : formatMoney(sum.gmv_30d, currency)}
+              </Text>
+              <Text style={S.moneyLabel}>
+                {sum.commission_earned_30d != null ? 'Commissions earned · 30d' : 'GMV · 30d'}
+              </Text>
               {sum.commission_pending > 0 && (
                 <Text style={S.moneyPending}>
                   {formatMoney(sum.commission_pending, currency)} pending
@@ -245,7 +257,7 @@ export default function ShopDashboardView({ data, onGenerate, onDisconnect }: Pr
           <View style={S.moneyStats}>
             <MonoStat value={formatMoneyCompact(sum.gmv_30d, currency)} label="GMV 30d" onDark />
             <View style={S.moneyStatDivider} />
-            <MonoStat value={new Intl.NumberFormat('en-US').format(sum.orders_30d)} label="Orders" onDark />
+            <MonoStat value={sum.aov != null ? formatMoneyCompact(sum.aov, currency) : '—'} label="Avg order" onDark />
             <View style={S.moneyStatDivider} />
             <MonoStat value={new Intl.NumberFormat('en-US').format(sum.units_30d)} label="Units" onDark />
           </View>
@@ -320,6 +332,34 @@ export default function ShopDashboardView({ data, onGenerate, onDisconnect }: Pr
         </FadeInView>
       )}
 
+      {/* ── Top videos (from the creator's own brain ingest) ───── */}
+      {videos.length > 0 && (
+        <FadeInView delay={100} style={S.section}>
+          <Text style={S.sectionLabel}>YOUR TOP VIDEOS</Text>
+          <View style={S.vidCard}>
+            {videos.map((v, i) => (
+              <View key={v.id} style={[S.vidRow, i > 0 && S.vidRowBorder]}>
+                {v.thumbnail_url
+                  ? <Image source={{ uri: v.thumbnail_url }} style={S.vidThumb} resizeMode="cover" />
+                  : <Text style={S.vidRank}>{i + 1}</Text>}
+                <View style={{ flex: 1 }}>
+                  <Text style={S.vidTitle} numberOfLines={2}>{v.title?.trim() || 'Untitled video'}</Text>
+                  <Text style={S.vidMeta} numberOfLines={1}>
+                    {formatCompactNum(v.views)} views · {formatCompactNum(v.likes)} likes · {formatCompactNum(v.shares)} shares
+                  </Text>
+                </View>
+                {v.gmv != null && v.gmv > 0 && (
+                  <View style={S.vidGmvWrap}>
+                    <Text style={S.vidGmv}>{formatMoneyCompact(v.gmv, currency)}</Text>
+                    <Text style={S.vidGmvLabel}>sales</Text>
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
+        </FadeInView>
+      )}
+
       {/* ── Insights (Smart moves) ─────────────────────────────── */}
       {(data.insights?.length ?? 0) > 0 && (
         <FadeInView delay={160} style={S.section}>
@@ -344,18 +384,6 @@ export default function ShopDashboardView({ data, onGenerate, onDisconnect }: Pr
         </FadeInView>
       )}
 
-      {/* ── Footer ─────────────────────────────────────────────── */}
-      <AnimatedPressable
-        style={S.disconnectRow}
-        onPress={handleDisconnect}
-        disabled={disconnecting}
-        haptic="light"
-      >
-        {disconnecting
-          ? <ActivityIndicator size="small" color={D.textMuted} />
-          : <Text style={S.disconnectText}>Disconnect TikTok Shop</Text>}
-      </AnimatedPressable>
-
       <View style={{ height: 48 }} />
     </>
   );
@@ -366,6 +394,22 @@ export default function ShopDashboardView({ data, onGenerate, onDisconnect }: Pr
 const S = StyleSheet.create({
   sectionLabel: { ...T.bold, ...SectionLabelStyle, marginBottom: 12, marginLeft: 4 },
   section: { paddingHorizontal: 16, marginTop: 22 },
+
+  // Top videos
+  vidCard: {
+    backgroundColor: D.card, borderRadius: R.xl,
+    borderWidth: 1, borderColor: D.cardBorder, paddingHorizontal: 16,
+    ...Shadow.soft,
+  },
+  vidRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 13 },
+  vidRowBorder: { borderTopWidth: 1, borderTopColor: D.borderSubtle },
+  vidRank: { ...T.bold, fontSize: 13, color: D.textMuted, width: 18, textAlign: 'center' },
+  vidThumb: { width: 44, height: 62, borderRadius: 10, backgroundColor: D.surface },
+  vidTitle: { ...T.medium, fontSize: 14.5, color: D.textPrimary, lineHeight: 20, letterSpacing: -0.2 },
+  vidMeta: { ...T.regular, fontSize: 12.5, color: D.textSecondary, marginTop: 3 },
+  vidGmvWrap: { alignItems: 'flex-end' },
+  vidGmv: { ...T.bold, fontSize: 15, color: D.limeDeep, letterSpacing: -0.2 },
+  vidGmvLabel: { ...T.medium, fontSize: 10.5, color: D.textMuted, marginTop: 1, textTransform: 'uppercase', letterSpacing: 0.3 },
 
   // Header
   header: {

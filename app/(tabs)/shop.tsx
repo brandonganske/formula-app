@@ -21,7 +21,6 @@ import ShopDashboardView, { SAMPLE_SHOP_DASHBOARD } from '@/components/ShopDashb
 export default function ShopScreen() {
   const router = useRouter();
   const qc = useQueryClient();
-  const [connecting, setConnecting] = useState(false);
 
   const query = useQuery({
     queryKey: ['shop-dashboard'],
@@ -35,49 +34,10 @@ export default function ShopScreen() {
 
   const refetch = () => qc.invalidateQueries({ queryKey: ['shop-dashboard'] });
 
-  // Degrade gracefully: on any error / 404, fall back to NOT CONNECTED. In dev,
-  // render a realistic sample so the screen is viewable in the web preview.
+  // Real data or nothing. On any error, fall through to the honest empty state —
+  // never the sample dataset (that lives only on the /shop-preview design route).
   const data: ShopDashboard | undefined = query.data
-    ?? (query.isError ? (__DEV__ ? SAMPLE_SHOP_DASHBOARD : { connected: false, tier: 'none' }) : undefined);
-
-  const handleConnect = async () => {
-    const url = data?.connect_url;
-    if (!url) {
-      Alert.alert('Coming soon', 'TikTok Shop connection is not available yet. Check back shortly.');
-      return;
-    }
-    setConnecting(true);
-    try {
-      const result = await WebBrowser.openAuthSessionAsync(url, 'formula://tiktok-shop-connected');
-      if (result.type === 'success') refetch();
-    } catch {
-      Alert.alert('Connection failed', 'Could not open TikTok Shop. Please try again.');
-    } finally {
-      setConnecting(false);
-    }
-  };
-
-  const handleDisconnect = () => {
-    Alert.alert(
-      'Disconnect TikTok Shop',
-      'Your collaborations and earnings will stop syncing. You can reconnect anytime.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Disconnect',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await api.post('/creators/tiktok-shop/disconnect');
-              refetch();
-            } catch {
-              Alert.alert('Couldn’t disconnect', 'Please try again in a moment.');
-            }
-          },
-        },
-      ],
-    );
-  };
+    ?? (query.isError ? { connected: false, tier: 'none', top_videos: [] } : undefined);
 
   const handleGenerate = (productId?: string) => {
     if (productId) {
@@ -108,8 +68,11 @@ export default function ShopScreen() {
     );
   }
 
-  // ── NOT CONNECTED ─────────────────────────────────────────────────────────
-  if (!data || !data.connected) {
+  // ── NOTHING TO SHOW YET ───────────────────────────────────────────────────
+  // No brain-ingested videos and no real GMV on record. There is no "connect"
+  // step any more — real numbers appear automatically once they exist.
+  const hasVideos = (data?.top_videos?.length ?? 0) > 0;
+  if (!data || (!hasVideos && !data.summary)) {
     return (
       <TabFadeView>
         <ScrollView style={S.root} contentContainerStyle={S.scroll} showsVerticalScrollIndicator={false}>
@@ -126,48 +89,20 @@ export default function ShopScreen() {
               <View style={S.emptyIcon}>
                 <Store size={30} color="#FFF" strokeWidth={1.8} />
               </View>
-              <Text style={S.emptyTitle}>Connect your TikTok Shop</Text>
+              <Text style={S.emptyTitle}>Your performance lives here</Text>
               <Text style={S.emptyBody}>
-                See your real collaborations, commissions, and which videos actually earn — pulled
-                straight from your TikTok Shop account.
+                Once your profile is built, your top videos show up here — and your real
+                sales numbers appear automatically when they’re on record.
               </Text>
 
               <AnimatedPressable
-                style={[S.emptyBtn, connecting && { opacity: 0.6 }]}
-                onPress={handleConnect}
-                disabled={connecting}
+                style={S.emptyBtn}
+                onPress={() => router.push('/(tabs)')}
                 haptic="medium"
               >
-                {connecting
-                  ? <ActivityIndicator size="small" color="#FFF" />
-                  : <Text style={S.emptyBtnText}>Connect TikTok Shop</Text>}
+                <Text style={S.emptyBtnText}>Go to your Profile</Text>
               </AnimatedPressable>
-
-              <View style={S.reassureRow}>
-                <ShieldCheck size={13} color="rgba(255,255,255,0.82)" strokeWidth={2} />
-                <Text style={S.reassureText}>Read-only. We never post or touch your account.</Text>
-              </View>
             </LinearGradient>
-          </FadeInView>
-
-          {/* What you'll see */}
-          <FadeInView delay={80} style={{ paddingHorizontal: 16, marginTop: 24 }}>
-            <Text style={S.sectionLabel}>WHAT YOU’LL SEE</Text>
-            <View style={S.featureCard}>
-              {[
-                { t: 'Commissions earned & pending', s: 'Every dollar, across all collaborations' },
-                { t: 'Revenue per video', s: 'Which content actually drives sales' },
-                { t: 'Smart moves', s: 'Where to double down — with scripts ready to film' },
-              ].map((f, i, arr) => (
-                <View key={f.t} style={[S.featureRow, i < arr.length - 1 && S.featureRowBorder]}>
-                  <View style={S.featureDot} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={S.featureTitle}>{f.t}</Text>
-                    <Text style={S.featureSub}>{f.s}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
           </FadeInView>
         </ScrollView>
       </TabFadeView>
@@ -181,7 +116,6 @@ export default function ShopScreen() {
         <ShopDashboardView
           data={data}
           onGenerate={handleGenerate}
-          onDisconnect={handleDisconnect}
         />
       </ScrollView>
     </TabFadeView>

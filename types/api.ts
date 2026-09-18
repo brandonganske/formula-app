@@ -219,6 +219,7 @@ export interface ProductSearchResult {
   day7_gmv?: number | null;
   total_units_sold?: number | null;
   cover_url?: string | null;
+  cover?: string | null;        // what the search backend actually sends
   product_url?: string | null;
 }
 
@@ -586,10 +587,29 @@ export interface ProductFolder {
 
 // ── Shop Dashboard (GET /creators/me/shop-dashboard) ─────────────────────────
 
+export interface ShopVideo {
+  id: string;
+  title: string | null;
+  url: string | null;
+  /** Screengrab (TikTok oEmbed, signed CDN URL — short-lived); null when unavailable. */
+  thumbnail_url: string | null;
+  views: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  posted_at: string | null;
+  duration_sec: number | null;
+  /** Real per-video GMV from the IQ index (API-sourced only); null when unknown. */
+  gmv: number | null;
+  units: number | null;
+}
+
 export interface ShopDashboard {
   connected: boolean;
   connect_url?: string;
   tier: 'authorized' | 'estimated' | 'none';
+  /** 'api' = real API-sourced numbers; 'none' = no real GMV on record. */
+  data_source?: 'api' | 'none';
   handle?: string;
   display_name?: string;
   avatar_url?: string;
@@ -597,11 +617,17 @@ export interface ShopDashboard {
   summary?: {
     gmv_30d: number;
     gmv_trend: { date: string; gmv: number }[];
-    commission_earned_30d: number;
+    /** Derived from real GMV × real avg commission rate; null when no rate on record. */
+    commission_earned_30d: number | null;
     commission_pending: number;
     orders_30d: number;
     units_30d: number;
-  };
+    lifetime_gmv?: number | null;
+    aov?: number | null;
+    brand_collab_count?: number | null;
+  } | null;
+  /** Always present: the creator's own top videos from the brain ingest. */
+  top_videos?: ShopVideo[];
   collaborations?: {
     id: string;
     brand_name: string;

@@ -1,5 +1,5 @@
 import { Tabs, Redirect } from 'expo-router';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Image } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { D, T, Shadow } from '@/constants/ds';
@@ -43,16 +43,25 @@ function IconProfile({ color }: { color: string }) {
   );
 }
 
-function IconBrain({ color }: { color: string }) {
+// Profile tab: the creator's real TikTok avatar (coral ring when active),
+// falling back to the generic icon when there's no picture yet.
+function IconProfileAvatar({ color }: { color: string }) {
+  const { profile } = useAuth();
+  const uri = profile?.avatar_url;
+  if (!uri) return <IconProfile color={color} />;
+  const active = color === D.coral;
   return (
-    <Svg width={26} height={26} viewBox="0 0 32 32" fill="none">
-      <Path
-        d="M15 7.2c-1.3-1.6-4-1.7-5.2-.1-2 .1-3.3 2-2.6 3.7-1.6.8-1.8 3.1-.2 4.2-.5 1.8 1 3.6 2.9 3.4.5 1.5 2.3 2.3 3.7 1.5M15 7.2c1.1-1.4 3.3-1.6 4.7-.5"
-        stroke={color} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"
-      />
-      <Rect x={10.6} y={11.4} width={7.4} height={2.4} rx={1.2} fill={color} />
-      <Rect x={10.6} y={15.2} width={4.8} height={2.4} rx={1.2} fill={color} />
-      <Rect x={20} y={14} width={2.6} height={7.2} rx={1.3} fill={color} />
+    <View style={[S.avatarWrap, active ? S.avatarWrapActive : S.avatarWrapIdle]}>
+      <Image source={{ uri }} style={S.avatarImg} />
+    </View>
+  );
+}
+
+function IconSettings({ color }: { color: string }) {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+      <Circle cx={12} cy={12} r={3.2} />
+      <Path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" />
     </Svg>
   );
 }
@@ -84,14 +93,15 @@ function TabItem({ Icon, label, focused }: { Icon: IconComp; label: string; focu
 
 // ─── Custom tab bar ───────────────────────────────────────────────────────────
 
-// Order: Products | Saved | [FAB ScriptIQ] | Brain | Profile
-const VISIBLE = ['products', 'scripts', 'scriptiq', 'index', 'profile'];
+// Order: Profile | Products | [FAB ScriptIQ] | Saved | Settings
+// `index` is the creator profile (DNA + performance); `profile` is settings.
+const VISIBLE = ['index', 'products', 'scriptiq', 'scripts', 'profile'];
 
 const TAB_MAP: Record<string, { Icon: IconComp; label: string }> = {
-  products: { Icon: IconProducts, label: 'Products' },
-  scripts:  { Icon: IconSaved,    label: 'Saved' },
-  index:    { Icon: IconBrain,    label: 'Brain' },
-  profile:  { Icon: IconProfile,  label: 'Profile' },
+  products: { Icon: IconProducts,      label: 'Products' },
+  scripts:  { Icon: IconSaved,         label: 'Saved' },
+  index:    { Icon: IconProfileAvatar, label: 'Profile' },
+  profile:  { Icon: IconSettings,      label: 'Settings' },
 };
 
 function CustomTabBar({ state, navigation }: any) {
@@ -151,11 +161,11 @@ export default function TabLayout() {
         tabBar={(props) => <CustomTabBar {...props} />}
         screenOptions={{ headerShown: true, header: () => <AppHeader /> }}
       >
-        <Tabs.Screen name="index"    options={{ title: 'Brain' }} />
+        <Tabs.Screen name="index"    options={{ title: 'Profile' }} />
         <Tabs.Screen name="scripts"  options={{ title: 'Saved' }} />
         <Tabs.Screen name="scriptiq" options={{ title: 'ScriptIQ' }} />
         <Tabs.Screen name="products" options={{ title: 'Products' }} />
-        <Tabs.Screen name="profile"  options={{ title: 'Profile' }} />
+        <Tabs.Screen name="profile"  options={{ title: 'Settings' }} />
         <Tabs.Screen name="shop"          options={{ href: null }} />
         <Tabs.Screen name="rewrite"       options={{ href: null }} />
         <Tabs.Screen name="videos"        options={{ href: null }} />
@@ -194,6 +204,13 @@ const S = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  avatarWrap: {
+    width: 26, height: 26, borderRadius: 13, overflow: 'hidden',
+    borderWidth: 2, backgroundColor: D.surface,
+  },
+  avatarWrapActive: { borderColor: D.coral },
+  avatarWrapIdle: { borderColor: 'transparent' },
+  avatarImg: { width: '100%', height: '100%' },
   tabLabel: {
     fontSize: 10,
     letterSpacing: 0.05,

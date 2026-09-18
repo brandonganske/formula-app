@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, Linking, Image,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, Linking,
   Modal, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Switch, Alert, Keyboard,
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
@@ -10,46 +10,21 @@ import TikTokMark from '@/components/TikTokMark';
 import FadeInView from '@/components/FadeInView';
 import TabFadeView from '@/components/TabFadeView';
 import AnimatedPressable from '@/components/AnimatedPressable';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
-import { D, T, R, Shadow, Gradient, SectionLabelStyle } from '@/constants/ds';
+import { D, T, R, Shadow, SectionLabelStyle } from '@/constants/ds';
 import {
-  LogOut, ExternalLink, Shield, Brain, ChevronRight,
-  Zap, AtSign, X, Bell, Mail, HelpCircle, FileText,
-  Users, Video, BookOpen, Target, KeyRound, Check, Phone, CreditCard, Trash2, Store,
+  LogOut, ExternalLink, Shield, ChevronRight, Zap, AtSign, X, Bell, Mail,
+  HelpCircle, FileText, KeyRound, Check, Phone, CreditCard, Trash2,
+  User, Calendar, MapPin, MessageSquare, MessageCircle,
 } from 'lucide-react-native';
-import Svg, { Path } from 'react-native-svg';
-import { api, extractData } from '@/lib/api';
-import { SavedScriptsResponse } from '@/types/api';
+import { api } from '@/lib/api';
 import { usePurchases } from '@/context/PurchasesContext';
 import { planLabel, SUB_PLANS, CREDIT_PACKS, CREDIT_COSTS, FREE_MONTHLY_CREDITS } from '@/lib/iap/catalog';
 import {
-  NICHE_OPTIONS, POST_FREQUENCY_OPTIONS, CREATION_GOAL_OPTIONS,
+  GENDER_OPTIONS, AGE_RANGE_OPTIONS, COUNTRY_OPTIONS,
   labelFor, OptionDef, normalizeTikTokHandle, looksLikeLink,
 } from '@/constants/onboarding';
-
-// ─── Verified badge ───────────────────────────────────────────────────────────
-
-function VerifiedBadge() {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24">
-      <Path
-        d="M12 2l2.2 1.6 2.7-.2 1 2.5 2.3 1.4-.6 2.6.6 2.6-2.3 1.4-1 2.5-2.7-.2L12 22l-2.2-1.6-2.7.2-1-2.5L3.8 16.3l.6-2.6-.6-2.6L6.1 7.7l1-2.5 2.7.2z"
-        fill="#fff"
-      />
-      <Path
-        d="M9 12l2 2 4-4.2"
-        fill="none"
-        stroke={D.coral}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
 
 // ─── Settings row ─────────────────────────────────────────────────────────────
 
@@ -70,11 +45,12 @@ function SettingsRow({
       style={[SR.row, last && SR.rowLast]}
       onPress={onPress}
       activeOpacity={onPress ? 0.72 : 1}
+      disabled={!onPress}
     >
       <View style={[SR.iconBox, danger && SR.iconBoxDanger]}>{icon}</View>
       <View style={SR.body}>
         <Text style={[SR.label, danger && { color: D.coral }]}>{label}</Text>
-        {sub ? <Text style={SR.sub}>{sub}</Text> : null}
+        {sub ? <Text style={SR.sub} numberOfLines={1}>{sub}</Text> : null}
       </View>
       <View style={SR.end}>
         {rightElement
@@ -97,7 +73,7 @@ const SR = StyleSheet.create({
   },
   rowLast: { borderBottomWidth: 0 },
   iconBox: {
-    width: 46, height: 46, borderRadius: 14,
+    width: 40, height: 40, borderRadius: 12,
     backgroundColor: D.inkHairline,
     borderWidth: 1, borderColor: D.surfaceBorder,
     alignItems: 'center', justifyContent: 'center',
@@ -111,44 +87,49 @@ const SR = StyleSheet.create({
   end: { alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
 });
 
+function Toggle({ value, onChange, disabled }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+  return (
+    <Switch
+      value={value}
+      onValueChange={onChange}
+      disabled={disabled}
+      trackColor={{ false: D.border, true: D.coral + 'AA' }}
+      thumbColor={value ? D.coral : D.textDisabled}
+    />
+  );
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
-export default function ProfileScreen() {
-  const { profile, meData, logout, credits, refreshMe, patchMe } = useAuth();
+// Settings. The creator's identity, DNA and performance live on the Profile
+// tab (index); this screen is account plumbing only. Everything editable here
+// is something the onboarding flow asked for, plus plan + account controls.
+export default function SettingsScreen() {
+  const { profile, logout, credits, refreshMe, patchMe } = useAuth();
   const router = useRouter();
-  const creatorId = profile?.id ?? null;
+  const p = (profile ?? {}) as any;
 
-  const { data: scriptsData } = useQuery({
-    queryKey: ['saved-scripts'],
-    queryFn: async () => {
-      const res = await api.get('/creators/scripts');
-      const d = extractData<SavedScriptsResponse>(res);
-      return d?.scripts ?? (Array.isArray(d) ? d : []);
-    },
-    staleTime: 60_000,
-  });
-  const savedScriptsCount = scriptsData?.length ?? 0;
+  const tiktokLinked = profile?.tiktok_open_id != null;
+  // TikTok / Apple signups get a synthetic placeholder address (e.g.
+  // tiktok_<id>@users.formula.app) — never show that as if it were theirs.
+  const isSyntheticEmail = (e: string) => /@users\.formula\.app$|tiktokformula/i.test(e);
+  const hasEmail = !!p.email && !isSyntheticEmail(String(p.email));
 
-  const { data: savedProductsCount = 0 } = useQuery({
-    queryKey: ['saved-products-count', creatorId],
-    queryFn: async () => {
-      if (!creatorId) return 0;
-      const res = await api.get('/creators/saved-products');
-      const d = extractData<{ products?: unknown[]; count?: number }>(res);
-      return d?.count ?? d?.products?.length ?? 0;
-    },
-    enabled: !!creatorId,
-    staleTime: 30_000,
-  });
-
-  const [notifEnabled, setNotifEnabled] = useState(false);
-
+  // The edit sheets pad the bottom for the home indicator; with the keyboard
+  // up that padding becomes a dead white strip above the keys, so drop it.
+  const [kbUp, setKbUp] = useState(false);
   useEffect(() => {
-    Notifications.getPermissionsAsync().then(({ status }) => {
-      setNotifEnabled(status === 'granted');
-    });
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKbUp(true));
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKbUp(false));
+    return () => { show.remove(); hide.remove(); };
   }, []);
+  const sheetStyle = [M.sheet, kbUp && M.sheetKb];
 
+  // ── Push (system permission) ────────────────────────────────────────────
+  const [notifEnabled, setNotifEnabled] = useState(false);
+  useEffect(() => {
+    Notifications.getPermissionsAsync().then(({ status }) => setNotifEnabled(status === 'granted'));
+  }, []);
   const handleToggleNotif = async () => {
     if (notifEnabled) {
       Linking.openSettings();
@@ -158,33 +139,37 @@ export default function ProfileScreen() {
     }
   };
 
+  // ── Contact opt-ins (same switches as onboarding) ───────────────────────
+  type OptinKey = 'email_optin' | 'sms_optin' | 'whatsapp_optin';
+  const [optinBusy, setOptinBusy] = useState<OptinKey | null>(null);
+  const setOptin = async (key: OptinKey, value: boolean) => {
+    setOptinBusy(key);
+    const { error } = await patchMe({ [key]: value } as any);
+    setOptinBusy(null);
+    if (error) Alert.alert('Couldn’t save', error);
+  };
+
+  // ── Purchases ───────────────────────────────────────────────────────────
   const { restore, openCustomerCenter, purchase, priceById, available: iapAvailable } = usePurchases();
   const [restoring, setRestoring] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
-
   const currentTier = (profile?.plan ?? 'free').toLowerCase();
 
   const runPurchase = async (productId: string) => {
     if (!iapAvailable) {
-      Alert.alert(
-        'Not available here',
-        'In-app purchases only work in the installed app build, not Expo Go.',
-      );
+      Alert.alert('Not available here', 'In-app purchases only work in the installed app build.');
       return;
     }
     setBusyId(productId);
     const res = await purchase(productId);
     setBusyId(null);
-    if (res.ok) {
-      Alert.alert('Purchase complete', 'Your plan and credits will update in a moment.');
-    } else if (!res.cancelled) {
-      Alert.alert('Couldn’t complete purchase', res.error ?? 'Please try again.');
-    }
+    if (res.ok) Alert.alert('Purchase complete', 'Your plan and credits will update in a moment.');
+    else if (!res.cancelled) Alert.alert('Couldn’t complete purchase', res.error ?? 'Please try again.');
   };
 
   const handleManageSubscription = async () => {
     if (!iapAvailable) {
-      Alert.alert('Manage subscription', 'Subscription management opens in the installed app build (not Expo Go).');
+      Alert.alert('Manage subscription', 'Subscription management opens in the installed app build.');
       return;
     }
     await openCustomerCenter();
@@ -200,31 +185,24 @@ export default function ProfileScreen() {
     );
   };
 
-  // ── TikTok connect (link this TikTok to the signed-in account) ──────────
+  // ── TikTok connect (email accounts only) ────────────────────────────────
   const [connectingTikTok, setConnectingTikTok] = useState(false);
   const handleConnectTikTok = async () => {
     const redirect = 'formula://tiktok-connect';
     try {
       const url = `https://iq.influenceish.com/api/v1/tiktok/login?mode=connect&app_redirect=${encodeURIComponent(redirect)}`;
       const result = await WebBrowser.openAuthSessionAsync(url, redirect);
-      if (result.type !== 'success' || !result.url) return; // user backed out
+      if (result.type !== 'success' || !result.url) return;
       const match = result.url.match(/[?&]ticket=([^&#]+)/);
       const ticket = match ? decodeURIComponent(match[1]) : null;
-      if (!ticket) {
-        Alert.alert('Connection failed', 'TikTok didn’t return a valid ticket. Please try again.');
-        return;
-      }
+      if (!ticket) { Alert.alert('Connection failed', 'TikTok didn’t return a valid ticket. Please try again.'); return; }
       setConnectingTikTok(true);
       await api.post('/creators/tiktok/connect', { ticket });
       await refreshMe();
       Alert.alert('TikTok connected', 'One-tap sign-in and auto ingest are now enabled.');
     } catch (err: any) {
       const body = err?.response?.data ?? {};
-      const msg =
-        (typeof body?.error === 'string' ? body.error : body?.error?.message) ||
-        body?.message ||
-        err?.message ||
-        'Could not connect TikTok. Please try again.';
+      const msg = (typeof body?.error === 'string' ? body.error : body?.error?.message) || body?.message || err?.message;
       Alert.alert(
         err?.response?.status === 409 ? 'Already connected' : 'Connection failed',
         typeof msg === 'string' ? msg : 'Could not connect TikTok. Please try again.',
@@ -235,27 +213,22 @@ export default function ProfileScreen() {
   };
 
   const handleChangePassword = async () => {
-    const email = (profile as any)?.email;
-    if (!email) { Alert.alert('Error', 'No email address found on your account.'); return; }
+    if (!hasEmail) return;
     try {
-      await api.post('/auth/forgot-password', { email });
-      Alert.alert('Email Sent', `A password reset link has been sent to ${email}.`);
+      await api.post('/auth/forgot-password', { email: p.email });
+      Alert.alert('Email sent', `A password reset link has been sent to ${p.email}.`);
     } catch (err: any) {
       Alert.alert('Error', err?.response?.data?.error ?? err?.message ?? 'Could not send reset email.');
     }
   };
 
+  // ── Handle edit (only when TikTok isn't linked — otherwise it's TikTok's) ─
   const [handleModal, setHandleModal] = useState(false);
   const [handleInput, setHandleInput] = useState('');
   const [handleSaving, setHandleSaving] = useState(false);
   const [handleError, setHandleError] = useState<string | null>(null);
-
-  const openHandleModal = () => {
-    setHandleInput(profile?.handle ?? '');
-    setHandleError(null);
-    setHandleModal(true);
-  };
-
+  const openHandleModal = () => { setHandleInput(profile?.handle ?? ''); setHandleError(null); setHandleModal(true); };
+  const closeHandle = () => { Keyboard.dismiss(); setHandleModal(false); };
   const saveHandle = async () => {
     const trimmed = normalizeTikTokHandle(handleInput);
     if (!trimmed) { setHandleError('Handle cannot be empty'); return; }
@@ -263,22 +236,18 @@ export default function ProfileScreen() {
     try {
       await api.patch('/creators/me', { handle: trimmed });
       await refreshMe();
-      Keyboard.dismiss();
-      setHandleModal(false);
+      closeHandle();
       router.navigate('/(tabs)');
     } catch (err: any) {
-      if (err?.response?.status === 409) {
-        setHandleError('That handle is already taken — try a different one');
-        return;
-      }
+      if (err?.response?.status === 409) { setHandleError('That handle is already taken — try a different one'); return; }
       const msg = err?.response?.data?.error?.message ?? err?.response?.data?.message ?? err?.message ?? 'Failed to update handle';
       setHandleError(typeof msg === 'string' ? msg : 'Failed to update handle');
     } finally { setHandleSaving(false); }
   };
 
-  // ── Editable onboarding fields (inline modals) ──────────────────────────
+  // ── Editable onboarding answers (inline sheet) ──────────────────────────
   type EditConfig = {
-    key: 'primary_niche' | 'post_frequency' | 'creation_goal' | 'whatsapp';
+    key: 'gender' | 'age_range' | 'region' | 'whatsapp';
     title: string;
     type: 'select' | 'text';
     options?: OptionDef[];
@@ -289,17 +258,10 @@ export default function ProfileScreen() {
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
-  const openEdit = (cfg: EditConfig) => {
-    setEditValue(((profile as any)?.[cfg.key] as string) ?? '');
-    setEditError(null);
-    setEditField(cfg);
-  };
-
-  // Dismiss the keyboard before hiding the modal so a focused text input
-  // (e.g. the phone-pad WhatsApp field) doesn't flash its keypad on fade-out.
+  const openEdit = (cfg: EditConfig) => { setEditValue((p[cfg.key] as string) ?? ''); setEditError(null); setEditField(cfg); };
+  // Dismiss the keyboard before hiding the sheet so a focused text input
+  // doesn't flash its keypad on fade-out.
   const closeEdit = () => { Keyboard.dismiss(); setEditField(null); };
-  const closeHandle = () => { Keyboard.dismiss(); setHandleModal(false); };
-
   const saveEdit = async () => {
     if (!editField) return;
     const val = editField.type === 'text' ? editValue.trim() : editValue;
@@ -313,7 +275,6 @@ export default function ProfileScreen() {
 
   const handleLogout = async () => {
     await logout();
-    // Don't rely solely on the tab layout's auth redirect — navigate explicitly.
     router.replace('/');
   };
 
@@ -323,7 +284,7 @@ export default function ProfileScreen() {
   const handleDeleteAccount = () => {
     Alert.alert(
       'Delete Account',
-      'This permanently deletes your Formula account, your creator brain, and all saved scripts. This can’t be undone.',
+      'This permanently deletes your Formula account, your creator profile, and all saved scripts. This can’t be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -345,11 +306,8 @@ export default function ProfileScreen() {
                       await logout();
                       Alert.alert('Account Deleted', 'Your account and data have been permanently deleted.');
                     } catch (err: any) {
-                      const msg =
-                        err?.response?.data?.error?.message ??
-                        err?.response?.data?.message ??
-                        err?.message ??
-                        'Could not delete your account. Please try again or contact hello@influenceish.com.';
+                      const msg = err?.response?.data?.error?.message ?? err?.response?.data?.message ?? err?.message
+                        ?? 'Could not delete your account. Please try again or contact hello@influenceish.com.';
                       Alert.alert('Deletion Failed', typeof msg === 'string' ? msg : 'Could not delete your account.');
                     } finally {
                       setDeleting(false);
@@ -363,142 +321,38 @@ export default function ProfileScreen() {
     );
   };
 
-  const fmtCount = (n: number | null | undefined) => {
-    if (!n) return '—';
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-    return n.toString();
-  };
-
-  const followerCount = (profile as any)?.follower_count as number | undefined;
-  const videoCount = (profile as any)?.video_count as number | undefined;
-
-  const initials = (
-    (profile?.display_name ?? profile?.handle ?? 'C')[0] ?? 'C'
-  ).toUpperCase();
-
-  const displayName = profile?.display_name ?? (profile?.handle ? `@${profile.handle}` : 'Creator');
-  const showHandle = !!(profile?.handle && profile?.display_name);
-  const [imgError, setImgError] = useState(false);
-  const avatarUrl = profile?.avatar_url && !imgError ? profile.avatar_url : null;
+  const renews = profile?.plan_renews_at
+    ? new Date(profile.plan_renews_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : null;
+  const planSub = profile?.plan_status && profile.plan_status !== 'active'
+    ? `${planLabel(profile?.plan)} · ${profile.plan_status}`
+    : renews ? `${planLabel(profile?.plan)} · renews ${renews}` : `${planLabel(profile?.plan)} plan`;
 
   return (
     <TabFadeView>
-    <ScrollView
-      style={S.root}
-      contentContainerStyle={S.scroll}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* ── Coral gradient hero card ────────────────────────────── */}
-      <FadeInView style={S.heroWrap}>
-        <LinearGradient
-          colors={Gradient.hero}
-          locations={[0, 0.52, 1]}
-          start={{ x: 0.15, y: 0 }}
-          end={{ x: 0.85, y: 1 }}
-          style={S.hero}
-        >
-          {/* Yellow glow — top right */}
-          <View style={S.glowYellow} pointerEvents="none" />
-          {/* Pink glow — bottom left */}
-          <View style={S.glowPink} pointerEvents="none" />
-
-          <View style={S.heroInner}>
-            {/* Avatar */}
-            <View style={S.avatar}>
-              {avatarUrl ? (
-                <Image
-                  source={{ uri: avatarUrl }}
-                  style={S.avatarImg}
-                  onError={() => setImgError(true)}
-                />
-              ) : (
-                <Text style={S.avatarText}>{initials}</Text>
-              )}
-            </View>
-
-            {/* Name + verified */}
-            <View style={S.nameRow}>
-              <Text style={S.displayName}>{displayName}</Text>
-              <VerifiedBadge />
-            </View>
-
-            {showHandle && (
-              <Text style={S.handle}>@{profile!.handle}</Text>
-            )}
-
-            {/* Niche pill */}
-            {(Array.isArray(profile?.niche) ? profile!.niche.length > 0 : !!profile?.niche) ? (
-              <View style={S.nichePill}>
-                <View style={S.nicheDot} />
-                <Text style={S.nicheText}>
-                  {Array.isArray(profile?.niche) ? profile!.niche.join(' · ') : profile?.niche}
-                </Text>
-              </View>
-            ) : null}
-
-            {/* Stats glass card */}
-            <View style={S.statsCard}>
-              {followerCount != null ? (
-                <>
-                  <View style={S.statCell}>
-                    <Text style={[S.statValue, S.statValueAccent]}>{fmtCount(followerCount)}</Text>
-                    <Text style={S.statLabel}>Followers</Text>
-                  </View>
-                  <View style={S.statDivider} />
-                  <View style={S.statCell}>
-                    <Text style={S.statValue}>{fmtCount(videoCount)}</Text>
-                    <Text style={S.statLabel}>Videos</Text>
-                  </View>
-                  <View style={S.statDivider} />
-                  <View style={S.statCell}>
-                    <Text style={S.statValue}>{savedScriptsCount}</Text>
-                    <Text style={S.statLabel}>Scripts</Text>
-                  </View>
-                </>
-              ) : (
-                <>
-                  <View style={S.statCell}>
-                    <Text style={S.statValue}>{savedScriptsCount}</Text>
-                    <Text style={S.statLabel}>Saved Scripts</Text>
-                  </View>
-                  <View style={S.statDivider} />
-                  <View style={S.statCell}>
-                    <Text style={[S.statValue, S.statValueAccent]}>{savedProductsCount}</Text>
-                    <Text style={S.statLabel}>Saved Products</Text>
-                  </View>
-                </>
-              )}
-            </View>
-          </View>
-        </LinearGradient>
+    <ScrollView style={S.root} contentContainerStyle={S.scroll} showsVerticalScrollIndicator={false}>
+      {/* ── Title ───────────────────────────────────────────────── */}
+      <FadeInView style={S.titleWrap}>
+        <Text style={S.title}>Settings</Text>
+        <Text style={S.titleSub}>{profile?.handle ? `@${profile.handle}` : 'Your account'}</Text>
       </FadeInView>
 
-      {/* ── Credits ─────────────────────────────────────────────── */}
-      <FadeInView delay={100} style={S.section}>
-        <Text style={S.sectionLabel}>CREDITS</Text>
-        <View style={S.creditsCard}>
-          {/* Balance row */}
-          <View style={S.creditsBal}>
-            <View style={S.creditsIconWrap}>
-              <Zap size={20} color="#FFF" strokeWidth={2} fill="#FFF" />
-            </View>
+      {/* ── Plan & credits ──────────────────────────────────────── */}
+      <FadeInView delay={60} style={S.section}>
+        <Text style={S.sectionLabel}>PLAN & CREDITS</Text>
+        <View style={S.card}>
+          <View style={S.balRow}>
+            <View style={S.balIcon}><Zap size={18} color="#FFF" strokeWidth={2} fill="#FFF" /></View>
             <View style={{ flex: 1 }}>
-              <Text style={S.creditsBalNum}>{credits} credits</Text>
-              <Text style={S.creditsBalSub}>{planLabel(profile?.plan)} plan · refills monthly</Text>
+              <Text style={S.balNum}>{credits} credits</Text>
+              <Text style={S.balSub}>{planSub}</Text>
             </View>
-            <View style={S.planBadge}>
-              <Text style={S.planBadgeText}>{planLabel(profile?.plan)}</Text>
-              {profile?.plan_status && profile.plan_status !== 'active' ? (
-                <Text style={S.planBadgeStatus}>{profile.plan_status}</Text>
-              ) : null}
-            </View>
+            <View style={S.planBadge}><Text style={S.planBadgeText}>{planLabel(profile?.plan)}</Text></View>
           </View>
 
-          <View style={S.creditsDivider} />
+          <View style={S.divider} />
 
-          {/* Subscription tiers */}
-          <Text style={S.creditsPackLabel}>Monthly plans</Text>
+          <Text style={S.subLabel}>Monthly plans</Text>
           {SUB_PLANS.map((plan) => {
             const isCurrent = currentTier === plan.tier;
             const price = priceById[plan.productId] ?? plan.priceLabel;
@@ -529,8 +383,7 @@ export default function ProfileScreen() {
             );
           })}
 
-          {/* Top-up packs */}
-          <Text style={[S.creditsPackLabel, { marginTop: 20 }]}>One-time load up</Text>
+          <Text style={[S.subLabel, { marginTop: 16 }]}>Top up</Text>
           <View style={S.packsRow}>
             {CREDIT_PACKS.map((pack) => {
               const price = priceById[pack.productId] ?? pack.priceLabel;
@@ -558,167 +411,180 @@ export default function ProfileScreen() {
             })}
           </View>
 
-          {/* Cost explainer */}
-          <View style={S.costBox}>
-            <Text style={S.costTitle}>What credits get you</Text>
-            <Text style={S.costLine}>1 script  ·  {CREDIT_COSTS.script} credit</Text>
-            <Text style={S.costLine}>1 product analysis  ·  {CREDIT_COSTS.productAnalysis} credit</Text>
-            <Text style={S.costLine}>Brain refresh  ·  {CREDIT_COSTS.brainRefresh} credits</Text>
-            <Text style={S.costLine}>Free plan  ·  {FREE_MONTHLY_CREDITS} credits every month</Text>
-          </View>
-
-          <TouchableOpacity style={S.restoreRow} onPress={handleRestore} disabled={restoring} activeOpacity={0.7}>
-            {restoring
-              ? <ActivityIndicator size="small" color={D.textMuted} />
-              : <Text style={S.restoreRowText}>Restore purchases</Text>}
-          </TouchableOpacity>
-
-          <Text style={S.iapNote}>
-            Purchases are processed securely through the App Store or Google Play.
+          <Text style={S.costLine}>
+            {CREDIT_COSTS.script} per script  ·  {CREDIT_COSTS.productAnalysis} per product  ·  {CREDIT_COSTS.brainRefresh} per profile refresh  ·  {FREE_MONTHLY_CREDITS} free every month
           </Text>
+
+          <View style={S.footRow}>
+            <TouchableOpacity onPress={handleManageSubscription} activeOpacity={0.7} hitSlop={8}>
+              <Text style={S.footLink}>Manage subscription</Text>
+            </TouchableOpacity>
+            <Text style={S.footDot}>·</Text>
+            <TouchableOpacity onPress={handleRestore} disabled={restoring} activeOpacity={0.7} hitSlop={8}>
+              {restoring
+                ? <ActivityIndicator size="small" color={D.textMuted} />
+                : <Text style={S.footLink}>Restore purchases</Text>}
+            </TouchableOpacity>
+          </View>
         </View>
       </FadeInView>
 
-      {/* ── Creator Profile (editable) ─────────────────────────── */}
+      {/* ── About you (the onboarding answers) ──────────────────── */}
       <FadeInView delay={90} style={S.section}>
-        <Text style={S.sectionLabel}>CREATOR PROFILE</Text>
+        <Text style={S.sectionLabel}>ABOUT YOU</Text>
         <View style={S.group}>
           <SettingsRow
-            icon={<BookOpen size={20} color={D.textMuted} strokeWidth={1.8} />}
-            label="Niche"
-            sub={labelFor(NICHE_OPTIONS, (profile as any)?.primary_niche) || 'Not set'}
-            onPress={() => openEdit({ key: 'primary_niche', title: 'Your niche', type: 'select', options: NICHE_OPTIONS })}
+            icon={<User size={19} color={D.textMuted} strokeWidth={1.8} />}
+            label="Gender"
+            sub={labelFor(GENDER_OPTIONS, p.gender) || 'Not set'}
+            onPress={() => openEdit({ key: 'gender', title: 'A little about you', type: 'select', options: GENDER_OPTIONS })}
           />
           <SettingsRow
-            icon={<Video size={20} color={D.textMuted} strokeWidth={1.8} />}
-            label="Post Frequency"
-            sub={labelFor(POST_FREQUENCY_OPTIONS, (profile as any)?.post_frequency) || 'Not set'}
-            onPress={() => openEdit({ key: 'post_frequency', title: 'How often you post', type: 'select', options: POST_FREQUENCY_OPTIONS })}
+            icon={<Calendar size={19} color={D.textMuted} strokeWidth={1.8} />}
+            label="Age range"
+            sub={labelFor(AGE_RANGE_OPTIONS, p.age_range) || 'Not set'}
+            onPress={() => openEdit({ key: 'age_range', title: 'Your age range', type: 'select', options: AGE_RANGE_OPTIONS })}
           />
           <SettingsRow
-            icon={<Target size={20} color={D.textMuted} strokeWidth={1.8} />}
-            label="Content Goal"
-            sub={labelFor(CREATION_GOAL_OPTIONS, (profile as any)?.creation_goal) || 'Not set'}
-            onPress={() => openEdit({ key: 'creation_goal', title: 'Why you create', type: 'select', options: CREATION_GOAL_OPTIONS })}
+            icon={<MapPin size={19} color={D.textMuted} strokeWidth={1.8} />}
+            label="Based in"
+            sub={p.region || 'Not set'}
+            onPress={() => openEdit({ key: 'region', title: 'Where are you based?', type: 'select', options: COUNTRY_OPTIONS })}
           />
           <SettingsRow
-            icon={<Phone size={20} color={D.textMuted} strokeWidth={1.8} />}
+            icon={<Phone size={19} color={D.textMuted} strokeWidth={1.8} />}
             label="WhatsApp"
-            sub={(profile as any)?.whatsapp || 'Not set'}
+            sub={p.whatsapp || 'Not set'}
             onPress={() => openEdit({ key: 'whatsapp', title: 'WhatsApp number', type: 'text', placeholder: 'e.g. +1 555 123 4567' })}
             last
           />
         </View>
       </FadeInView>
 
-      {/* ── Account ─────────────────────────────────────────────── */}
-      <FadeInView delay={80} style={S.section}>
-        <Text style={S.sectionLabel}>ACCOUNT</Text>
+      {/* ── Notifications ───────────────────────────────────────── */}
+      <FadeInView delay={120} style={S.section}>
+        <Text style={S.sectionLabel}>NOTIFICATIONS</Text>
         <View style={S.group}>
           <SettingsRow
-            icon={<Store size={20} color={D.coral} strokeWidth={1.8} />}
-            label="Your Shop"
-            sub="Your collaborations & earnings"
-            onPress={() => router.push('/(tabs)/shop')}
+            icon={<Bell size={19} color={D.textMuted} strokeWidth={1.8} />}
+            label="Push notifications"
+            sub="When your profile and scripts are ready"
+            rightElement={<Toggle value={notifEnabled} onChange={handleToggleNotif} />}
           />
-          {(profile as any)?.email && (
+          <SettingsRow
+            icon={<Mail size={19} color={D.textMuted} strokeWidth={1.8} />}
+            label="Email"
+            sub="Tips, updates and the occasional offer"
+            rightElement={<Toggle value={!!p.email_optin} disabled={optinBusy === 'email_optin'} onChange={(v) => setOptin('email_optin', v)} />}
+          />
+          <SettingsRow
+            icon={<MessageSquare size={19} color={D.textMuted} strokeWidth={1.8} />}
+            label="Text messages"
+            sub="Time-sensitive alerts"
+            rightElement={<Toggle value={!!p.sms_optin} disabled={optinBusy === 'sms_optin'} onChange={(v) => setOptin('sms_optin', v)} />}
+          />
+          <SettingsRow
+            icon={<MessageCircle size={19} color={D.textMuted} strokeWidth={1.8} />}
+            label="WhatsApp"
+            sub="Support and account updates"
+            rightElement={<Toggle value={!!p.whatsapp_optin} disabled={optinBusy === 'whatsapp_optin'} onChange={(v) => setOptin('whatsapp_optin', v)} />}
+            last
+          />
+        </View>
+      </FadeInView>
+
+      {/* ── Account ─────────────────────────────────────────────── */}
+      <FadeInView delay={150} style={S.section}>
+        <Text style={S.sectionLabel}>ACCOUNT</Text>
+        <View style={S.group}>
+          {tiktokLinked ? (
             <SettingsRow
-              icon={<Mail size={20} color={D.textMuted} strokeWidth={1.8} />}
-              label="Email"
-              sub={(profile as any).email}
-            />
-          )}
-          {(profile as any)?.whatsapp && (
-            <SettingsRow
-              icon={<Phone size={20} color={D.textMuted} strokeWidth={1.8} />}
-              label="WhatsApp"
-              sub={(profile as any).whatsapp}
-            />
-          )}
-          {profile?.tiktok_open_id == null ? (
-            <SettingsRow
-              icon={<TikTokMark size={20} color={D.textPrimary} />}
-              label="Connect TikTok"
-              sub={connectingTikTok ? 'Connecting…' : 'One-tap sign-in + auto ingest'}
-              onPress={connectingTikTok ? undefined : handleConnectTikTok}
-            />
-          ) : (
-            <SettingsRow
-              icon={<TikTokMark size={20} color={D.textPrimary} />}
-              label="TikTok connected"
-              sub={profile?.handle ? `@${profile.handle}` : undefined}
+              icon={<TikTokMark size={19} color={D.textPrimary} />}
+              label="TikTok"
+              sub={profile?.handle ? `@${profile.handle}` : 'Connected'}
               rightElement={<Check size={16} color={D.limeDeep} strokeWidth={2.5} />}
             />
+          ) : (
+            <>
+              <SettingsRow
+                icon={<TikTokMark size={19} color={D.textPrimary} />}
+                label="Connect TikTok"
+                sub={connectingTikTok ? 'Connecting…' : 'One-tap sign-in and auto refresh'}
+                onPress={connectingTikTok ? undefined : handleConnectTikTok}
+              />
+              <SettingsRow
+                icon={<AtSign size={19} color={D.textMuted} strokeWidth={1.8} />}
+                label="TikTok username"
+                sub={profile?.handle ? `@${profile.handle}` : 'Not set'}
+                onPress={openHandleModal}
+              />
+            </>
+          )}
+          {hasEmail && (
+            <SettingsRow
+              icon={<Mail size={19} color={D.textMuted} strokeWidth={1.8} />}
+              label="Email"
+              sub={p.email}
+            />
+          )}
+          {hasEmail && (
+            <SettingsRow
+              icon={<KeyRound size={19} color={D.textMuted} strokeWidth={1.8} />}
+              label="Change password"
+              sub="We’ll email you a reset link"
+              onPress={handleChangePassword}
+            />
           )}
           <SettingsRow
-            icon={<AtSign size={20} color={D.textMuted} strokeWidth={1.8} />}
-            label="TikTok Username"
-            sub={profile?.handle ? `@${profile.handle}` : 'Not set'}
-            onPress={openHandleModal}
-          />
-          <SettingsRow
-            icon={<CreditCard size={20} color={D.textMuted} strokeWidth={1.8} />}
-            label="Manage Subscription"
-            sub={`${planLabel(profile?.plan)} plan${profile?.plan_renews_at ? ' · renews ' + new Date(profile.plan_renews_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}`}
+            icon={<CreditCard size={19} color={D.textMuted} strokeWidth={1.8} />}
+            label="Subscription"
+            sub={planSub}
             onPress={handleManageSubscription}
+            last
           />
+        </View>
+      </FadeInView>
+
+      {/* ── Support ─────────────────────────────────────────────── */}
+      <FadeInView delay={180} style={S.section}>
+        <Text style={S.sectionLabel}>SUPPORT</Text>
+        <View style={S.group}>
           <SettingsRow
-            icon={<Bell size={20} color={D.textMuted} strokeWidth={1.8} />}
-            label="Push Notifications"
-            sub={notifEnabled ? 'Enabled' : 'Disabled'}
-            onPress={handleToggleNotif}
-            rightElement={
-              <Switch
-                value={notifEnabled}
-                onValueChange={handleToggleNotif}
-                trackColor={{ false: D.border, true: D.coral + 'AA' }}
-                thumbColor={notifEnabled ? D.coral : D.textDisabled}
-              />
-            }
-          />
-          <SettingsRow
-            icon={<Brain size={20} color={D.coral} strokeWidth={1.8} />}
-            label="Re-analyze My Content"
-            sub="Refresh your brain model with latest videos"
-            onPress={() => router.navigate('/(tabs)')}
-          />
-          <SettingsRow
-            icon={<Shield size={20} color={D.textMuted} strokeWidth={1.8} />}
-            label="Privacy Policy"
-            sub="How we handle your data"
-            onPress={() => Linking.openURL('https://www.influenceish.com/privacy-policy')}
-            externalLink
-          />
-          <SettingsRow
-            icon={<FileText size={20} color={D.textMuted} strokeWidth={1.8} />}
-            label="Terms of Service"
-            sub="Usage terms and conditions"
-            onPress={() => Linking.openURL('https://www.influenceish.com/terms-of-service')}
-            externalLink
-          />
-          <SettingsRow
-            icon={<HelpCircle size={20} color={D.textMuted} strokeWidth={1.8} />}
-            label="Help & Support"
-            sub="Get help or report an issue"
+            icon={<HelpCircle size={19} color={D.textMuted} strokeWidth={1.8} />}
+            label="Help & support"
+            sub="hello@influenceish.com"
             onPress={() => Linking.openURL('mailto:hello@influenceish.com')}
             externalLink
           />
           <SettingsRow
-            icon={<KeyRound size={20} color={D.textMuted} strokeWidth={1.8} />}
-            label="Change Password"
-            sub="Send a reset link to your email"
-            onPress={handleChangePassword}
+            icon={<Shield size={19} color={D.textMuted} strokeWidth={1.8} />}
+            label="Privacy policy"
+            onPress={() => Linking.openURL('https://www.influenceish.com/privacy-policy')}
+            externalLink
           />
           <SettingsRow
-            icon={<LogOut size={20} color={D.error} strokeWidth={1.8} />}
-            label="Sign Out"
+            icon={<FileText size={19} color={D.textMuted} strokeWidth={1.8} />}
+            label="Terms of service"
+            onPress={() => Linking.openURL('https://www.influenceish.com/terms-of-service')}
+            externalLink
+            last
+          />
+        </View>
+      </FadeInView>
+
+      {/* ── Sign out / delete ───────────────────────────────────── */}
+      <FadeInView delay={210} style={S.section}>
+        <View style={S.group}>
+          <SettingsRow
+            icon={<LogOut size={19} color={D.error} strokeWidth={1.8} />}
+            label="Sign out"
             onPress={handleLogout}
             danger
           />
           <SettingsRow
-            icon={<Trash2 size={20} color={D.error} strokeWidth={1.8} />}
-            label="Delete Account"
-            sub={deleting ? 'Deleting…' : 'Permanently delete your account and data'}
+            icon={<Trash2 size={19} color={D.error} strokeWidth={1.8} />}
+            label="Delete account"
+            sub={deleting ? 'Deleting…' : 'Permanently erase your account and data'}
             onPress={deleting ? undefined : handleDeleteAccount}
             danger
             last
@@ -726,29 +592,24 @@ export default function ProfileScreen() {
         </View>
       </FadeInView>
 
-      <Text style={S.versionText}>
-        Formula v{Constants.expoConfig?.version ?? '1.0.0'}
-      </Text>
-      <Text style={S.madeInText}>Made in California</Text>
       <TouchableOpacity onPress={() => Linking.openURL('https://www.thecreatorformula.com')} activeOpacity={0.7}>
-        <Text style={S.siteLink}>www.thecreatorformula.com</Text>
+        <Text style={S.versionText}>Formula v{Constants.expoConfig?.version ?? '1.0.0'}  ·  by Influenceish</Text>
       </TouchableOpacity>
-      <Text style={S.madeInText}>Influenceish Agency</Text>
 
-      <View style={{ height: 48 }} />
+      <View style={{ height: 40 }} />
 
-      {/* ── Handle edit modal ────────────────────────────────────── */}
+      {/* ── Handle edit sheet ───────────────────────────────────── */}
       <Modal visible={handleModal} transparent animationType="fade" onRequestClose={closeHandle}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={M.overlay}>
           <TouchableOpacity style={M.backdrop} activeOpacity={1} onPress={closeHandle} />
-          <View style={M.sheet}>
+          <View style={sheetStyle}>
             <View style={M.sheetHeader}>
-              <Text style={M.sheetTitle}>TikTok Username</Text>
+              <Text style={M.sheetTitle}>TikTok username</Text>
               <TouchableOpacity onPress={closeHandle} hitSlop={12}>
                 <X size={20} color={D.textMuted} strokeWidth={2} />
               </TouchableOpacity>
             </View>
-            <Text style={M.sheetSub}>Enter your exact TikTok @handle (no spaces)</Text>
+            <Text style={M.sheetSub}>Your exact TikTok @handle, no spaces.</Text>
             <View style={M.inputRow}>
               <Text style={M.atSign}>@</Text>
               <TextInput
@@ -764,28 +625,20 @@ export default function ProfileScreen() {
                 onSubmitEditing={saveHandle}
               />
             </View>
-            {looksLikeLink(handleInput) && (
-              <Text style={M.hint}>Just your handle — no links or URLs.</Text>
-            )}
+            {looksLikeLink(handleInput) && <Text style={M.hint}>Just your handle — no links or URLs.</Text>}
             {handleError && <Text style={M.error}>{handleError}</Text>}
-            <TouchableOpacity
-              style={[M.saveBtn, handleSaving && { opacity: 0.6 }]}
-              onPress={saveHandle}
-              disabled={handleSaving}
-              activeOpacity={0.85}
-            >
-              {handleSaving
-                ? <ActivityIndicator size="small" color="#FFF" />
-                : <Text style={M.saveBtnText}>Save</Text>}
+            <TouchableOpacity style={[M.saveBtn, handleSaving && { opacity: 0.6 }]} onPress={saveHandle} disabled={handleSaving} activeOpacity={0.85}>
+              {handleSaving ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={M.saveBtnText}>Save</Text>}
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
       </Modal>
-      {/* ── Edit field modal (niche / frequency / goal / whatsapp) ─── */}
+
+      {/* ── Field edit sheet (gender / age / region / whatsapp) ────── */}
       <Modal visible={!!editField} transparent animationType="fade" onRequestClose={closeEdit}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={M.overlay}>
           <TouchableOpacity style={M.backdrop} activeOpacity={1} onPress={closeEdit} />
-          <View style={M.sheet}>
+          <View style={sheetStyle}>
             <View style={M.sheetHeader}>
               <Text style={M.sheetTitle}>{editField?.title}</Text>
               <TouchableOpacity onPress={closeEdit} hitSlop={12}>
@@ -794,7 +647,7 @@ export default function ProfileScreen() {
             </View>
 
             {editField?.type === 'select' ? (
-              <ScrollView style={{ maxHeight: 360 }} showsVerticalScrollIndicator={false}>
+              <ScrollView style={{ maxHeight: 400, marginTop: 12 }} showsVerticalScrollIndicator={false}>
                 {editField.options!.map((opt) => {
                   const selected = editValue === opt.value;
                   return (
@@ -805,15 +658,13 @@ export default function ProfileScreen() {
                       activeOpacity={0.8}
                     >
                       <Text style={[M.optLabel, selected && M.optLabelActive]}>{opt.label}</Text>
-                      {selected && (
-                        <View style={M.optCheck}><Check size={12} color="#FFF" strokeWidth={3} /></View>
-                      )}
+                      {selected && <View style={M.optCheck}><Check size={12} color="#FFF" strokeWidth={3} /></View>}
                     </TouchableOpacity>
                   );
                 })}
               </ScrollView>
             ) : editField?.type === 'text' ? (
-              <View style={M.inputRow}>
+              <View style={[M.inputRow, { marginTop: 12 }]}>
                 <Phone size={16} color={D.textMuted} strokeWidth={2} style={{ marginRight: 8 }} />
                 <TextInput
                   style={M.input}
@@ -830,15 +681,8 @@ export default function ProfileScreen() {
             ) : null}
 
             {editError && <Text style={M.error}>{editError}</Text>}
-            <TouchableOpacity
-              style={[M.saveBtn, editSaving && { opacity: 0.6 }]}
-              onPress={saveEdit}
-              disabled={editSaving}
-              activeOpacity={0.85}
-            >
-              {editSaving
-                ? <ActivityIndicator size="small" color="#FFF" />
-                : <Text style={M.saveBtnText}>Save</Text>}
+            <TouchableOpacity style={[M.saveBtn, editSaving && { opacity: 0.6 }]} onPress={saveEdit} disabled={editSaving} activeOpacity={0.85}>
+              {editSaving ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={M.saveBtnText}>Save</Text>}
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -848,280 +692,112 @@ export default function ProfileScreen() {
   );
 }
 
-// ─── Credit packs ────────────────────────────────────────────────────────────
-
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const S = StyleSheet.create({
   root: { flex: 1, backgroundColor: D.bg },
   scroll: { paddingBottom: 16 },
 
-  heroWrap: {
-    marginHorizontal: 16, marginTop: 14, marginBottom: 28,
-    borderRadius: R.xxl, overflow: 'hidden',
-    shadowColor: D.coral, shadowOffset: { width: 0, height: 22 },
-    shadowOpacity: 0.30, shadowRadius: 46, elevation: 14,
-  },
-  hero: {
-    borderRadius: R.xxl, overflow: 'hidden',
-    paddingBottom: 26,
-  },
+  titleWrap: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 22 },
+  title: { ...T.bold, fontSize: 30, color: D.textPrimary, letterSpacing: -0.8, lineHeight: 34 },
+  titleSub: { ...T.regular, fontSize: 14, color: D.textMuted, marginTop: 4 },
 
-  // Glow decorations
-  glowYellow: {
-    position: 'absolute', width: 300, height: 300, borderRadius: 150,
-    top: -90, right: -90,
-    backgroundColor: 'rgba(255,214,107,0.40)',
-  },
-  glowPink: {
-    position: 'absolute', width: 240, height: 240, borderRadius: 120,
-    bottom: -130, left: -70,
-    backgroundColor: 'rgba(255,94,138,0.38)',
-  },
-
-  heroInner: {
-    position: 'relative', zIndex: 2,
-    alignItems: 'center', paddingHorizontal: 22, paddingTop: 34,
-  },
-
-  // Avatar
-  avatar: {
-    width: 104, height: 104, borderRadius: 52,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    borderWidth: 3, borderColor: 'rgba(255,255,255,0.70)',
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: 'rgba(120,0,20,1)', shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.28, shadowRadius: 26, elevation: 8,
-  },
-  avatarText: { ...T.bold, fontSize: 42, color: '#FFF', letterSpacing: -0.5 },
-  avatarImg: { width: 98, height: 98, borderRadius: 49 },
-
-  // Name row
-  nameRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16,
-  },
-  displayName: {
-    ...T.bold, fontSize: 26, color: '#FFF',
-    letterSpacing: -0.5, textAlign: 'center',
-  },
-  handle: {
-    ...T.regular, fontSize: 15,
-    color: 'rgba(255,255,255,0.82)', marginTop: 3,
-  },
-
-  // Niche pill
-  nichePill: {
-    flexDirection: 'row', alignItems: 'center', gap: 7,
-    marginTop: 14, paddingHorizontal: 15, paddingVertical: 7,
-    borderRadius: R.full,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.42)',
-  },
-  nicheDot: {
-    width: 7, height: 7, borderRadius: 4,
-    backgroundColor: D.lime,
-  },
-  nicheText: { ...T.bold, fontSize: 13, color: '#FFF' },
-
-  // Stats glass card
-  statsCard: {
-    flexDirection: 'row', marginTop: 22, width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.30)',
-    borderRadius: R.xl, overflow: 'hidden',
-  },
-  statCell: {
-    flex: 1, alignItems: 'center', paddingVertical: 18, paddingHorizontal: 10,
-  },
-  statDivider: {
-    width: 1, backgroundColor: 'rgba(255,255,255,0.26)',
-    marginVertical: 16,
-  },
-  statValue: { ...T.bold, fontSize: 30, color: '#FFF', letterSpacing: -0.5, lineHeight: 34 },
-  statValueAccent: { color: D.lime },
-  statLabel: { ...T.medium, fontSize: 13, color: 'rgba(255,255,255,0.78)', marginTop: 8 },
-
-  // Sections
-  section: { paddingHorizontal: 16, marginBottom: 20 },
-  sectionLabel: {
-    ...T.bold, ...SectionLabelStyle,
-    marginBottom: 12, marginLeft: 4,
-  },
+  section: { paddingHorizontal: 16, marginBottom: 22 },
+  sectionLabel: { ...T.bold, ...SectionLabelStyle, marginBottom: 10, marginLeft: 4 },
   group: {
     backgroundColor: D.card, borderRadius: R.xl,
     borderWidth: 1, borderColor: D.cardBorder, overflow: 'hidden',
     ...Shadow.soft,
   },
-
-  // Credits card
-  creditsCard: {
-    backgroundColor: D.card,
-    borderRadius: R.xl,
-    borderWidth: 1,
-    borderColor: D.cardBorder,
-    overflow: 'hidden',
+  card: {
+    backgroundColor: D.card, borderRadius: R.xl,
+    borderWidth: 1, borderColor: D.cardBorder, overflow: 'hidden',
+    padding: 16,
     ...Shadow.soft,
-    padding: 18,
   },
-  creditsBal: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    marginBottom: 16,
-  },
-  creditsIconWrap: {
-    width: 44, height: 44, borderRadius: 13,
-    backgroundColor: D.coral,
-    alignItems: 'center', justifyContent: 'center',
-    flexShrink: 0,
-    ...Shadow.coral,
-  },
-  creditsBalNum: { ...T.bold, fontSize: 20, color: D.textPrimary, letterSpacing: -0.4 },
-  creditsBalSub: { ...T.regular, fontSize: 12, color: D.textMuted, marginTop: 2 },
-  planBadge: {
-    alignItems: 'center', backgroundColor: D.coralSubtle, borderRadius: R.full,
-    paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: D.coral + '30', flexShrink: 0,
-  },
-  planBadgeText: { ...T.bold, fontSize: 12, color: D.coral, letterSpacing: -0.1 },
-  planBadgeStatus: { ...T.medium, fontSize: 10, color: D.textMuted, marginTop: 1, textTransform: 'capitalize' },
-  manageBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: D.coral, borderRadius: R.full, paddingVertical: 14, ...Shadow.coral,
-  },
-  manageBtnText: { ...T.bold, fontSize: 15, color: '#FFF', letterSpacing: -0.2 },
-  restoreRow: { alignItems: 'center', paddingVertical: 13 },
-  restoreRowText: { ...T.medium, fontSize: 13, color: D.textMuted },
-  creditsDivider: { height: 1, backgroundColor: D.border, marginBottom: 16 },
-  creditsPackLabel: {
-    ...T.bold, ...SectionLabelStyle, marginBottom: 12,
-  },
-  packsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 14,
-  },
-  packCard: {
-    flex: 1, alignItems: 'center',
-    paddingVertical: 14, paddingHorizontal: 8,
-    borderRadius: R.lg,
-    borderWidth: 1, borderColor: D.border,
-    backgroundColor: D.surface,
-    gap: 3,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  packCardPopular: {
-    borderColor: D.coral + '50',
-    backgroundColor: D.coralSubtle,
-  },
-  packBadge: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0,
-    backgroundColor: D.coral,
-    paddingVertical: 3,
-    alignItems: 'center',
-  },
-  packBadgeText: { ...T.bold, fontSize: 10, color: '#FFF', letterSpacing: 0.6 },
-  packCredits: { ...T.bold, fontSize: 22, color: D.textPrimary, letterSpacing: -0.5, marginTop: 14 },
-  packLabel: { ...T.medium, fontSize: 11, color: D.textMuted },
-  packPrice: { ...T.bold, fontSize: 15, color: D.textPrimary, marginTop: 6 },
 
-  // Subscription tier rows
+  // Balance
+  balRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  balIcon: {
+    width: 40, height: 40, borderRadius: 12, backgroundColor: D.coral,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0, ...Shadow.coral,
+  },
+  balNum: { ...T.bold, fontSize: 19, color: D.textPrimary, letterSpacing: -0.4 },
+  balSub: { ...T.regular, fontSize: 12.5, color: D.textMuted, marginTop: 2 },
+  planBadge: {
+    backgroundColor: D.coralSubtle, borderRadius: R.full,
+    paddingHorizontal: 11, paddingVertical: 5, borderWidth: 1, borderColor: D.coral + '30', flexShrink: 0,
+  },
+  planBadgeText: { ...T.bold, fontSize: 12, color: D.coral },
+  divider: { height: 1, backgroundColor: D.border, marginVertical: 14 },
+  subLabel: { ...T.bold, ...SectionLabelStyle, marginBottom: 10 },
+
+  // Plans
   tierRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: D.surface, borderRadius: R.lg, borderWidth: 1, borderColor: D.border,
-    paddingVertical: 12, paddingHorizontal: 14, marginBottom: 8,
+    paddingVertical: 11, paddingHorizontal: 13, marginBottom: 8,
   },
   tierRowPopular: { borderColor: D.coral + '50', backgroundColor: D.coralSubtle },
   tierTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   tierName: { ...T.bold, fontSize: 15, color: D.textPrimary, letterSpacing: -0.2 },
   tierTag: { backgroundColor: D.coral, borderRadius: R.full, paddingHorizontal: 7, paddingVertical: 2 },
   tierTagText: { ...T.bold, fontSize: 10, color: '#FFF', letterSpacing: 0.6 },
-  tierCredits: { ...T.medium, fontSize: 12.5, color: D.textMuted, marginTop: 3 },
+  tierCredits: { ...T.medium, fontSize: 12.5, color: D.textMuted, marginTop: 2 },
   tierBtn: {
     minWidth: 76, alignItems: 'center', justifyContent: 'center',
-    paddingVertical: 9, paddingHorizontal: 12, borderRadius: R.full,
-    backgroundColor: D.coral,
+    paddingVertical: 9, paddingHorizontal: 12, borderRadius: R.full, backgroundColor: D.coral,
   },
   tierBtnCurrent: { backgroundColor: D.successSubtle, borderWidth: 1, borderColor: D.successBorder },
   tierBtnText: { ...T.bold, fontSize: 13, color: '#FFF' },
   tierBtnPer: { ...T.medium, fontSize: 10, color: 'rgba(255,255,255,0.85)' },
 
-  // Cost explainer
-  costBox: {
-    backgroundColor: D.inkCard, borderRadius: R.lg, padding: 14, marginTop: 6, marginBottom: 14, gap: 6,
+  // Packs
+  packsRow: { flexDirection: 'row', gap: 8 },
+  packCard: {
+    flex: 1, alignItems: 'center', paddingVertical: 14, paddingHorizontal: 8,
+    borderRadius: R.lg, borderWidth: 1, borderColor: D.border, backgroundColor: D.surface,
+    gap: 3, overflow: 'hidden',
   },
-  costTitle: { ...T.bold, fontSize: 10, color: D.lime, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 2 },
-  costLine: { ...T.medium, fontSize: 13, color: 'rgba(255,255,255,0.82)' },
-  iapNote: {
-    ...T.regular,
-    fontSize: 11,
-    color: D.textDisabled,
-    textAlign: 'center',
-    lineHeight: 16,
-    marginTop: 4,
-  },
+  packCardPopular: { borderColor: D.coral + '50', backgroundColor: D.coralSubtle },
+  packBadge: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: D.coral, paddingVertical: 3, alignItems: 'center' },
+  packBadgeText: { ...T.bold, fontSize: 10, color: '#FFF', letterSpacing: 0.6 },
+  packCredits: { ...T.bold, fontSize: 22, color: D.textPrimary, letterSpacing: -0.5, marginTop: 14 },
+  packLabel: { ...T.medium, fontSize: 11, color: D.textMuted },
+  packPrice: { ...T.bold, fontSize: 15, color: D.textPrimary, marginTop: 6 },
 
-  versionText: {
-    ...T.regular,
-    fontSize: 12,
-    color: D.textDisabled,
-    textAlign: 'center',
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  madeInText: {
-    ...T.regular,
-    fontSize: 11,
-    color: D.textDisabled,
-    textAlign: 'center',
-    marginBottom: 16,
-    opacity: 0.7,
-  },
-  siteLink: {
-    ...T.medium,
-    fontSize: 11,
-    color: D.coral,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
+  costLine: { ...T.regular, fontSize: 12, color: D.textMuted, textAlign: 'center', lineHeight: 17, marginTop: 14 },
+  footRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 12 },
+  footLink: { ...T.medium, fontSize: 13, color: D.coral },
+  footDot: { ...T.regular, fontSize: 13, color: D.textDisabled },
+
+  versionText: { ...T.regular, fontSize: 12, color: D.textDisabled, textAlign: 'center', marginTop: 4 },
 });
 
 const M = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-  },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
   sheet: {
     backgroundColor: D.card,
     borderTopLeftRadius: 28, borderTopRightRadius: 28,
     borderWidth: 1, borderColor: D.cardBorder,
     padding: 24, paddingBottom: 40,
   },
-  sheetHeader: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', marginBottom: 6,
-  },
+  sheetKb: { paddingBottom: 20 },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
   sheetTitle: { ...T.bold, fontSize: 18, color: D.textPrimary, letterSpacing: -0.3 },
   sheetSub: { ...T.regular, fontSize: 13, color: D.textMuted, marginBottom: 20, lineHeight: 18 },
   inputRow: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: D.surface, borderRadius: 14,
-    borderWidth: 1, borderColor: D.border,
-    paddingHorizontal: 14, height: 52, marginBottom: 12,
+    backgroundColor: D.surface, borderRadius: R.full, borderWidth: 1, borderColor: D.border,
+    paddingHorizontal: 18, height: 52, marginBottom: 12,
   },
   atSign: { ...T.bold, fontSize: 17, color: D.textMuted, marginRight: 4 },
   input: { ...T.medium, flex: 1, fontSize: 17, color: D.textPrimary },
   error: { ...T.regular, fontSize: 13, color: D.error, marginBottom: 12 },
   hint: { ...T.regular, fontSize: 13, color: D.coral, marginBottom: 12 },
-  saveBtn: {
-    backgroundColor: D.coral, borderRadius: 14,
-    height: 52, alignItems: 'center', justifyContent: 'center',
-    marginTop: 12,
-  },
+  saveBtn: { backgroundColor: D.coral, borderRadius: R.full, height: 52, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   saveBtnText: { ...T.bold, fontSize: 16, color: '#FFF' },
-
   optRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 14, borderRadius: R.md,
@@ -1130,8 +806,5 @@ const M = StyleSheet.create({
   optRowActive: { borderColor: D.coral, backgroundColor: D.coralFaint },
   optLabel: { ...T.medium, fontSize: 15, color: D.textSecondary },
   optLabelActive: { ...T.bold, color: D.textPrimary },
-  optCheck: {
-    width: 20, height: 20, borderRadius: 10, backgroundColor: D.coral,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  optCheck: { width: 20, height: 20, borderRadius: 10, backgroundColor: D.coral, alignItems: 'center', justifyContent: 'center' },
 });
