@@ -41,6 +41,13 @@
           "color": "#FF7A45",
           "iosDisplayInForeground": true
         }
+      ],
+      [
+        "./modules/tiktok-login/app.plugin.js",
+        {
+          "clientKey": "awe42sltxt0xs2ng",
+          "universalLinkDomains": ["iq.influenceish.com"]
+        }
       ]
     ],
     "experiments": {

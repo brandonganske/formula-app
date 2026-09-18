@@ -15,6 +15,10 @@ import FadeInView from '@/components/FadeInView';
 import TikTokMark from '@/components/TikTokMark';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import { useAuth } from '@/context/AuthContext';
+import {
+  authenticate as tiktokNativeAuth,
+  isNativeTikTokAvailable,
+} from '@/modules/tiktok-login';
 import { api } from '@/lib/api';
 import { D, T, R, Shadow, Gradient, Ease } from '@/constants/ds';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -42,6 +46,11 @@ function FMark({ size = 44 }: { size?: number }) {
 const TIKTOK_REDIRECT = 'formula://tiktok-callback';
 const TIKTOK_AUTH_URL =
   `https://iq.influenceish.com/api/v1/tiktok/login?app_redirect=${encodeURIComponent(TIKTOK_REDIRECT)}`;
+
+// Native app-to-app flow (TikTok OpenSDK v2). The redirect MUST be the Universal
+// Link registered in the TikTok portal + backed by associated-domains + AASA.
+const TIKTOK_UNIVERSAL_LINK = 'https://iq.influenceish.com/tiktok/native';
+const TIKTOK_NATIVE_SCOPES = ['user.info.profile', 'user.info.stats', 'video.list'];
 
 function parseCallbackParams(url: string): {
   code?: string; error?: string; link_required?: string; handle?: string; ticket?: string;
@@ -233,7 +242,7 @@ export default function AuthScreen() {
   // Non-null → the TikTok callback said this TikTok matches an existing email
   // account; show the one-time link sheet instead of the normal screen.
   const [linkInfo, setLinkInfo] = useState<{ handle: string; ticket: string } | null>(null);
-  const { isAuthenticated, profile, login, loginWithTikTok, loginWithTikTokLink, loginWithApple } = useAuth();
+  const { isAuthenticated, profile, meData, login, loginWithTikTok, loginWithTikTokNative, loginWithTikTokLink, loginWithApple } = useAuth();
   const tiktokExchanged = useRef(false);
   const insets = useSafeAreaInsets();
 
@@ -280,6 +289,45 @@ export default function AuthScreen() {
 
   const handleTikTok = async () => {
     setError(null);
+
+    // Preferred: native app-to-app (opens the TikTok app; TikTok's in-app
+    // web-view when it isn't installed). Only available in a real build with the
+    // native module linked — falls through to the web flow otherwise.
+    if (isNativeTikTokAvailable()) {
+      setTiktokLoading(true);
+      try {
+        console.log('[tiktok-native] starting native auth');
+        const res = await tiktokNativeAuth(TIKTOK_NATIVE_SCOPES, TIKTOK_UNIVERSAL_LINK);
+        console.log('[tiktok-native] auth result:', JSON.stringify({
+          isSuccess: res.isSuccess,
+          hasCode: res.isSuccess ? !!res.code : undefined,
+          hasVerifier: res.isSuccess ? !!res.codeVerifier : undefined,
+          errorCode: !res.isSuccess ? res.errorCode : undefined,
+          errorMsg: !res.isSuccess ? res.errorMsg : undefined,
+        }));
+        if (res.isSuccess) {
+          tiktokExchanged.current = true;
+          const out = await loginWithTikTokNative(res.code, res.codeVerifier);
+          console.log('[tiktok-native] exchange result:', JSON.stringify({ error: out.error, link: !!out.link }));
+          if (out.link) {
+            setLinkInfo({ handle: out.link.handle, ticket: out.link.ticket });
+          } else if (out.error) {
+            setError(out.error);
+          }
+        } else if (res.errorCode !== -2) {
+          // -2 == user cancelled → stay silent; any other code is a real error.
+          setError(res.errorMsg || 'TikTok sign-in failed. Please try again.');
+        }
+        setTiktokLoading(false);
+        return;
+      } catch (e: any) {
+        console.log('[tiktok-native] threw, falling back to web:', e?.message);
+        // Native module threw unexpectedly — fall back to the web flow below.
+        setTiktokLoading(false);
+      }
+    }
+
+    // Fallback: web OAuth via ASWebAuthenticationSession.
     try {
       const result = await WebBrowser.openAuthSessionAsync(TIKTOK_AUTH_URL, TIKTOK_REDIRECT);
       if (result.type === 'success' && result.url) {
@@ -399,8 +447,21 @@ export default function AuthScreen() {
         </View>
       );
     }
-    const needsOnboarding = !profile.onboarding_completed_at;
-    return <Redirect href={needsOnboarding ? '/onboarding' : '/(tabs)'} />;
+    // 1. Onboarding questions first.
+    if (!profile.onboarding_completed_at) return <Redirect href="/onboarding" />;
+
+    // 2. Force the full-page Creator Brain build for anyone without a brain yet —
+    //    unless a build is already running (so re-opening mid-build doesn't loop
+    //    them back here; the home tab shows that progress). meData loads together
+    //    with profile, so it's populated here.
+    const hasBrain = !!(meData && (meData.speech_template || meData.pacing_template || meData.product_insights));
+    const ingestStatus = (profile.ingest_status ?? '').toLowerCase();
+    const brainInProgress =
+      !!meData?.latest_run || ['processing', 'queued', 'running', 'in_progress'].includes(ingestStatus);
+    if (!hasBrain && !brainInProgress) return <Redirect href="/create-brain" />;
+
+    // 3. Fully set up → into the app.
+    return <Redirect href="/(tabs)" />;
   }
 
   const handleSubmit = async () => {

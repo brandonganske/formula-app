@@ -10,6 +10,16 @@
       "ios": { "simulator": false },
       "channel": "development"
     },
+    "dev-testflight": {
+      "developmentClient": true,
+      "distribution": "store",
+      "autoIncrement": true,
+      "channel": "development",
+      "env": {
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_gCxiKzJTslzvmukDULGsLCFtNuS",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "goog_tdyIhYFvlnSCPxLksyGjFxcGHze"
+      }
+    },
     "preview": {
       "distribution": "internal",
       "channel": "preview"
@@ -25,6 +35,15 @@
   },
   "submit": {
     "production": {
+      "ios": {
+        "ascAppId": "6784021970",
+        "appleTeamId": "7JJD983H8S",
+        "ascApiKeyPath": "/Users/brandonganske/Downloads/AuthKey_6J9M7862JV.p8",
+        "ascApiKeyId": "6J9M7862JV",
+        "ascApiKeyIssuerId": "abbe818c-63e8-42b7-bcff-22967fe76477"
+      }
+    },
+    "dev-testflight": {
       "ios": {
         "ascAppId": "6784021970",
         "appleTeamId": "7JJD983H8S",

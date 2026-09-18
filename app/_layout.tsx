@@ -37,10 +37,13 @@ function RootLayoutNav() {
       <Stack.Screen name="reset-password" />
       {/* Onboarding + tabs shouldn't be swipe-dismissable back to a prior screen. */}
       <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
+      <Stack.Screen name="create-brain" options={{ gestureEnabled: false }} />
       <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
       <Stack.Screen name="script/[id]" options={{ animation: 'slide_from_right', fullScreenGestureEnabled: true }} />
       {/* Design-preview route (no auth guard) — /shop-preview on web */}
       <Stack.Screen name="shop-preview" />
+      {/* TikTok native-login Universal Link return target */}
+      <Stack.Screen name="tiktok/native" />
       <Stack.Screen name="+not-found" />
     </Stack>
   );

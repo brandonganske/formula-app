@@ -96,6 +96,45 @@ export async function loginWithTikTokCode(
   }
 }
 
+// Native app-to-app TikTok login. The native SDK returns { code, codeVerifier };
+// we hand them to /auth/tiktok-native, which does the token exchange + find-or-
+// create and returns EITHER a one-time exchange code (→ trade it via
+// loginWithTikTokCode) OR a link_required signal (→ caller shows the link sheet).
+export async function loginWithTikTokNative(
+  code: string,
+  codeVerifier: string,
+): Promise<{
+  tokens: AuthTokens | null;
+  error: string | null;
+  link?: { handle: string; ticket: string };
+}> {
+  try {
+    const { data } = await axios.post(
+      `${BASE_URL}/auth/tiktok-native`,
+      { code, codeVerifier },
+      { headers: { 'x-app-source': 'mobile_app' } },
+    );
+    if (data?.link_required && data?.ticket) {
+      return { tokens: null, error: null, link: { handle: data.handle ?? '', ticket: data.ticket } };
+    }
+    if (data?.code) {
+      return await loginWithTikTokCode(String(data.code));
+    }
+    return { tokens: null, error: 'TikTok sign-in failed' };
+  } catch (err: any) {
+    if (!err?.response) {
+      return { tokens: null, error: err?.message ?? 'Network error — check your connection' };
+    }
+    const body = err.response.data ?? {};
+    const msg =
+      body?.error?.message ||
+      (typeof body?.error === 'string' ? body.error : null) ||
+      body?.message ||
+      'TikTok sign-in failed';
+    return { tokens: null, error: typeof msg === 'string' ? msg : 'TikTok sign-in failed' };
+  }
+}
+
 // TikTok link flow: the OAuth callback flagged that this TikTok belongs to an
 // existing email account. The one-time password check binds them; the backend
 // returns the same LoginResponse as /auth/login.
