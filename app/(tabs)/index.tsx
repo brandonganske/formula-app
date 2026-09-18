@@ -11,7 +11,7 @@ import { api, extractData } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
 import { CREDIT_COSTS } from '@/lib/iap/catalog';
 import { buildInsights, archetype, playbook, explainHook, distList, type Insight, type InsightKey, type Play } from '@/lib/profile-insights';
-import { RunData, AnalyzeResponse, CreatorMeData, CreatorProfile, SpeechTemplate, PacingTemplate, ProductInsights, VideoStyleProfile, ShopDashboard } from '@/types/api';
+import { RunData, AnalyzeResponse, CreatorMeData, CreatorProfile, SpeechTemplate, PacingTemplate, ProductInsights, VideoStyleProfile, ShopDashboard, ResultsResponse } from '@/types/api';
 import { D, T, R, Shadow, Ease, Gradient, SectionLabelStyle } from '@/constants/ds';
 import FadeInView from '@/components/FadeInView';
 import AnimatedPressable from '@/components/AnimatedPressable';
@@ -1583,6 +1583,16 @@ export default function BrainScreen() {
 
   // Real performance data (shared cache with the Shop tab): top videos from the
   // brain ingest + real API-sourced GMV when the creator has it. Never estimates.
+  const resultsQ = useQuery<ResultsResponse>({
+    queryKey: ['results'],
+    queryFn: async () => {
+      const res = await api.get('/creators/me/results');
+      return extractData<ResultsResponse>(res) as ResultsResponse;
+    },
+    staleTime: 5 * 60_000,
+  });
+  const results = resultsQ.data ?? null;
+
   const shopQ = useQuery({
     queryKey: ['shop-dashboard'],
     queryFn: async () => extractData<ShopDashboard>(await api.get('/creators/me/shop-dashboard')),
@@ -1953,6 +1963,38 @@ export default function BrainScreen() {
             </Text>
           )}
         </FadeInView>
+
+        {/* Your results — what your scripts did once posted */}
+        {results && results.totals.scripts > 0 && (
+          <FadeInView delay={20} style={brainS.card}>
+            <View style={brainS.perfHead}>
+              <View style={{ flex: 1 }}>
+                <Text style={brainS.sectionLabel}>Your results</Text>
+                <Text style={brainS.perfSub}>
+                  {results.totals.posted > 0
+                    ? `${results.totals.posted} of ${results.totals.scripts} scripts posted`
+                    : `${results.totals.scripts} script${results.totals.scripts === 1 ? '' : 's'} written · none linked yet`}
+                </Text>
+              </View>
+              <AnimatedPressable style={brainS.perfAll} haptic="light" onPress={() => router.push('/(tabs)/scripts')}>
+                <Text style={brainS.perfAllText}>Saved</Text>
+                <ArrowRight size={14} color={D.coral} strokeWidth={2.5} />
+              </AnimatedPressable>
+            </View>
+            {results.totals.posted > 0 ? (
+              <View style={[brainS.statStrip, { marginTop: 2 }]}>
+                <StatTile value={fmtNum(results.totals.views)} label="Views" />
+                <View style={brainS.statDivider} />
+                <StatTile value={fmtNum(results.totals.likes)} label="Likes" />
+                {results.totals.gmv != null && (<><View style={brainS.statDivider} /><StatTile value={`$${fmtNum(results.totals.gmv)}`} label="Sales" /></>)}
+              </View>
+            ) : (
+              <Text style={[brainS.basedOn, { marginTop: 6 }]}>
+                Posted one? Open it in Saved and tap “Did you post this?” — views, likes and sales will show up here.
+              </Text>
+            )}
+          </FadeInView>
+        )}
 
         {/* Your creator archetype — the one-line identity */}
         {(() => {

@@ -12,6 +12,7 @@ import FadeInView from '@/components/FadeInView';
 import { Skeleton } from '@/components/Skeleton';
 import SavedProductsView from '@/components/products/SavedProductsView';
 import SavedVideosView from '@/components/SavedVideosView';
+import OutcomeSheet from '@/components/OutcomeSheet';
 import { SavedProductItem, ShopDashboard } from '@/types/api';
 import * as Haptics from 'expo-haptics';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -25,6 +26,13 @@ import {
   ChevronRight, ChevronLeft, Plus, X, Trash2, Zap,
   ShoppingBag, Film, Sparkles, BookOpen, AlertTriangle, Pencil, TrendingUp,
 } from 'lucide-react-native';
+
+const fmtCompact = (n: number | null | undefined) => {
+  if (n == null) return '—';
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1)}K`;
+  return String(Math.round(n));
+};
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -126,6 +134,9 @@ function ScriptCard({
   const [renaming, setRenaming] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [localName, setLocalName] = useState<string | null>(null);
+  const [showOutcome, setShowOutcome] = useState(false);
+  const outcome = item.outcome ?? null;
+  const recent = Date.now() - new Date(item.created_at).getTime() < 45 * 86_400_000;
 
   const startRename = () => {
     setNameInput(displayTitle);
@@ -251,6 +262,21 @@ function ScriptCard({
           <Text style={SC.hookText} numberOfLines={2}>"{item.hook}"</Text>
         </View>
       ) : null}
+
+      {/* Results — the video this script became, or a nudge to link it */}
+      {outcome ? (
+        <TouchableOpacity style={SC.result} onPress={() => setShowOutcome(true)} activeOpacity={0.8}>
+          <View style={SC.resultDot} />
+          <Text style={SC.resultText} numberOfLines={1}>
+            Posted · {fmtCompact(outcome.views)} views · {fmtCompact(outcome.likes)} likes{outcome.gmv != null ? ` · $${fmtCompact(outcome.gmv)} sales` : ''}
+          </Text>
+        </TouchableOpacity>
+      ) : recent ? (
+        <TouchableOpacity style={SC.nudge} onPress={() => setShowOutcome(true)} activeOpacity={0.8} hitSlop={6}>
+          <Text style={SC.nudgeText}>Did you post this?</Text>
+        </TouchableOpacity>
+      ) : null}
+      {showOutcome && <OutcomeSheet scriptId={item.id} current={outcome} onClose={() => setShowOutcome(false)} />}
     </FadeInView>
     </View>
     </GestureDetector>
@@ -295,6 +321,11 @@ const SC = StyleSheet.create({
   },
 
   hookRow: { marginTop: 8, paddingLeft: 18 },
+  result: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 10, marginLeft: 18, alignSelf: 'flex-start', backgroundColor: D.limeSubtle, borderRadius: R.full, paddingHorizontal: 10, paddingVertical: 5 },
+  resultDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: D.limeDeep },
+  resultText: { ...T.bold, fontSize: 12, color: D.limeDeep },
+  nudge: { marginTop: 8, marginLeft: 18, alignSelf: 'flex-start' },
+  nudgeText: { ...T.bold, fontSize: 12, color: D.coral },
   hookText: { ...T.regular, fontSize: 13, color: D.textMuted, lineHeight: 19, fontStyle: 'italic' },
 
   divider: { height: 1, backgroundColor: D.divider, marginVertical: 12 },

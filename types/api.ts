@@ -470,8 +470,39 @@ export interface ViralTopicBody {
 
 // ── Saved Script (GET /creators/scripts) ────────────────────────────────────
 
+// Results that flowed back onto a saved script from the TikTok posted from it.
+export interface ScriptOutcome {
+  external_video_id: string;
+  url: string | null;
+  caption: string | null;
+  views: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  posted_at: string | null;
+  gmv: number | null;
+  units: number | null;
+  match_source: 'auto' | 'manual';
+  confidence: number | null;
+}
+export interface OutcomeCandidate {
+  external_video_id: string;
+  url: string | null;
+  caption: string | null;
+  views: number;
+  posted_at: string | null;
+  score: number;
+  reasons: string[];
+}
+export interface ResultsResponse {
+  totals: { scripts: number; posted: number; views: number; likes: number; gmv: number | null; units: number | null; data_source: 'api' | 'none' };
+  top: (SavedScriptItem & { outcome: ScriptOutcome })[];
+  pending: SavedScriptItem[];
+}
+
 export interface SavedScriptItem {
   id: string;
+  outcome?: ScriptOutcome | null;
   option_label?: string | null;
   hook?: string | null;
   body?: string[] | null;
