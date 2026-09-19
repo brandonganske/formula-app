@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, TextInput, Keyboard } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
 import FadeInView from '@/components/FadeInView';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import ShopSafeReport from '@/components/ShopSafeReport';
@@ -40,17 +38,33 @@ export default function ShopSafeScreen() {
     }
   };
 
+  // The picker and uploader are native modules added after the first dev
+  // builds shipped; load them lazily so older clients still run and just get
+  // an "update the app" message here instead of crashing at startup.
+  const loadNative = () => {
+    try {
+      const ImagePicker = require('expo-image-picker');
+      const FileSystem = require('expo-file-system/legacy');
+      return { ImagePicker, FileSystem };
+    } catch {
+      return null;
+    }
+  };
+
   const pick = async () => {
+    const native = loadNative();
+    if (!native) { Alert.alert('Update needed', 'Video checks need the latest build of the app. Update from TestFlight and try again.'); return; }
+    const { ImagePicker } = native;
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) { Alert.alert('Photo access needed', 'Allow photo library access in Settings to check a video.'); return; }
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos'], quality: 1, allowsMultipleSelection: false });
     if (res.canceled || !res.assets?.[0]) return;
     const a = res.assets[0];
     setName(a.fileName ?? 'video');
-    await run(a.uri, a.fileName ?? 'video.mp4', a.mimeType ?? 'video/mp4');
+    await run(native.FileSystem, a.uri, a.fileName ?? 'video.mp4', a.mimeType ?? 'video/mp4');
   };
 
-  const run = async (uri: string, filename: string, mime: string) => {
+  const run = async (FileSystem: any, uri: string, filename: string, mime: string) => {
     try {
       setPhase('uploading'); setPct(0); setResult(null);
       const up = extractData<{ signed_url: string; storage_path: string }>(await api.post('/creators/compliance/upload-url', { filename, content_type: mime }));
@@ -59,7 +73,7 @@ export default function ShopSafeScreen() {
         httpMethod: 'PUT',
         uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
         headers: { 'content-type': mime },
-      }, (p) => setPct(p.totalBytesExpectedToSend ? p.totalBytesSent / p.totalBytesExpectedToSend : 0));
+      }, (p: any) => setPct(p.totalBytesExpectedToSend ? p.totalBytesSent / p.totalBytesExpectedToSend : 0));
       const res = await task.uploadAsync();
       if (!res || res.status < 200 || res.status >= 300) throw new Error(`Upload failed (${res?.status ?? 'network'})`);
       setPhase('checking');
