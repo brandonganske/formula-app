@@ -410,7 +410,7 @@ export default function TeleprompterScreen() {
       <View style={{ flex: 1 }} onLayout={(e: LayoutChangeEvent) => setViewH(e.nativeEvent.layout.height)}>
         <View style={{ flex: 1, overflow: 'hidden' }} {...pan.panHandlers}>
           <Animated.View
-            style={{ paddingTop: viewH * readFrac, paddingBottom: viewH * (1 - readFrac), paddingHorizontal: prefs.width === 'narrow' ? Math.max(24, winW * 0.12) : 24, transform: [{ translateY: scrollY.interpolate({ inputRange: [0, 1], outputRange: [0, -1] }) }] }}
+            style={{ position: 'absolute', left: 0, right: 0, top: scrollY.interpolate({ inputRange: [0, 1], outputRange: [0, -1] }), paddingTop: viewH * readFrac, paddingBottom: viewH * (1 - readFrac), paddingHorizontal: prefs.width === 'narrow' ? Math.max(24, winW * 0.12) : 24 }}
             onLayout={(e: LayoutChangeEvent) => setContentH(e.nativeEvent.layout.height)}
           >
             <Text style={[S.script, { fontSize, lineHeight: fontSize * 1.42, textAlign: prefs.align }]}>{text}</Text>
