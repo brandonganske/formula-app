@@ -218,9 +218,17 @@ export default function TeleprompterScreen() {
     if (!text || playing || countdown != null) return;
     setCountdown(3);
   };
+  // When the red button is pressed the countdown runs first; the camera only
+  // starts capturing on "Go", in the same tick the script starts scrolling.
+  const armedRef = useRef(false);
   useEffect(() => {
     if (countdown == null) return;
-    if (countdown === 0) { setCountdown(null); startFrom((scrollY as any).__getValue?.() ?? 0); return; }
+    if (countdown === 0) {
+      setCountdown(null);
+      startFrom((scrollY as any).__getValue?.() ?? 0);
+      if (armedRef.current) { armedRef.current = false; void beginCapture(); }
+      return;
+    }
     const t = setTimeout(() => setCountdown(countdown - 1), 800);
     return () => clearTimeout(t);
   }, [countdown]);
@@ -234,12 +242,11 @@ export default function TeleprompterScreen() {
   // Re-time the animation when speed changes mid-play.
   useEffect(() => { if (playing) startFrom((scrollY as any).__getValue?.() ?? 0); }, [speedMul]);
 
-  const startRecording = async () => {
+  const beginCapture = async () => {
     if (!camRef.current || recording) return;
     try {
       haptic.heavy();
       setRecording(true);
-      if (!playing && countdown == null) play();
       const rec = await camRef.current.recordAsync({ maxDuration: 300 });
       setRecording(false);
       pause();
@@ -249,6 +256,13 @@ export default function TeleprompterScreen() {
       setRecording(false);
       Alert.alert('Couldn’t record', e?.message ?? 'Please try again.');
     }
+  };
+  const startRecording = async () => {
+    if (!camRef.current || recording || countdown != null) return;
+    if (playing) { void beginCapture(); return; } // already scrolling: record now
+    haptic.tap();
+    armedRef.current = true;
+    play(); // 3-2-1-Go, then beginCapture fires on Go
   };
   // Review → Save: only now does the take go to Photos (then optional TikTok).
   const saveTake = async () => {
