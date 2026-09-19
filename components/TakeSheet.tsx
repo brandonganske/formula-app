@@ -87,8 +87,8 @@ export default function TakeSheet({ take, onClose }: { take: Take; onClose: () =
               <View style={[S.player, { height: Math.min(height * 0.42, 380) }]}>
                 {take.video_url && VideoMod ? <Player uri={take.video_url} /> : <Text style={S.noPlayer}>Preview needs the latest build.</Text>}
               </View>
+              <TouchableOpacity style={[S.btn, S.btnPrimary, S.btnWide]} onPress={() => { haptic.press(); post(); }} activeOpacity={0.85}><Share2 size={16} color="#FFF" strokeWidth={2.4} /><Text style={S.btnTextOn} numberOfLines={1}>Edit in TikTok & post</Text></TouchableOpacity>
               <View style={S.actions}>
-                <TouchableOpacity style={[S.btn, S.btnPrimary]} onPress={() => { haptic.press(); post(); }} activeOpacity={0.85}><Share2 size={15} color="#FFF" strokeWidth={2.4} /><Text style={S.btnTextOn}>Edit in TikTok & post</Text></TouchableOpacity>
                 <TouchableOpacity style={S.btn} onPress={() => { haptic.tap(); onClose(); router.push({ pathname: '/tools/coach', params: { takeId: take.id } }); }} activeOpacity={0.85}><Mic size={15} color={D.textPrimary} strokeWidth={2.2} /><Text style={S.btnText}>Coach</Text></TouchableOpacity>
                 <TouchableOpacity style={S.btn} onPress={() => { haptic.tap(); if (take.script_id) { onClose(); router.push(`/script/${take.script_id}`); } else setAttaching(true); }} onLongPress={() => { haptic.select(); setAttaching(true); }} activeOpacity={0.85}><Link2 size={15} color={D.textPrimary} strokeWidth={2.2} /><Text style={S.btnText}>{take.script_id ? 'Script' : 'Attach'}</Text></TouchableOpacity>
                 <TouchableOpacity style={[S.btn, S.btnDanger]} onPress={() => Alert.alert('Delete take?', 'This removes it from Formula (not from your Photos).', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => remove.mutate() }])} activeOpacity={0.85} disabled={remove.isPending}>
@@ -111,12 +111,13 @@ const S = StyleSheet.create({
   sub: { ...T.regular, fontSize: 13, color: D.textMuted, marginTop: 2 },
   player: { borderRadius: 18, overflow: 'hidden', backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
   noPlayer: { ...T.medium, fontSize: 13, color: 'rgba(255,255,255,0.6)' },
-  actions: { flexDirection: 'row', gap: 8, marginTop: 14 },
+  actions: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  btnWide: { marginTop: 14, height: 50 },
   btn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 46, borderRadius: R.full, backgroundColor: D.surface, borderWidth: 1, borderColor: D.border },
   btnPrimary: { backgroundColor: D.ink, borderColor: D.ink },
   btnDanger: { flex: 0, width: 46, backgroundColor: D.errorSubtle, borderColor: D.errorBorder },
   btnText: { ...T.bold, fontSize: 13.5, color: D.textPrimary },
-  btnTextOn: { ...T.bold, fontSize: 13.5, color: '#FFF' },
+  btnTextOn: { ...T.bold, fontSize: 15, color: '#FFF' },
   label: { ...T.bold, fontSize: 11, color: D.textMuted, letterSpacing: 0.6, marginBottom: 8 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: D.border, backgroundColor: D.surface, marginBottom: 8 },
   rowOn: { borderColor: D.coral, backgroundColor: D.coralFaint },
