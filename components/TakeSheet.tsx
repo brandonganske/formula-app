@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { api, extractData } from '@/lib/api';
 import { haptic } from '@/lib/haptics';
 import { D, T, R } from '@/constants/ds';
-import { X, Trash2, Link2, Check, Share2, FileText, Mic } from 'lucide-react-native';
+import { X, Trash2, Link2, Check, Share2, FileText, Mic, Download } from 'lucide-react-native';
 import { isNativeTikTokAvailable, isTikTokAppInstalled, shareVideos } from '@/modules/tiktok-login';
 import type { Take, SavedScriptItem, SavedScriptsResponse } from '@/types/api';
 
@@ -41,9 +41,38 @@ export default function TakeSheet({ take, onClose }: { take: Take; onClose: () =
     onSuccess: () => { done(); onClose(); },
   });
 
+  // Pull the take from Formula into Photos (for takes filmed on another phone,
+  // or saved before Photos access was granted), then remember the asset id so
+  // "Edit in TikTok & post" works from here on.
+  const [savingPhotos, setSavingPhotos] = useState(false);
+  const saveToPhotos = async (): Promise<string | null> => {
+    if (!take.video_url) { Alert.alert('No video', 'This take has no video file to save.'); return null; }
+    let FS: any = null, ML: any = null;
+    try { FS = require('expo-file-system/legacy'); ML = require('expo-media-library'); } catch {}
+    if (!FS || !ML) { Alert.alert('Update needed', 'Saving to Photos needs the latest build.'); return null; }
+    setSavingPhotos(true);
+    try {
+      let perm = await ML.requestPermissionsAsync?.(false);
+      if (!perm?.granted && perm?.accessPrivileges !== 'limited') perm = await ML.requestPermissionsAsync?.(true);
+      if (!perm?.granted) { Alert.alert('Photo access needed', 'Allow photo library access in Settings.'); return null; }
+      const dest = `${FS.cacheDirectory}take-${take.id}.mp4`;
+      const dl = await FS.downloadAsync(take.video_url, dest);
+      if (!dl?.uri) throw new Error('Download failed');
+      const asset = await ML.createAssetAsync(dl.uri);
+      const assetId: string | null = asset?.id ?? null;
+      if (assetId) { try { await api.patch(`/creators/takes/${take.id}`, { photos_asset_id: assetId }); done(); } catch {} }
+      haptic.success();
+      return assetId;
+    } catch (e: any) { haptic.error(); Alert.alert('Couldn’t save', e?.message ?? 'Please try again.'); return null; }
+    finally { setSavingPhotos(false); }
+  };
+
   const post = async () => {
-    if (!take.photos_asset_id || !isNativeTikTokAvailable() || !isTikTokAppInstalled()) { Alert.alert('Edit in TikTok & post', 'This take isn\'t in your Photos library on this phone, so TikTok can\'t pick it up here.'); return; }
-    try { const r = await shareVideos([take.photos_asset_id], 'https://iq.influenceish.com/tiktok/native'); if (!r.isSuccess) Alert.alert('Not posted', r.errorMsg); }
+    if (!isNativeTikTokAvailable() || !isTikTokAppInstalled()) { Alert.alert('TikTok not found', 'Install TikTok to post from here. The take is in Saved → Videos and, once saved to Photos, in your camera roll.'); return; }
+    let assetId = take.photos_asset_id;
+    if (!assetId) assetId = await saveToPhotos(); // not on this phone yet — pull it into Photos first
+    if (!assetId) return;
+    try { const r = await shareVideos([assetId], 'https://iq.influenceish.com/tiktok/native'); if (!r.isSuccess) Alert.alert('Not posted', r.errorMsg); }
     catch (e: any) { Alert.alert('Not posted', e?.message ?? 'Please try again.'); }
   };
 
@@ -89,6 +118,9 @@ export default function TakeSheet({ take, onClose }: { take: Take; onClose: () =
               </View>
               <TouchableOpacity style={[S.btn, S.btnPrimary, S.btnWide]} onPress={() => { haptic.press(); post(); }} activeOpacity={0.85}><Share2 size={16} color="#FFF" strokeWidth={2.4} /><Text style={S.btnTextOn} numberOfLines={1}>Edit in TikTok & post</Text></TouchableOpacity>
               <View style={S.actions}>
+                <TouchableOpacity style={S.btn} onPress={() => { haptic.tap(); void saveToPhotos().then((id) => { if (id) Alert.alert('Saved to Photos', 'The take is in your camera roll.'); }); }} activeOpacity={0.85} disabled={savingPhotos}>
+                  {savingPhotos ? <ActivityIndicator size="small" color={D.textPrimary} /> : <><Download size={15} color={D.textPrimary} strokeWidth={2.2} /><Text style={S.btnText}>Photos</Text></>}
+                </TouchableOpacity>
                 <TouchableOpacity style={S.btn} onPress={() => { haptic.tap(); onClose(); router.push({ pathname: '/tools/coach', params: { takeId: take.id } }); }} activeOpacity={0.85}><Mic size={15} color={D.textPrimary} strokeWidth={2.2} /><Text style={S.btnText}>Coach</Text></TouchableOpacity>
                 <TouchableOpacity style={S.btn} onPress={() => { haptic.tap(); if (take.script_id) { onClose(); router.push(`/script/${take.script_id}`); } else setAttaching(true); }} onLongPress={() => { haptic.select(); setAttaching(true); }} activeOpacity={0.85}><Link2 size={15} color={D.textPrimary} strokeWidth={2.2} /><Text style={S.btnText}>{take.script_id ? 'Script' : 'Attach'}</Text></TouchableOpacity>
                 <TouchableOpacity style={[S.btn, S.btnDanger]} onPress={() => Alert.alert('Delete take?', 'This removes it from Formula (not from your Photos).', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => remove.mutate() }])} activeOpacity={0.85} disabled={remove.isPending}>

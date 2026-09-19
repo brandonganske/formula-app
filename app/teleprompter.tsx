@@ -12,7 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api, extractData } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { D, T, R } from '@/constants/ds';
-import { X, RotateCcw, Move, Minus, Plus, FlipHorizontal, Type, Film, ChevronRight, Camera as CameraIcon, CameraOff, SwitchCamera, ClipboardPaste, Settings2, Eye, Check, Zap, ZapOff, Gauge, UserRound, Clapperboard, ChevronUp, ChevronDown } from 'lucide-react-native';
+import { X, RotateCcw, Move, Share2, Minus, Plus, FlipHorizontal, Type, Film, ChevronRight, Camera as CameraIcon, CameraOff, SwitchCamera, ClipboardPaste, Settings2, Eye, Check, Zap, ZapOff, Gauge, UserRound, Clapperboard, ChevronUp, ChevronDown } from 'lucide-react-native';
 import type { SavedScriptItem, SavedScriptsResponse } from '@/types/api';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import { haptic } from '@/lib/haptics';
@@ -378,7 +378,7 @@ export default function TeleprompterScreen() {
     play(); // 3-2-1-Go, then beginCapture fires on Go
   };
   // Review → Save: only now does the take go to Photos (then optional TikTok).
-  const saveTake = async () => {
+  const saveTake = async (postAfter = false) => {
     if (!reviewUri) return;
     const uri = reviewUri;
     setSaving(true);
@@ -406,6 +406,14 @@ export default function TeleprompterScreen() {
       }
       setReviewUri(null);
       const canShare = !!assetId && isNativeTikTokAvailable() && isTikTokAppInstalled();
+      if (postAfter) {
+        if (!canShare) { Alert.alert('Saved to Photos', 'Open TikTok, tap +, and pick this take from your camera roll.'); return; }
+        try {
+          const r = await shareVideos([assetId!], 'https://iq.influenceish.com/tiktok/native');
+          if (!r.isSuccess) Alert.alert('Not posted', r.errorMsg);
+        } catch (e: any) { Alert.alert('Not posted', e?.message ?? 'Please try again.'); }
+        return;
+      }
       Alert.alert(
         inFormula ? 'Saved' : 'Saved to Photos',
         (inFormula ? `In your Photos and in Saved → Videos${item ? ', attached to this script' : ''}. ` : 'Your take is in your photo library. ') + (canShare ? 'Edit it in TikTok and post now?' : ''),
@@ -647,10 +655,13 @@ export default function TeleprompterScreen() {
               <TouchableOpacity style={S.reviewBtn} onPress={retake} activeOpacity={0.85} disabled={saving}>
                 <RotateCcw size={16} color="#FFF" strokeWidth={2.4} /><Text style={S.reviewBtnText}>Retake</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[S.reviewBtn, S.reviewBtnPrimary]} onPress={saveTake} activeOpacity={0.85} disabled={saving}>
-                {saving ? <><ActivityIndicator size="small" color="#FFF" /><Text style={S.reviewBtnText}>{saveStep || 'Saving…'}</Text></> : <><Check size={16} color="#FFF" strokeWidth={2.6} /><Text style={S.reviewBtnText}>Save take</Text></>}
+              <TouchableOpacity style={S.reviewBtn} onPress={() => saveTake(false)} activeOpacity={0.85} disabled={saving}>
+                {saving ? <><ActivityIndicator size="small" color="#FFF" /><Text style={S.reviewBtnText}>{saveStep || 'Saving…'}</Text></> : <><Check size={16} color="#FFF" strokeWidth={2.6} /><Text style={S.reviewBtnText}>Save to Photos</Text></>}
               </TouchableOpacity>
             </View>
+            <TouchableOpacity style={[S.reviewBtn, S.reviewBtnPrimary, S.reviewBtnWide]} onPress={() => saveTake(true)} activeOpacity={0.85} disabled={saving}>
+              <Share2 size={16} color="#FFF" strokeWidth={2.4} /><Text style={S.reviewBtnText}>Edit in TikTok & post</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -727,6 +738,7 @@ const S = StyleSheet.create({
   reviewNoPlayerText: { ...T.medium, fontSize: 13.5, color: 'rgba(255,255,255,0.6)', textAlign: 'center', lineHeight: 19 },
   reviewBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: R.full, paddingHorizontal: 18, height: 46, backgroundColor: 'rgba(255,255,255,0.12)' },
   reviewBtnPrimary: { backgroundColor: D.coral },
+  reviewBtnWide: { justifyContent: 'center', marginTop: 10, height: 50 },
   reviewPanel: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 32, padding: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
   reviewBtnText: { ...T.bold, fontSize: 14.5, color: '#FFF' },
 
