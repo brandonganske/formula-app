@@ -21,7 +21,8 @@ export default function ShopSafeScreen() {
   const [pct, setPct] = useState(0);
   const [result, setResult] = useState<ShopSafeResult | null>(null);
   const [name, setName] = useState<string | null>(null);
-  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
+  const [mode, setMode] = useState<'video' | 'script' | null>(modeParam === 'script' || modeParam === 'video' ? modeParam : null);
   const scriptMode = mode === 'script';
   const [script, setScript] = useState('');
 
@@ -91,12 +92,30 @@ export default function ShopSafeScreen() {
         <View style={S.hdrIcon}><ShieldCheck size={18} color="#FFF" strokeWidth={2.4} /></View>
         <View style={{ flex: 1 }}>
           <Text style={S.title}>Shop Safe</Text>
-          <Text style={S.sub}>{scriptMode ? 'Check a script before you film it.' : 'Check a video before you post it.'}</Text>
+          <Text style={S.sub}>{mode == null ? 'TikTok Shop policy check' : scriptMode ? 'Check a script before you film it.' : 'Check a video before you post it.'}</Text>
         </View>
         <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={S.close}><X size={18} color={D.textMuted} strokeWidth={2.2} /></TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={S.scroll} showsVerticalScrollIndicator={false}>
+        {phase === 'idle' && mode == null && (
+          <FadeInView style={S.card}>
+            <Text style={S.dropTitle}>Catch it before TikTok does.</Text>
+            <Text style={S.dropSub}>Health claims, guarantees, fake urgency, before/afters — the lines that get shoppable videos flagged or buried. We find them and tell you what to say instead, in your voice.</Text>
+            <View style={{ gap: 8, marginTop: 18 }}>
+              <AnimatedPressable style={S.choice} haptic="light" onPress={() => setMode('video')}>
+                <View style={S.choiceIcon}><Film size={18} color={D.ink} strokeWidth={2.2} /></View>
+                <View style={{ flex: 1 }}><Text style={S.choiceTitle}>Check a video</Text><Text style={S.choiceSub}>Upload a cut before posting</Text></View>
+              </AnimatedPressable>
+              <AnimatedPressable style={S.choice} haptic="light" onPress={() => setMode('script')}>
+                <View style={S.choiceIcon}><FileText size={18} color={D.ink} strokeWidth={2.2} /></View>
+                <View style={{ flex: 1 }}><Text style={S.choiceTitle}>Check a script</Text><Text style={S.choiceSub}>Paste anything before you film</Text></View>
+              </AnimatedPressable>
+            </View>
+            <Text style={S.hint}>Every script you save is checked automatically — look for the grade on Saved.</Text>
+          </FadeInView>
+        )}
+
         {phase === 'idle' && scriptMode && (
           <FadeInView style={S.card}>
             <View style={S.dropIcon}><FileText size={26} color={D.coral} strokeWidth={2} /></View>
@@ -120,7 +139,7 @@ export default function ShopSafeScreen() {
           </FadeInView>
         )}
 
-        {phase === 'idle' && !scriptMode && (
+        {phase === 'idle' && mode === 'video' && (
           <FadeInView style={S.card}>
             <View style={S.dropIcon}><Film size={26} color={D.coral} strokeWidth={2} /></View>
             <Text style={S.dropTitle}>Already filmed it?</Text>
@@ -178,6 +197,10 @@ const S = StyleSheet.create({
   cta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: D.coral, borderRadius: R.full, paddingVertical: 15, marginTop: 18, ...Shadow.coral },
   ctaText: { ...T.bold, fontSize: 15.5, color: '#FFF' },
   hint: { ...T.regular, fontSize: 12, color: D.textDisabled, textAlign: 'center', marginTop: 10 },
+  choice: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: D.surface, borderRadius: 16, borderWidth: 1, borderColor: D.border, padding: 12 },
+  choiceIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: D.inkHairline, alignItems: 'center', justifyContent: 'center' },
+  choiceTitle: { ...T.bold, fontSize: 15, color: D.textPrimary, letterSpacing: -0.2 },
+  choiceSub: { ...T.regular, fontSize: 12.5, color: D.textMuted, marginTop: 1 },
   inputBox: { backgroundColor: D.surface, borderRadius: 16, borderWidth: 1.5, borderColor: D.border, padding: 14, minHeight: 160, marginTop: 16 },
   input: { ...T.medium, fontSize: 15, color: D.textPrimary, lineHeight: 22, minHeight: 130 },
   track: { height: 6, borderRadius: 3, backgroundColor: D.inkHairline, overflow: 'hidden', marginTop: 16 },
