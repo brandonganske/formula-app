@@ -354,7 +354,7 @@ export default function TeleprompterScreen() {
       <StatusBar barStyle="light-content" />
 
       {/* Camera fills the whole screen; everything else floats over it */}
-      {camLive && <cam.CameraView ref={camRef} style={StyleSheet.absoluteFill} facing={facing} mode="video" mute={false} enableTorch={torch && facing === 'back'} />}
+      {camLive && <cam.CameraView ref={camRef} style={StyleSheet.absoluteFill} facing={facing} mode="video" mute={false} enableTorch={torch && facing === 'back'} mirror={mirror} />}
       {camLive && <View pointerEvents="none" style={S.scrim} />}
 
       {/* Text layer */}
@@ -367,7 +367,6 @@ export default function TeleprompterScreen() {
             onScrollEndDrag={(e) => scrollY.setValue(e.nativeEvent.contentOffset.y)}
             onMomentumScrollEnd={(e) => scrollY.setValue(e.nativeEvent.contentOffset.y)}
             contentContainerStyle={{ paddingTop: viewH * readFrac, paddingBottom: viewH * (1 - readFrac), paddingHorizontal: prefs.width === 'narrow' ? Math.max(24, winW * 0.12) : 24 }}
-            style={mirror ? { transform: [{ scaleX: -1 }] } : undefined}
             onContentSizeChange={(_, h) => setContentH(h)}
           >
             <Text style={[S.script, { fontSize, lineHeight: fontSize * 1.42, textAlign: prefs.align }]}>{text}</Text>
@@ -530,7 +529,7 @@ export default function TeleprompterScreen() {
                 </View>
               </View>
             ))}
-            <Text style={S.sheetNote}>Near camera keeps your eyes on the lens. Head & shoulders keeps you in the same frame every take.</Text>
+            <Text style={S.sheetNote}>Near camera keeps your eyes on the lens. Head & shoulders keeps you in the same frame every take. Mirror flips the camera so the recording matches what you see.</Text>
           </Pressable>
         </Pressable>
       </Modal>
