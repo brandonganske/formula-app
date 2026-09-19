@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api, extractData } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { D, T, R } from '@/constants/ds';
-import { X, Play, Pause, RotateCcw, Minus, Plus, FlipHorizontal, Type, Film, ChevronRight, Camera as CameraIcon, CameraOff, SwitchCamera, ClipboardPaste, Settings2, Eye, Check } from 'lucide-react-native';
+import { X, Play, Pause, RotateCcw, Minus, Plus, FlipHorizontal, Type, Film, ChevronRight, Camera as CameraIcon, CameraOff, SwitchCamera, ClipboardPaste, Settings2, Eye, Check, Zap, ZapOff } from 'lucide-react-native';
 import type { SavedScriptItem, SavedScriptsResponse } from '@/types/api';
 import AnimatedPressable from '@/components/AnimatedPressable';
 
@@ -38,7 +38,7 @@ type Align = 'center' | 'left';
 interface Prefs { guide: Guide; readPos: ReadPos; align: Align; width: 'wide' | 'narrow'; fontSize: number; mirror: boolean }
 const DEFAULT_PREFS: Prefs = { guide: 'head', readPos: 'camera', align: 'center', width: 'narrow', fontSize: 34, mirror: false };
 const PREFS_KEY = 'teleprompter.prefs.v1';
-const READ_FRAC: Record<ReadPos, number> = { camera: 0.16, third: 0.35, center: 0.5 };
+const READ_FRAC: Record<ReadPos, number> = { camera: 0.21, third: 0.36, center: 0.5 };
 
 function Guides({ guide, w, h, readY }: { guide: Guide; w: number; h: number; readY: number }) {
   if (!w || !h) return null;
@@ -115,6 +115,13 @@ export default function TeleprompterScreen() {
   const [camReady, setCamReady] = useState(false);
   const [facing, setFacing] = useState<'front' | 'back'>('front');
   const [recording, setRecording] = useState(false);
+  const [torch, setTorch] = useState(false);
+  const [recSec, setRecSec] = useState(0);
+  useEffect(() => {
+    if (!recording) { setRecSec(0); return; }
+    const t = setInterval(() => setRecSec((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, [recording]);
   const camRef = useRef<any>(null);
 
   useEffect(() => {
@@ -287,26 +294,113 @@ export default function TeleprompterScreen() {
   }
 
   // ── Prompter ─────────────────────────────────────────────────────────────
+  const camLive = !!(cam && camOn && camReady);
+  const closePrompter = () => { pause(); if (recording) stopRecording(); if (scriptId || textParam) router.back(); else { setPasted(''); setPickedId(null); reset(); } };
+  const toggleTorch = () => {
+    if (facing !== 'back') { Alert.alert('Flash', 'Flash works with the back camera. Flip the camera to use it.'); return; }
+    setTorch((t) => !t);
+  };
+
   return (
     <View style={S.root}>
       <StatusBar barStyle="light-content" />
-      {/* Top bar */}
-      <View style={[S.bar, { paddingTop: insets.top + 6 }]}>
-        <TouchableOpacity onPress={() => { pause(); if (recording) stopRecording(); if (scriptId || textParam) router.back(); else { setPasted(''); setPickedId(null); reset(); } }} hitSlop={12} style={S.barBtn}><X size={18} color="#FFF" strokeWidth={2.2} /></TouchableOpacity>
-        <View style={{ flex: 1, alignItems: 'center' }}>
-          <Text style={S.barTitle} numberOfLines={1}>{item?.option_label ?? item?.product_name ?? 'Script'}</Text>
-          <Text style={S.barMeta}>{words} words · {fmt(durationSec)} at {wpm} wpm</Text>
+
+      {/* Camera fills the whole screen; everything else floats over it */}
+      {camLive && <cam.CameraView ref={camRef} style={StyleSheet.absoluteFill} facing={facing} mode="video" mute={false} enableTorch={torch && facing === 'back'} />}
+      {camLive && <View pointerEvents="none" style={S.scrim} />}
+
+      {/* Text layer */}
+      <View style={{ flex: 1 }} onLayout={(e: LayoutChangeEvent) => setViewH(e.nativeEvent.layout.height)}>
+        <TouchableOpacity activeOpacity={1} style={{ flex: 1 }} onPress={() => (playing ? pause() : play())}>
+          <ScrollView
+            ref={scrollRef}
+            scrollEnabled={!playing}
+            showsVerticalScrollIndicator={false}
+            onScrollEndDrag={(e) => scrollY.setValue(e.nativeEvent.contentOffset.y)}
+            onMomentumScrollEnd={(e) => scrollY.setValue(e.nativeEvent.contentOffset.y)}
+            contentContainerStyle={{ paddingTop: viewH * readFrac, paddingBottom: viewH * (1 - readFrac), paddingHorizontal: prefs.width === 'narrow' ? Math.max(24, winW * 0.12) : 24 }}
+            style={mirror ? { transform: [{ scaleX: -1 }] } : undefined}
+            onContentSizeChange={(_, h) => setContentH(h)}
+          >
+            <Text style={[S.script, { fontSize, lineHeight: fontSize * 1.42, textAlign: prefs.align }]}>{text}</Text>
+          </ScrollView>
+        </TouchableOpacity>
+        {camLive && <Guides guide={prefs.guide} w={winW} h={viewH} readY={viewH * readFrac} />}
+        <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0.9)', 'rgba(0,0,0,0)']} style={[S.fade, { top: 0, height: Math.max(0, viewH * readFrac - fontSize * 0.9) }]} />
+        <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.9)']} style={[S.fade, { bottom: 0, height: Math.max(0, viewH * (1 - readFrac) - fontSize * 2.2) }]} />
+        <View pointerEvents="none" style={[S.readLine, { top: viewH * readFrac - 1 }]} />
+        {prefs.readPos === 'camera' && !playing && countdown == null && !recording && (
+          <View pointerEvents="none" style={[S.eyeHint, { top: viewH * readFrac + 10 }]}><Eye size={12} color="rgba(255,255,255,0.7)" strokeWidth={2.2} /><Text style={S.eyeHintText}>Eyes here — closest to the lens</Text></View>
+        )}
+        {countdown != null && (
+          <View pointerEvents="none" style={S.countWrap}><Text style={S.count}>{countdown === 0 ? 'Go' : countdown}</Text></View>
+        )}
+      </View>
+
+      {/* Top: close · title · tool cluster (floating) */}
+      <View pointerEvents="box-none" style={[S.top, { paddingTop: insets.top + 6 }]}>
+        <View style={S.topRow}>
+          <TouchableOpacity onPress={closePrompter} hitSlop={12} style={S.glassBtn}><X size={17} color="#FFF" strokeWidth={2.2} /></TouchableOpacity>
+          <View style={S.titleWrap}>
+            {recording ? (
+              <View style={S.recPill}><View style={S.recPillDot} /><Text style={S.recPillText}>{fmt(recSec)}</Text></View>
+            ) : (
+              <View style={S.titlePill}>
+                <Text style={S.barTitle} numberOfLines={1}>{item?.option_label ?? item?.product_name ?? 'Script'}</Text>
+                <Text style={S.barMeta}>{fmt(durationSec)} · {wpm} wpm</Text>
+              </View>
+            )}
+          </View>
+          <View style={S.cluster}>
+            {cam && (
+              <TouchableOpacity onPress={() => setCamOn((v) => !v)} hitSlop={8} style={[S.clusterBtn, camOn && S.clusterBtnOn]}>
+                {camOn ? <CameraIcon size={15} color="#FFF" strokeWidth={2.2} /> : <CameraOff size={15} color="#FFF" strokeWidth={2.2} />}
+              </TouchableOpacity>
+            )}
+            {camLive && (
+              <TouchableOpacity onPress={() => setFacing((f) => (f === 'front' ? 'back' : 'front'))} hitSlop={8} style={S.clusterBtn}><SwitchCamera size={15} color="#FFF" strokeWidth={2.2} /></TouchableOpacity>
+            )}
+            {camLive && (
+              <TouchableOpacity onPress={toggleTorch} hitSlop={8} style={[S.clusterBtn, torch && facing === 'back' && S.clusterBtnOn, facing !== 'back' && { opacity: 0.45 }]}>
+                {torch && facing === 'back' ? <Zap size={15} color="#FFF" strokeWidth={2.2} fill="#FFF" /> : <ZapOff size={15} color="#FFF" strokeWidth={2.2} />}
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={() => setMirror((m) => !m)} hitSlop={8} style={[S.clusterBtn, mirror && S.clusterBtnOn]}><FlipHorizontal size={15} color="#FFF" strokeWidth={2.2} /></TouchableOpacity>
+            <TouchableOpacity onPress={() => { pause(); setShowSettings(true); }} hitSlop={8} style={S.clusterBtn}><Settings2 size={15} color="#FFF" strokeWidth={2.2} /></TouchableOpacity>
+          </View>
         </View>
-        {cam && (
-          <TouchableOpacity onPress={() => setCamOn((v) => !v)} hitSlop={12} style={[S.barBtn, camOn && S.barBtnOn]}>
-            {camOn ? <CameraIcon size={16} color="#FFF" strokeWidth={2.2} /> : <CameraOff size={16} color="#FFF" strokeWidth={2.2} />}
-          </TouchableOpacity>
-        )}
-        {cam && camOn && (
-          <TouchableOpacity onPress={() => setFacing((f) => (f === 'front' ? 'back' : 'front'))} hitSlop={12} style={S.barBtn}><SwitchCamera size={16} color="#FFF" strokeWidth={2.2} /></TouchableOpacity>
-        )}
-        <TouchableOpacity onPress={() => setMirror((m) => !m)} hitSlop={12} style={[S.barBtn, mirror && S.barBtnOn]}><FlipHorizontal size={16} color="#FFF" strokeWidth={2.2} /></TouchableOpacity>
-        <TouchableOpacity onPress={() => { pause(); setShowSettings(true); }} hitSlop={12} style={S.barBtn}><Settings2 size={16} color="#FFF" strokeWidth={2.2} /></TouchableOpacity>
+        <View style={S.progressTrack}><Animated.View style={[S.progressFill, { width: progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]} /></View>
+      </View>
+
+      {/* Bottom: one floating, semi-transparent control panel */}
+      <View pointerEvents="box-none" style={[S.bottom, { paddingBottom: Math.max(insets.bottom, 12) + 6 }]}>
+        <View style={S.panel}>
+          <View style={S.speed}>
+            <TouchableOpacity style={S.smallBtn} onPress={() => nudge(-0.1)} hitSlop={6}><Minus size={15} color="#FFF" strokeWidth={2.4} /></TouchableOpacity>
+            <View style={S.speedVal}><Text style={S.speedNum}>{wpm}</Text><Text style={S.speedSub}>wpm</Text></View>
+            <TouchableOpacity style={S.smallBtn} onPress={() => nudge(0.1)} hitSlop={6}><Plus size={15} color="#FFF" strokeWidth={2.4} /></TouchableOpacity>
+          </View>
+
+          {camLive ? (
+            <TouchableOpacity style={[S.recBtn, recording && S.recBtnOn]} onPress={() => (recording ? stopRecording() : startRecording())} activeOpacity={0.85}>
+              <View style={[S.recDot, recording && S.recDotOn]} />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={S.playBig} onPress={() => (playing ? pause() : play())} activeOpacity={0.85}>
+              {playing ? <Pause size={24} color={D.ink} strokeWidth={2.4} fill={D.ink} /> : <Play size={24} color={D.ink} strokeWidth={2.4} fill={D.ink} style={{ marginLeft: 3 }} />}
+            </TouchableOpacity>
+          )}
+
+          <View style={S.speed}>
+            {camLive && (
+              <TouchableOpacity style={[S.smallBtn, playing && S.smallBtnOn]} onPress={() => (playing ? pause() : play())} hitSlop={6}>
+                {playing ? <Pause size={14} color="#FFF" strokeWidth={2.4} fill="#FFF" /> : <Play size={14} color="#FFF" strokeWidth={2.4} fill="#FFF" />}
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={S.smallBtn} onPress={() => setFontSize((f) => (f >= 52 ? 26 : f + 6))} hitSlop={6}><Type size={15} color="#FFF" strokeWidth={2.4} /></TouchableOpacity>
+            <TouchableOpacity style={S.smallBtn} onPress={reset} hitSlop={6}><RotateCcw size={15} color="#FFF" strokeWidth={2.4} /></TouchableOpacity>
+          </View>
+        </View>
       </View>
 
       {/* Settings sheet */}
@@ -339,66 +433,6 @@ export default function TeleprompterScreen() {
           </Pressable>
         </Pressable>
       </Modal>
-      <View style={S.progressTrack}><Animated.View style={[S.progressFill, { width: progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]} /></View>
-
-      {/* Text (over the camera when it's on) */}
-      <View style={{ flex: 1 }} onLayout={(e: LayoutChangeEvent) => setViewH(e.nativeEvent.layout.height)}>
-        {cam && camOn && camReady && (
-          <cam.CameraView ref={camRef} style={StyleSheet.absoluteFill} facing={facing} mode="video" mute={false} />
-        )}
-        {cam && camOn && camReady && <View pointerEvents="none" style={S.scrim} />}
-        <TouchableOpacity activeOpacity={1} style={{ flex: 1 }} onPress={() => (playing ? pause() : play())}>
-          <ScrollView
-            ref={scrollRef}
-            scrollEnabled={!playing}
-            showsVerticalScrollIndicator={false}
-            onScrollEndDrag={(e) => scrollY.setValue(e.nativeEvent.contentOffset.y)}
-            onMomentumScrollEnd={(e) => scrollY.setValue(e.nativeEvent.contentOffset.y)}
-            contentContainerStyle={{ paddingTop: viewH * readFrac, paddingBottom: viewH * (1 - readFrac), paddingHorizontal: prefs.width === 'narrow' ? Math.max(24, winW * 0.12) : 24 }}
-            style={mirror ? { transform: [{ scaleX: -1 }] } : undefined}
-            onContentSizeChange={(_, h) => setContentH(h)}
-          >
-            <Text style={[S.script, { fontSize, lineHeight: fontSize * 1.42, textAlign: prefs.align }]}>{text}</Text>
-          </ScrollView>
-        </TouchableOpacity>
-        {/* Framing guides over the camera */}
-        {cam && camOn && camReady && <Guides guide={prefs.guide} w={winW} h={viewH} readY={viewH * readFrac} />}
-        {/* Focus fades — only the lines around the read line stay bright */}
-        <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0.85)', 'rgba(0,0,0,0)']} style={[S.fade, { top: 0, height: Math.max(0, viewH * readFrac - fontSize * 0.9) }]} />
-        <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.85)']} style={[S.fade, { bottom: 0, height: Math.max(0, viewH * (1 - readFrac) - fontSize * 2.2) }]} />
-        {/* Read line */}
-        <View pointerEvents="none" style={[S.readLine, { top: viewH * readFrac - 1 }]} />
-        {prefs.readPos === 'camera' && !playing && countdown == null && (
-          <View pointerEvents="none" style={[S.eyeHint, { top: viewH * readFrac + 10 }]}><Eye size={12} color="rgba(255,255,255,0.7)" strokeWidth={2.2} /><Text style={S.eyeHintText}>Eyes here — closest to the lens</Text></View>
-        )}
-        {countdown != null && (
-          <View pointerEvents="none" style={S.countWrap}><Text style={S.count}>{countdown === 0 ? 'Go' : countdown}</Text></View>
-        )}
-      </View>
-
-      {/* Controls */}
-      <View style={[S.controls, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
-        <View style={S.ctlGroup}>
-          <TouchableOpacity style={S.ctlBtn} onPress={() => nudge(-0.1)} hitSlop={8}><Minus size={16} color="#FFF" strokeWidth={2.4} /></TouchableOpacity>
-          <View style={S.ctlVal}><Text style={S.ctlValText}>{wpm}</Text><Text style={S.ctlValSub}>wpm</Text></View>
-          <TouchableOpacity style={S.ctlBtn} onPress={() => nudge(0.1)} hitSlop={8}><Plus size={16} color="#FFF" strokeWidth={2.4} /></TouchableOpacity>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          {cam && camOn && camReady && (
-            <TouchableOpacity style={[S.recBtn, recording && S.recBtnOn]} onPress={() => (recording ? stopRecording() : startRecording())} activeOpacity={0.85}>
-              <View style={[S.recDot, recording && S.recDotOn]} />
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity style={S.playBtn} onPress={() => (playing ? pause() : play())} activeOpacity={0.85}>
-            {playing ? <Pause size={26} color={D.ink} strokeWidth={2.4} fill={D.ink} /> : <Play size={26} color={D.ink} strokeWidth={2.4} fill={D.ink} />}
-          </TouchableOpacity>
-        </View>
-        <View style={S.ctlGroup}>
-          <TouchableOpacity style={S.ctlBtn} onPress={() => setFontSize((f) => Math.max(22, f - 4))} hitSlop={8}><Type size={14} color="#FFF" strokeWidth={2.4} /></TouchableOpacity>
-          <TouchableOpacity style={S.ctlBtn} onPress={reset} hitSlop={8}><RotateCcw size={16} color="#FFF" strokeWidth={2.4} /></TouchableOpacity>
-          <TouchableOpacity style={S.ctlBtn} onPress={() => setFontSize((f) => Math.min(52, f + 4))} hitSlop={8}><Type size={18} color="#FFF" strokeWidth={2.4} /></TouchableOpacity>
-        </View>
-      </View>
     </View>
   );
 }
@@ -416,14 +450,40 @@ const S = StyleSheet.create({
   pickTitle: { ...T.bold, fontSize: 15, color: '#FFF' },
   pickHook: { ...T.regular, fontSize: 13, color: 'rgba(255,255,255,0.55)', marginTop: 2, fontStyle: 'italic' },
 
-  bar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingBottom: 10 },
-  barBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
-  barBtnOn: { backgroundColor: D.coral },
-  barTitle: { ...T.bold, fontSize: 14, color: '#FFF' },
-  barMeta: { ...T.medium, fontSize: 11.5, color: 'rgba(255,255,255,0.5)', marginTop: 1 },
-  progressTrack: { height: 2, backgroundColor: 'rgba(255,255,255,0.12)' },
-  progressFill: { height: 2, backgroundColor: D.coral },
   script: { ...T.bold, color: '#FFF', letterSpacing: -0.3 },
+  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.32)' },
+
+  // Floating top layer
+  top: { position: 'absolute', left: 0, right: 0, top: 0 },
+  topRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingBottom: 8 },
+  glassBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
+  titleWrap: { flex: 1, alignItems: 'center', minWidth: 0 },
+  titlePill: { alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: R.full, paddingHorizontal: 12, paddingVertical: 5, maxWidth: '100%' },
+  barTitle: { ...T.bold, fontSize: 12.5, color: '#FFF' },
+  barMeta: { ...T.medium, fontSize: 10.5, color: 'rgba(255,255,255,0.6)', marginTop: 1 },
+  recPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: R.full, paddingHorizontal: 12, paddingVertical: 7 },
+  recPillDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: D.coral },
+  recPillText: { ...T.bold, fontSize: 13, color: '#FFF', fontVariant: ['tabular-nums'] },
+  cluster: { flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: R.full, padding: 3, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
+  clusterBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  clusterBtnOn: { backgroundColor: D.coral },
+  progressTrack: { height: 2, marginHorizontal: 12, borderRadius: 1, backgroundColor: 'rgba(255,255,255,0.18)' },
+  progressFill: { height: 2, borderRadius: 1, backgroundColor: D.coral },
+
+  // Floating bottom panel
+  bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' },
+  panel: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 32, padding: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
+  speed: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  smallBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
+  smallBtnOn: { backgroundColor: D.coral },
+  speedVal: { alignItems: 'center', minWidth: 42 },
+  speedNum: { ...T.bold, fontSize: 15, color: '#FFF', letterSpacing: -0.3, fontVariant: ['tabular-nums'] },
+  speedSub: { ...T.medium, fontSize: 9.5, color: 'rgba(255,255,255,0.55)', marginTop: -1 },
+  playBig: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center' },
+  recBtn: { width: 60, height: 60, borderRadius: 30, borderWidth: 3, borderColor: '#FFF', alignItems: 'center', justifyContent: 'center' },
+  recBtnOn: { borderColor: D.coral },
+  recDot: { width: 44, height: 44, borderRadius: 22, backgroundColor: D.coral },
+  recDotOn: { width: 24, height: 24, borderRadius: 6 },
   readLine: { position: 'absolute', left: 12, right: 12, height: 2, backgroundColor: D.coral, opacity: 0.85, borderRadius: 1 },
   fade: { position: 'absolute', left: 0, right: 0 },
   eyeHint: { position: 'absolute', alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: R.full, paddingHorizontal: 10, paddingVertical: 5 },
@@ -443,20 +503,8 @@ const S = StyleSheet.create({
   countWrap: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.55)' },
   count: { ...T.bold, fontSize: 96, color: '#FFF', letterSpacing: -3 },
 
-  controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 12, backgroundColor: '#000' },
-  ctlGroup: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  ctlBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
-  ctlVal: { alignItems: 'center', minWidth: 46 },
-  ctlValText: { ...T.bold, fontSize: 16, color: '#FFF', letterSpacing: -0.3 },
-  ctlValSub: { ...T.medium, fontSize: 10, color: 'rgba(255,255,255,0.5)' },
-  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.42)' },
-  recBtn: { width: 56, height: 56, borderRadius: 28, borderWidth: 3, borderColor: '#FFF', alignItems: 'center', justifyContent: 'center' },
-  recBtnOn: { borderColor: D.coral },
-  recDot: { width: 40, height: 40, borderRadius: 20, backgroundColor: D.coral },
-  recDotOn: { width: 22, height: 22, borderRadius: 5 },
   pasteBox: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 18, padding: 14 },
   pasteInput: { ...T.medium, fontSize: 15, color: '#FFF', lineHeight: 22, minHeight: 96 },
   pasteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: D.coral, borderRadius: R.full, paddingVertical: 11, marginTop: 10 },
   pasteBtnText: { ...T.bold, fontSize: 14, color: '#FFF' },
-  playBtn: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center' },
 });
