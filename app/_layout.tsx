@@ -1,6 +1,16 @@
 import { useEffect } from 'react';
 import { Stack, SplashScreen, useRouter } from 'expo-router';
-import { ShareIntentProvider, useShareIntentContext } from 'expo-share-intent';
+import React from 'react';
+
+// expo-share-intent is native and only exists in builds made after the share
+// extension was added. Older dev clients get a no-op provider instead of a crash.
+let ShareIntentProvider: React.ComponentType<{ children: React.ReactNode }> = ({ children }) => <>{children}</>;
+let useShareIntentContext: () => { hasShareIntent: boolean; shareIntent: any; resetShareIntent: () => void } =
+  () => ({ hasShareIntent: false, shareIntent: null, resetShareIntent: () => {} });
+try {
+  const mod = require('expo-share-intent');
+  if (mod?.ShareIntentProvider && mod?.useShareIntentContext) { ShareIntentProvider = mod.ShareIntentProvider; useShareIntentContext = mod.useShareIntentContext; }
+} catch {}
 import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
