@@ -12,7 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api, extractData } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { D, T, R } from '@/constants/ds';
-import { X, Play, Pause, RotateCcw, Minus, Plus, FlipHorizontal, Type, Film, ChevronRight, Camera as CameraIcon, CameraOff, SwitchCamera, ClipboardPaste, Settings2, Eye, Check, Zap, ZapOff } from 'lucide-react-native';
+import { X, RotateCcw, Minus, Plus, FlipHorizontal, Type, Film, ChevronRight, Camera as CameraIcon, CameraOff, SwitchCamera, ClipboardPaste, Settings2, Eye, Check, Zap, ZapOff, Gauge, UserRound, Clapperboard } from 'lucide-react-native';
 import type { SavedScriptItem, SavedScriptsResponse } from '@/types/api';
 import AnimatedPressable from '@/components/AnimatedPressable';
 
@@ -89,6 +89,15 @@ function TakePreview({ uri }: { uri: string }) {
   return <VideoMod.VideoView player={player} style={StyleSheet.absoluteFill} contentFit="contain" nativeControls />;
 }
 
+function RailBtn({ label, active, dim, onPress, children }: { label: string; active?: boolean; dim?: boolean; onPress: () => void; children: React.ReactNode }) {
+  return (
+    <TouchableOpacity style={[S.railBtn, dim && { opacity: 0.45 }]} onPress={onPress} activeOpacity={0.8} hitSlop={6}>
+      <Text style={S.railLabel} numberOfLines={1}>{label}</Text>
+      <View style={[S.railIcon, active && S.railIconOn]}>{children}</View>
+    </TouchableOpacity>
+  );
+}
+
 function useKeepAwake(on: boolean) {
   useEffect(() => {
     if (!on) return;
@@ -129,6 +138,8 @@ export default function TeleprompterScreen() {
   const [torch, setTorch] = useState(false);
   const [recSec, setRecSec] = useState(0);
   const [reviewUri, setReviewUri] = useState<string | null>(null);
+  const [showSpeed, setShowSpeed] = useState(false);
+  const [takesThisSession, setTakesThisSession] = useState(0);
   const [saving, setSaving] = useState(false);
   const [saveStep, setSaveStep] = useState<string>('');
   useEffect(() => {
@@ -256,6 +267,7 @@ export default function TeleprompterScreen() {
         setSaveStep('Saving to Formula…');
         await uploadTake({ uri, scriptId: item?.id ?? null, productName: item?.product_name ?? null, photosAssetId: assetId, durationSec: recSec, title: item?.option_label ?? item?.product_name ?? null, onProgress: (f) => setSaveStep(`Saving to Formula… ${Math.round(f * 100)}%`) });
         inFormula = true;
+        setTakesThisSession((n) => n + 1);
         qc.invalidateQueries({ queryKey: ['takes'] });
       } catch (e: any) {
         console.warn('[takes] upload failed', e?.message);
@@ -372,7 +384,7 @@ export default function TeleprompterScreen() {
         )}
       </View>
 
-      {/* Top: close · title · tool cluster (floating) */}
+      {/* Top: close · script pill / rec timer */}
       <View pointerEvents="box-none" style={[S.top, { paddingTop: insets.top + 6 }]}>
         <View style={S.topRow}>
           <TouchableOpacity onPress={closePrompter} hitSlop={12} style={S.glassBtn}><X size={17} color="#FFF" strokeWidth={2.2} /></TouchableOpacity>
@@ -386,56 +398,80 @@ export default function TeleprompterScreen() {
               </View>
             )}
           </View>
-          <View style={S.cluster}>
-            {cam && (
-              <TouchableOpacity onPress={() => setCamOn((v) => !v)} hitSlop={8} style={[S.clusterBtn, camOn && S.clusterBtnOn]}>
-                {camOn ? <CameraIcon size={15} color="#FFF" strokeWidth={2.2} /> : <CameraOff size={15} color="#FFF" strokeWidth={2.2} />}
-              </TouchableOpacity>
-            )}
-            {camLive && (
-              <TouchableOpacity onPress={() => setFacing((f) => (f === 'front' ? 'back' : 'front'))} hitSlop={8} style={S.clusterBtn}><SwitchCamera size={15} color="#FFF" strokeWidth={2.2} /></TouchableOpacity>
-            )}
-            {camLive && (
-              <TouchableOpacity onPress={toggleTorch} hitSlop={8} style={[S.clusterBtn, torch && facing === 'back' && S.clusterBtnOn, facing !== 'back' && { opacity: 0.45 }]}>
-                {torch && facing === 'back' ? <Zap size={15} color="#FFF" strokeWidth={2.2} fill="#FFF" /> : <ZapOff size={15} color="#FFF" strokeWidth={2.2} />}
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity onPress={() => setMirror((m) => !m)} hitSlop={8} style={[S.clusterBtn, mirror && S.clusterBtnOn]}><FlipHorizontal size={15} color="#FFF" strokeWidth={2.2} /></TouchableOpacity>
-            <TouchableOpacity onPress={() => { pause(); setShowSettings(true); }} hitSlop={8} style={S.clusterBtn}><Settings2 size={15} color="#FFF" strokeWidth={2.2} /></TouchableOpacity>
-          </View>
+          <View style={{ width: 38 }} />
         </View>
         <View style={S.progressTrack}><Animated.View style={[S.progressFill, { width: progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]} /></View>
       </View>
 
-      {/* Bottom: one floating, semi-transparent control panel */}
-      <View pointerEvents="box-none" style={[S.bottom, { paddingBottom: Math.max(insets.bottom, 12) + 6 }]}>
-        <View style={S.panel}>
-          <View style={S.speed}>
+      {/* Right rail — labeled tools, CapCut-style but ours */}
+      {!recording && (
+        <View pointerEvents="box-none" style={[S.rail, { top: insets.top + 64 }]}>
+          {cam && (
+            <RailBtn label={camOn ? 'Camera' : 'Camera off'} onPress={() => setCamOn((v) => !v)} active={camOn}>
+              {camOn ? <CameraIcon size={18} color="#FFF" strokeWidth={2.2} /> : <CameraOff size={18} color="#FFF" strokeWidth={2.2} />}
+            </RailBtn>
+          )}
+          {camLive && (
+            <RailBtn label="Flip" onPress={() => setFacing((f) => (f === 'front' ? 'back' : 'front'))}><SwitchCamera size={18} color="#FFF" strokeWidth={2.2} /></RailBtn>
+          )}
+          {camLive && (
+            <RailBtn
+              label={prefs.guide === 'none' ? 'Outline' : prefs.guide === 'head' ? 'Head' : prefs.guide === 'face' ? 'Face' : 'Thirds'}
+              active={prefs.guide !== 'none'}
+              onPress={() => setPrefs({ guide: prefs.guide === 'none' ? 'head' : prefs.guide === 'head' ? 'face' : prefs.guide === 'face' ? 'thirds' : 'none' })}
+            >
+              <UserRound size={18} color="#FFF" strokeWidth={2.2} />
+            </RailBtn>
+          )}
+          <RailBtn label={`${wpm} wpm`} active={showSpeed} onPress={() => setShowSpeed((v) => !v)}><Gauge size={18} color="#FFF" strokeWidth={2.2} /></RailBtn>
+          <RailBtn label="Text size" onPress={() => setFontSize((f) => (f >= 52 ? 26 : f + 6))}><Type size={18} color="#FFF" strokeWidth={2.2} /></RailBtn>
+          <RailBtn label={prefs.readPos === 'camera' ? 'Eyes: lens' : prefs.readPos === 'third' ? 'Eyes: third' : 'Eyes: center'} onPress={() => setPrefs({ readPos: prefs.readPos === 'camera' ? 'third' : prefs.readPos === 'third' ? 'center' : 'camera' })}><Eye size={18} color="#FFF" strokeWidth={2.2} /></RailBtn>
+          {camLive && (
+            <RailBtn label="Flash" active={torch && facing === 'back'} dim={facing !== 'back'} onPress={toggleTorch}>
+              {torch && facing === 'back' ? <Zap size={18} color="#FFF" strokeWidth={2.2} fill="#FFF" /> : <ZapOff size={18} color="#FFF" strokeWidth={2.2} />}
+            </RailBtn>
+          )}
+          <RailBtn label="Mirror" active={mirror} onPress={() => setMirror((m) => !m)}><FlipHorizontal size={18} color="#FFF" strokeWidth={2.2} /></RailBtn>
+          <RailBtn label="More" onPress={() => { pause(); setShowSettings(true); }}><Settings2 size={18} color="#FFF" strokeWidth={2.2} /></RailBtn>
+        </View>
+      )}
+
+      {/* Speed popover */}
+      {showSpeed && !recording && (
+        <View pointerEvents="box-none" style={[S.popWrap, { paddingBottom: Math.max(insets.bottom, 12) + 118 }]}>
+          <View style={S.pop}>
             <TouchableOpacity style={S.smallBtn} onPress={() => nudge(-0.1)} hitSlop={6}><Minus size={15} color="#FFF" strokeWidth={2.4} /></TouchableOpacity>
-            <View style={S.speedVal}><Text style={S.speedNum}>{wpm}</Text><Text style={S.speedSub}>wpm</Text></View>
+            <View style={S.speedVal}><Text style={S.speedNum}>{wpm}</Text><Text style={S.speedSub}>words / min</Text></View>
             <TouchableOpacity style={S.smallBtn} onPress={() => nudge(0.1)} hitSlop={6}><Plus size={15} color="#FFF" strokeWidth={2.4} /></TouchableOpacity>
+            <TouchableOpacity style={[S.smallBtn, { marginLeft: 6 }]} onPress={() => { setSpeedMul(1); }} hitSlop={6}><Text style={S.popReset}>{baseWpm}</Text></TouchableOpacity>
           </View>
+        </View>
+      )}
+
+      {/* Bottom: restart · RECORD · takes */}
+      <View pointerEvents="box-none" style={[S.bottom, { paddingBottom: Math.max(insets.bottom, 12) + 10 }]}>
+        <View style={S.bottomRow}>
+          <TouchableOpacity style={S.sideBtn} onPress={reset} activeOpacity={0.8} disabled={recording}>
+            <View style={[S.sideIcon, recording && { opacity: 0.35 }]}><RotateCcw size={18} color="#FFF" strokeWidth={2.2} /></View>
+            <Text style={S.sideLabel}>Restart</Text>
+          </TouchableOpacity>
 
           {camLive ? (
-            <TouchableOpacity style={[S.recBtn, recording && S.recBtnOn]} onPress={() => (recording ? stopRecording() : startRecording())} activeOpacity={0.85}>
-              <View style={[S.recDot, recording && S.recDotOn]} />
+            <TouchableOpacity style={S.recWrap} onPress={() => (recording ? stopRecording() : startRecording())} activeOpacity={0.85}>
+              <View style={[S.recRing, recording && S.recRingOn]}><View style={[S.recCore, recording && S.recCoreOn]} /></View>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity style={S.playBig} onPress={() => (playing ? pause() : play())} activeOpacity={0.85}>
-              {playing ? <Pause size={24} color={D.ink} strokeWidth={2.4} fill={D.ink} /> : <Play size={24} color={D.ink} strokeWidth={2.4} fill={D.ink} style={{ marginLeft: 3 }} />}
+            <TouchableOpacity style={S.recWrap} onPress={() => (playing ? pause() : play())} activeOpacity={0.85}>
+              <View style={[S.recRing, playing && S.recRingOn]}><View style={[S.recCore, { backgroundColor: '#FFF' }, playing && S.recCoreOn]} /></View>
             </TouchableOpacity>
           )}
 
-          <View style={S.speed}>
-            {camLive && (
-              <TouchableOpacity style={[S.smallBtn, playing && S.smallBtnOn]} onPress={() => (playing ? pause() : play())} hitSlop={6}>
-                {playing ? <Pause size={14} color="#FFF" strokeWidth={2.4} fill="#FFF" /> : <Play size={14} color="#FFF" strokeWidth={2.4} fill="#FFF" />}
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity style={S.smallBtn} onPress={() => setFontSize((f) => (f >= 52 ? 26 : f + 6))} hitSlop={6}><Type size={15} color="#FFF" strokeWidth={2.4} /></TouchableOpacity>
-            <TouchableOpacity style={S.smallBtn} onPress={reset} hitSlop={6}><RotateCcw size={15} color="#FFF" strokeWidth={2.4} /></TouchableOpacity>
-          </View>
+          <TouchableOpacity style={S.sideBtn} onPress={() => { closePrompter(); router.push('/(tabs)/scripts'); }} activeOpacity={0.8} disabled={recording}>
+            <View style={[S.sideIcon, recording && { opacity: 0.35 }]}><Clapperboard size={18} color="#FFF" strokeWidth={2.2} />{takesThisSession > 0 && <View style={S.badge}><Text style={S.badgeText}>{takesThisSession}</Text></View>}</View>
+            <Text style={S.sideLabel}>Takes</Text>
+          </TouchableOpacity>
         </View>
+        <Text style={S.bottomHint}>{camLive ? (recording ? 'Tap to stop' : 'Tap to count down, scroll and record') : (playing ? 'Tap to pause' : 'Tap to count down and scroll')}</Text>
       </View>
 
       {/* Review the take before committing it to Photos */}
@@ -449,7 +485,7 @@ export default function TeleprompterScreen() {
             <View style={S.titlePill}><Text style={S.barTitle}>Review take · {fmt(recSec)}</Text></View>
           </View>
           <View pointerEvents="box-none" style={[S.reviewBottom, { paddingBottom: Math.max(insets.bottom, 12) + 10 }]}>
-            <View style={S.panel}>
+            <View style={S.reviewPanel}>
               <TouchableOpacity style={S.reviewBtn} onPress={retake} activeOpacity={0.85} disabled={saving}>
                 <RotateCcw size={16} color="#FFF" strokeWidth={2.4} /><Text style={S.reviewBtnText}>Retake</Text>
               </TouchableOpacity>
@@ -522,9 +558,6 @@ const S = StyleSheet.create({
   recPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: R.full, paddingHorizontal: 12, paddingVertical: 7 },
   recPillDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: D.coral },
   recPillText: { ...T.bold, fontSize: 13, color: '#FFF', fontVariant: ['tabular-nums'] },
-  cluster: { flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: R.full, padding: 3, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
-  clusterBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  clusterBtnOn: { backgroundColor: D.coral },
   progressTrack: { height: 2, marginHorizontal: 12, borderRadius: 1, backgroundColor: 'rgba(255,255,255,0.18)' },
   progressFill: { height: 2, borderRadius: 1, backgroundColor: D.coral },
 
@@ -536,22 +569,41 @@ const S = StyleSheet.create({
   reviewNoPlayerText: { ...T.medium, fontSize: 13.5, color: 'rgba(255,255,255,0.6)', textAlign: 'center', lineHeight: 19 },
   reviewBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: R.full, paddingHorizontal: 18, height: 46, backgroundColor: 'rgba(255,255,255,0.12)' },
   reviewBtnPrimary: { backgroundColor: D.coral },
+  reviewPanel: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 32, padding: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
   reviewBtnText: { ...T.bold, fontSize: 14.5, color: '#FFF' },
+
+  // Right rail
+  rail: { position: 'absolute', right: 10, alignItems: 'flex-end', gap: 14 },
+  railBtn: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  railLabel: { ...T.bold, fontSize: 12.5, color: '#FFF', textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 4 },
+  railIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
+  railIconOn: { backgroundColor: D.coral, borderColor: D.coral },
+
+  // Speed popover
+  popWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' },
+  pop: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 28, padding: 8, paddingHorizontal: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
+  popReset: { ...T.bold, fontSize: 11, color: 'rgba(255,255,255,0.8)' },
+  speedVal: { alignItems: 'center', minWidth: 74 },
+  speedNum: { ...T.bold, fontSize: 18, color: '#FFF', letterSpacing: -0.4, fontVariant: ['tabular-nums'] },
+  speedSub: { ...T.medium, fontSize: 9.5, color: 'rgba(255,255,255,0.55)', marginTop: -1 },
+
+  // Bottom bar
+  bottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 44 },
+  sideBtn: { alignItems: 'center', gap: 5, width: 64 },
+  sideIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
+  sideLabel: { ...T.bold, fontSize: 11.5, color: '#FFF', textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 4 },
+  badge: { position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: D.coral, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  badgeText: { ...T.bold, fontSize: 10, color: '#FFF' },
+  recWrap: { width: 84, height: 84, alignItems: 'center', justifyContent: 'center' },
+  recRing: { width: 78, height: 78, borderRadius: 39, borderWidth: 4, borderColor: '#FFF', alignItems: 'center', justifyContent: 'center' },
+  recRingOn: { borderColor: 'rgba(255,255,255,0.6)' },
+  recCore: { width: 62, height: 62, borderRadius: 31, backgroundColor: D.coral },
+  recCoreOn: { width: 30, height: 30, borderRadius: 8, backgroundColor: D.coral },
+  bottomHint: { ...T.medium, fontSize: 11.5, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginTop: 8, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 4 },
 
   // Floating bottom panel
   bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' },
-  panel: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 32, padding: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
-  speed: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   smallBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
-  smallBtnOn: { backgroundColor: D.coral },
-  speedVal: { alignItems: 'center', minWidth: 42 },
-  speedNum: { ...T.bold, fontSize: 15, color: '#FFF', letterSpacing: -0.3, fontVariant: ['tabular-nums'] },
-  speedSub: { ...T.medium, fontSize: 9.5, color: 'rgba(255,255,255,0.55)', marginTop: -1 },
-  playBig: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center' },
-  recBtn: { width: 60, height: 60, borderRadius: 30, borderWidth: 3, borderColor: '#FFF', alignItems: 'center', justifyContent: 'center' },
-  recBtnOn: { borderColor: D.coral },
-  recDot: { width: 44, height: 44, borderRadius: 22, backgroundColor: D.coral },
-  recDotOn: { width: 24, height: 24, borderRadius: 6 },
   readLine: { position: 'absolute', left: 12, right: 12, height: 2, backgroundColor: D.coral, opacity: 0.85, borderRadius: 1 },
   fade: { position: 'absolute', left: 0, right: 0 },
   eyeHint: { position: 'absolute', alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: R.full, paddingHorizontal: 10, paddingVertical: 5 },
