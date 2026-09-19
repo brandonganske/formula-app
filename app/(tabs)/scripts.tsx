@@ -15,6 +15,7 @@ import SavedVideosView from '@/components/SavedVideosView';
 import OutcomeSheet from '@/components/OutcomeSheet';
 import ShopSafeSheet from '@/components/ShopSafeSheet';
 import { GradePill } from '@/components/ShopSafeReport';
+import FolderCard from '@/components/FolderCard';
 import { SavedProductItem, ShopDashboard } from '@/types/api';
 import * as Haptics from 'expo-haptics';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -362,61 +363,7 @@ const SC = StyleSheet.create({
 
 // ── Folder card ────────────────────────────────────────────────────────────
 
-function FolderCard({
-  folder,
-  scriptCount,
-  onPress,
-  onDelete,
-  isDropTarget,
-}: {
-  folder: FolderData;
-  scriptCount: number;
-  onPress: () => void;
-  onDelete: () => void;
-  isDropTarget?: boolean;
-}) {
-  return (
-    <TouchableOpacity
-      style={[FC.card, isDropTarget && FC.cardDropTarget]}
-      onPress={onPress}
-      activeOpacity={0.85}
-    >
-      <View style={FC.top}>
-        <LinearGradient
-          colors={[folder.color + 'E6', folder.color]}
-          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={FC.iconBox}
-        >
-          <Folder size={19} color="#FFF" strokeWidth={2} />
-        </LinearGradient>
-        <TouchableOpacity onPress={onDelete} hitSlop={8} activeOpacity={0.6} style={FC.trashBtn}>
-          <Trash2 size={13} color={D.textDisabled} strokeWidth={1.8} />
-        </TouchableOpacity>
-      </View>
-      <Text style={FC.name} numberOfLines={2}>{folder.name}</Text>
-      <View style={[FC.countPill, { backgroundColor: folder.color + '14' }]}>
-        <Text style={[FC.count, { color: folder.color }]}>
-          {scriptCount} script{scriptCount !== 1 ? 's' : ''}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
-}
 
-const FC = StyleSheet.create({
-  card: {
-    width: '100%', backgroundColor: D.card, borderRadius: R.xl,
-    borderWidth: 1, borderColor: D.cardBorder, padding: 14,
-    gap: 12, ...Shadow.soft,
-  },
-  cardDropTarget: { backgroundColor: D.coralSubtle, borderColor: D.coral, borderWidth: 2, transform: [{ scale: 1.04 }], ...Shadow.coral },
-  top: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
-  iconBox: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  trashBtn: { width: 28, height: 28, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: D.surface },
-  name: { ...T.bold, fontSize: 15, color: D.textPrimary, lineHeight: 20, minHeight: 40 },
-  countPill: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: R.full },
-  count: { ...T.bold, fontSize: 11 },
-});
 
 // ── Create folder sheet ────────────────────────────────────────────────────
 
@@ -1108,8 +1055,9 @@ export default function ToolkitScreen() {
                     ref={(r) => { folderWrapperRefs.current[f.id] = r as View | null; }}
                   >
                     <FolderCard
-                      folder={f}
-                      scriptCount={count}
+                      name={f.name}
+                      color={f.color}
+                      countLabel={`${count} script${count !== 1 ? 's' : ''}`}
                       onPress={() => !dragScript && setSelectedFolderId(f.id)}
                       onDelete={() => handleDeleteFolder(f.id)}
                       isDropTarget={hoveredFolderId === f.id}

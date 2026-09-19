@@ -16,9 +16,7 @@ const INACTIVE = 'rgba(26,20,38,0.34)';
 function IconSaved({ color }: { color: string }) {
   return (
     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
-      <Path d="M7 4.8h10a1 1 0 0 1 1 1V19.4a.6.6 0 0 1-.95.49L12 16.3l-5.05 3.59A.6.6 0 0 1 6 19.4V5.8a1 1 0 0 1 1-1Z" />
-      <Path d="M9 9h6" />
-      <Path d="M9 12h3.5" />
+      <Path d="M3.5 7.5a2 2 0 0 1 2-2h4.2l2 2.2h6.8a2 2 0 0 1 2 2v8.3a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2v-10.5Z" />
     </Svg>
   );
 }
@@ -54,6 +52,17 @@ function IconProfileAvatar({ color }: { color: string }) {
     <View style={[S.avatarWrap, active ? S.avatarWrapActive : S.avatarWrapIdle]}>
       <Image source={{ uri }} style={S.avatarImg} />
     </View>
+  );
+}
+
+function IconTools({ color }: { color: string }) {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+      <Rect x={3.5} y={3.5} width={7} height={7} rx={2} />
+      <Rect x={13.5} y={3.5} width={7} height={7} rx={2} />
+      <Rect x={3.5} y={13.5} width={7} height={7} rx={2} />
+      <Rect x={13.5} y={13.5} width={7} height={7} rx={2} />
+    </Svg>
   );
 }
 
@@ -93,15 +102,16 @@ function TabItem({ Icon, label, focused }: { Icon: IconComp; label: string; focu
 
 // ─── Custom tab bar ───────────────────────────────────────────────────────────
 
-// Order: Profile | Products | [FAB ScriptIQ] | Saved | Settings
-// `index` is the creator profile (DNA + performance); `profile` is settings.
-const VISIBLE = ['index', 'products', 'scriptiq', 'scripts', 'profile'];
+// Order: Tools | Products | [FAB ScriptIQ] | Saved | Settings
+// `index` is the creator profile — reached only from the top-bar avatar, not
+// a tab. `profile` is settings.
+const VISIBLE = ['tools', 'products', 'scriptiq', 'scripts', 'profile'];
 
 const TAB_MAP: Record<string, { Icon: IconComp; label: string }> = {
-  products: { Icon: IconProducts,      label: 'Products' },
-  scripts:  { Icon: IconSaved,         label: 'Saved' },
-  index:    { Icon: IconProfileAvatar, label: 'Profile' },
-  profile:  { Icon: IconSettings,      label: 'Settings' },
+  tools:    { Icon: IconTools,    label: 'Tools' },
+  products: { Icon: IconProducts, label: 'Products' },
+  scripts:  { Icon: IconSaved,    label: 'Saved' },
+  profile:  { Icon: IconSettings, label: 'Settings' },
 };
 
 function CustomTabBar({ state, navigation }: any) {
@@ -158,9 +168,11 @@ export default function TabLayout() {
   return (
     <>
       <Tabs
+        initialRouteName="tools"
         tabBar={(props) => <CustomTabBar {...props} />}
         screenOptions={{ headerShown: true, header: () => <AppHeader /> }}
       >
+        <Tabs.Screen name="tools"    options={{ title: 'Tools' }} />
         <Tabs.Screen name="index"    options={{ title: 'Profile' }} />
         <Tabs.Screen name="scripts"  options={{ title: 'Saved' }} />
         <Tabs.Screen name="scriptiq" options={{ title: 'ScriptIQ' }} />

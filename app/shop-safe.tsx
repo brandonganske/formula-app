@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, TextInput, Keyboard } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -9,7 +9,7 @@ import AnimatedPressable from '@/components/AnimatedPressable';
 import ShopSafeReport from '@/components/ShopSafeReport';
 import { api, extractData } from '@/lib/api';
 import { D, T, R, Shadow } from '@/constants/ds';
-import { ShieldCheck, Upload, X, Film } from 'lucide-react-native';
+import { ShieldCheck, Upload, X, Film, FileText } from 'lucide-react-native';
 import type { ShopSafeResult } from '@/types/api';
 
 type Phase = 'idle' | 'uploading' | 'checking' | 'done';
@@ -23,6 +23,22 @@ export default function ShopSafeScreen() {
   const [pct, setPct] = useState(0);
   const [result, setResult] = useState<ShopSafeResult | null>(null);
   const [name, setName] = useState<string | null>(null);
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const scriptMode = mode === 'script';
+  const [script, setScript] = useState('');
+
+  const runScript = async () => {
+    if (!script.trim()) return;
+    Keyboard.dismiss();
+    try {
+      setPhase('checking'); setResult(null);
+      const r = extractData<ShopSafeResult>(await api.post('/creators/compliance/check', { script: script.trim() }, { timeout: 120_000 })) as ShopSafeResult;
+      setResult(r); setPhase('done');
+    } catch (e: any) {
+      setPhase('idle');
+      Alert.alert('Couldn’t check that script', e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.');
+    }
+  };
 
   const pick = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -61,13 +77,36 @@ export default function ShopSafeScreen() {
         <View style={S.hdrIcon}><ShieldCheck size={18} color="#FFF" strokeWidth={2.4} /></View>
         <View style={{ flex: 1 }}>
           <Text style={S.title}>Shop Safe</Text>
-          <Text style={S.sub}>Check a video before you post it.</Text>
+          <Text style={S.sub}>{scriptMode ? 'Check a script before you film it.' : 'Check a video before you post it.'}</Text>
         </View>
         <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={S.close}><X size={18} color={D.textMuted} strokeWidth={2.2} /></TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={S.scroll} showsVerticalScrollIndicator={false}>
-        {phase === 'idle' && (
+        {phase === 'idle' && scriptMode && (
+          <FadeInView style={S.card}>
+            <View style={S.dropIcon}><FileText size={26} color={D.coral} strokeWidth={2} /></View>
+            <Text style={S.dropTitle}>Paste your script</Text>
+            <Text style={S.dropSub}>Spoken lines, captions, on-screen text — anything the viewer will see or hear.</Text>
+            <View style={S.inputBox}>
+              <TextInput
+                style={S.input}
+                value={script}
+                onChangeText={setScript}
+                placeholder={"Let's talk about the gummies that…\n[on screen: 20% OFF TODAY]"}
+                placeholderTextColor={D.textDisabled}
+                multiline
+                textAlignVertical="top"
+              />
+            </View>
+            <AnimatedPressable style={[S.cta, !script.trim() && { opacity: 0.45 }]} haptic="medium" onPress={runScript} disabled={!script.trim()}>
+              <ShieldCheck size={16} color="#FFF" strokeWidth={2.4} />
+              <Text style={S.ctaText}>Check this script</Text>
+            </AnimatedPressable>
+          </FadeInView>
+        )}
+
+        {phase === 'idle' && !scriptMode && (
           <FadeInView style={S.card}>
             <View style={S.dropIcon}><Film size={26} color={D.coral} strokeWidth={2} /></View>
             <Text style={S.dropTitle}>Already filmed it?</Text>
@@ -83,8 +122,8 @@ export default function ShopSafeScreen() {
         {(phase === 'uploading' || phase === 'checking') && (
           <FadeInView style={S.card}>
             <ActivityIndicator color={D.coral} size="large" />
-            <Text style={S.dropTitle}>{phase === 'uploading' ? `Uploading… ${Math.round(pct * 100)}%` : 'Watching your video…'}</Text>
-            <Text style={S.dropSub}>{phase === 'uploading' ? (name ?? '') : 'Transcribing, reading on-screen text, and checking every line. About a minute.'}</Text>
+            <Text style={S.dropTitle}>{phase === 'uploading' ? `Uploading… ${Math.round(pct * 100)}%` : scriptMode ? 'Reading your script…' : 'Watching your video…'}</Text>
+            <Text style={S.dropSub}>{phase === 'uploading' ? (name ?? '') : scriptMode ? 'Checking every line against TikTok Shop’s rules. A few seconds.' : 'Transcribing, reading on-screen text, and checking every line. About a minute.'}</Text>
             {phase === 'uploading' && <View style={S.track}><View style={[S.fill, { width: `${Math.max(3, pct * 100)}%` }]} /></View>}
           </FadeInView>
         )}
@@ -99,8 +138,8 @@ export default function ShopSafeScreen() {
               </View>
             ) : null}
             <AnimatedPressable style={[S.cta, { marginTop: 18 }]} haptic="light" onPress={() => { setPhase('idle'); setResult(null); }}>
-              <Upload size={16} color="#FFF" strokeWidth={2.4} />
-              <Text style={S.ctaText}>Check another video</Text>
+              {scriptMode ? <FileText size={16} color="#FFF" strokeWidth={2.4} /> : <Upload size={16} color="#FFF" strokeWidth={2.4} />}
+              <Text style={S.ctaText}>{scriptMode ? 'Check another script' : 'Check another video'}</Text>
             </AnimatedPressable>
           </FadeInView>
         )}
@@ -125,6 +164,8 @@ const S = StyleSheet.create({
   cta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: D.coral, borderRadius: R.full, paddingVertical: 15, marginTop: 18, ...Shadow.coral },
   ctaText: { ...T.bold, fontSize: 15.5, color: '#FFF' },
   hint: { ...T.regular, fontSize: 12, color: D.textDisabled, textAlign: 'center', marginTop: 10 },
+  inputBox: { backgroundColor: D.surface, borderRadius: 16, borderWidth: 1.5, borderColor: D.border, padding: 14, minHeight: 160, marginTop: 16 },
+  input: { ...T.medium, fontSize: 15, color: D.textPrimary, lineHeight: 22, minHeight: 130 },
   track: { height: 6, borderRadius: 3, backgroundColor: D.inkHairline, overflow: 'hidden', marginTop: 16 },
   fill: { height: '100%', backgroundColor: D.coral, borderRadius: 3 },
   transcript: { marginTop: 14, backgroundColor: D.surface, borderRadius: 14, padding: 12 },

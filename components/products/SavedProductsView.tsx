@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Modal, Pressable,
+  View, Text, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Modal, Pressable, StyleSheet,
 } from 'react-native';
 import FadeInView from '@/components/FadeInView';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -10,10 +10,21 @@ import { SavedProductItem, ProductFolder } from '@/types/api';
 import { D, T, R, FOLDER_COLORS } from '@/constants/ds';
 import { Bookmark, Check, Trash2, FolderOpen, FolderPlus } from 'lucide-react-native';
 import { Skeleton } from '@/components/Skeleton';
+import FolderCard, { FOLDER_GRID } from '@/components/FolderCard';
+import { ChevronLeft } from 'lucide-react-native';
 import { PanelSource, fromSavedItem, LearnPanel, SavedCard, FP, FM, S } from '@/components/products/shared';
 
 // The creator's saved products, with folders. Rendered inside the Saved tab
 // next to saved scripts; owns its own scroll view and overlays.
+const PV = StyleSheet.create({
+  toolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, marginTop: 4 },
+  newBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: D.coralSubtle, borderRadius: R.full, paddingHorizontal: 11, paddingVertical: 6 },
+  newBtnText: { ...T.bold, fontSize: 12.5, color: D.coral },
+  back: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 12 },
+  backText: { ...T.bold, fontSize: 15, color: D.textPrimary, letterSpacing: -0.2, flexShrink: 1 },
+  dot: { width: 9, height: 9, borderRadius: 5 },
+});
+
 export default function SavedProductsView() {
   const queryClient = useQueryClient();
   const { profile } = useAuth();
@@ -106,52 +117,53 @@ export default function SavedProductsView() {
   return (
     <View style={{ flex: 1 }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.scroll}>
-        <View style={S.sectionHdr}>
-          <View style={S.sectionHdrLeft}>
-            <Text style={S.sectionLabel}>Saved products</Text>
-            {savedItems.length > 0 && (
-              <View style={S.countBadge}><Text style={S.countBadgeTxt}>{savedItems.length}</Text></View>
-            )}
+        {/* Folders — same tiles as saved scripts */}
+        <View style={PV.toolbar}>
+          <Text style={[S.sectionLabel, { marginBottom: 0 }]}>FOLDERS</Text>
+          <TouchableOpacity style={PV.newBtn} onPress={() => setShowNewFolderModal(true)} activeOpacity={0.85} hitSlop={6}>
+            <FolderPlus size={13} color={D.coral} strokeWidth={2.4} />
+            <Text style={PV.newBtnText}>New folder</Text>
+          </TouchableOpacity>
+        </View>
+        {folders.length > 0 && !selectedFolderId && (
+          <View style={FOLDER_GRID.grid}>
+            {folders.map((folder) => {
+              const count = savedItems.filter((i) => i.folder_id === folder.id).length;
+              return (
+                <View key={folder.id} style={FOLDER_GRID.cell}>
+                  <FolderCard
+                    name={folder.name}
+                    color={folder.color}
+                    countLabel={`${count} product${count !== 1 ? 's' : ''}`}
+                    onPress={() => setSelectedFolderId(folder.id)}
+                    onDelete={() => setDeletingFolderId(folder.id)}
+                  />
+                </View>
+              );
+            })}
           </View>
+        )}
+
+        {/* Products header: "All" or the open folder */}
+        <View style={S.sectionHdr}>
+          {selectedFolder ? (
+            <TouchableOpacity style={PV.back} onPress={() => setSelectedFolderId(null)} activeOpacity={0.75} hitSlop={8}>
+              <ChevronLeft size={16} color={D.coral} strokeWidth={2.4} />
+              <View style={[PV.dot, { backgroundColor: selectedFolder.color }]} />
+              <Text style={PV.backText} numberOfLines={1}>{selectedFolder.name}</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={S.sectionHdrLeft}>
+              <Text style={S.sectionLabel}>{folders.length > 0 ? 'ALL PRODUCTS' : 'SAVED PRODUCTS'}</Text>
+              {savedItems.length > 0 && (
+                <View style={S.countBadge}><Text style={S.countBadgeTxt}>{savedItems.length}</Text></View>
+              )}
+            </View>
+          )}
           <TouchableOpacity onPress={() => setIsManaging((v) => !v)} hitSlop={10}>
             <Text style={[S.manageBtn, isManaging && { color: D.error }]}>{isManaging ? 'Done' : 'Manage'}</Text>
           </TouchableOpacity>
         </View>
-
-        {(folders.length > 0 || savedItems.length > 0) && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={S.folderStrip} style={{ marginBottom: 16 }}>
-            <TouchableOpacity style={[S.folderTab, !selectedFolderId && S.folderTabActive]} hitSlop={8} onPress={() => setSelectedFolderId(null)} activeOpacity={0.75}>
-              <Text style={[S.folderTabTxt, !selectedFolderId && S.folderTabTxtActive]}>All</Text>
-              {!selectedFolderId && savedItems.length > 0 && (
-                <View style={S.folderTabBadge}><Text style={S.folderTabBadgeTxt}>{savedItems.length}</Text></View>
-              )}
-            </TouchableOpacity>
-            {folders.map((folder) => {
-              const count = savedItems.filter((i) => i.folder_id === folder.id).length;
-              const active = selectedFolderId === folder.id;
-              return (
-                <TouchableOpacity
-                  key={folder.id}
-                  style={[S.folderTab, active && { backgroundColor: folder.color + '18', borderColor: folder.color + '40' }]}
-                  hitSlop={8}
-                  onPress={() => setSelectedFolderId(folder.id)}
-                  onLongPress={() => setDeletingFolderId(folder.id)}
-                  activeOpacity={0.75}
-                >
-                  <View style={[S.folderDot, { backgroundColor: folder.color }]} />
-                  <Text style={[S.folderTabTxt, active && { color: folder.color, ...T.bold }]}>{folder.name}</Text>
-                  {count > 0 && (
-                    <View style={[S.folderTabBadge, { backgroundColor: folder.color }]}><Text style={S.folderTabBadgeTxt}>{count}</Text></View>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-            <TouchableOpacity style={S.newFolderBtn} onPress={() => setShowNewFolderModal(true)} activeOpacity={0.75}>
-              <FolderPlus size={14} color={D.textMuted} strokeWidth={1.8} />
-              <Text style={S.newFolderTxt}>New Folder</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        )}
 
         {isManaging && selectedFolder && (
           <TouchableOpacity style={S.deleteFolderRow} onPress={() => setDeletingFolderId(selectedFolder.id)} activeOpacity={0.75}>
