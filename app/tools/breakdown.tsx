@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FadeInView from '@/components/FadeInView';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import { api, extractData } from '@/lib/api';
-import { TOOL_COST, isInsufficientCredits, creditLabel } from '@/lib/credits';
+import { TOOL_COST, isInsufficientCredits, isFairUse, creditLabel } from '@/lib/credits';
 import { haptic } from '@/lib/haptics';
 import { useAuth } from '@/context/AuthContext';
 import NoCreditsModal from '@/components/NoCreditsModal';
@@ -38,14 +38,14 @@ export default function BreakdownScreen() {
   useEffect(() => { if (!busy) return; setStep(0); const t = setInterval(() => setStep((s) => Math.min(STEPS.length - 1, s + 1)), 9000); return () => clearInterval(t); }, [busy]);
   useEffect(() => { if (urlParam && !res && !busy) run(urlParam); }, [urlParam]);
 
-  const { credits, refreshMe } = useAuth();
+  const { canAfford, refreshMe } = useAuth();
   const [showNoCredits, setShowNoCredits] = useState(false);
   const run = async (u: string) => {
     if (!u.trim()) return;
-    if (credits < TOOL_COST.breakdown) { haptic.warning(); setShowNoCredits(true); return; }
+    if (!canAfford(TOOL_COST.breakdown)) { haptic.warning(); setShowNoCredits(true); return; }
     Keyboard.dismiss(); setBusy(true); setRes(null);
     try { setRes(extractData<Breakdown>(await api.post('/creators/tools/breakdown', { video_url: u.trim() }, { timeout: 300_000 })) as Breakdown); haptic.success(); void refreshMe(); }
-    catch (e: any) { haptic.error(); if (isInsufficientCredits(e)) setShowNoCredits(true); else Alert.alert('Couldn’t break that one down', e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.'); }
+    catch (e: any) { haptic.error(); if (isInsufficientCredits(e)) setShowNoCredits(true); else Alert.alert(isFairUse(e) ? 'Monthly limit reached' : 'Couldn’t break that one down', e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.'); }
     finally { setBusy(false); }
   };
 

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import NoCreditsModal from '@/components/NoCreditsModal';
+import { CREDIT_COSTS, usesLabel } from '@/lib/iap/catalog';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import AfterSaveRow from '@/components/AfterSaveRow';
 import { haptic } from '@/lib/haptics';
@@ -734,7 +735,7 @@ const VM = StyleSheet.create({
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function ProductScriptScreen() {
-  const { credits, refreshMe } = useAuth();
+  const { credits, canAfford, refreshMe } = useAuth();
   const { product: productParamRaw } = useLocalSearchParams<{ product?: string }>();
   const [product, setProduct] = useState<ProductSearchResult | null>(() => parseProductParam(productParamRaw));
   const [videoStyle, setVideoStyle] = useState<VideoStyle | null>(null);
@@ -895,7 +896,7 @@ export default function ProductScriptScreen() {
         <AnimatedPressable
           style={[S.ctaBtn, !canSubmit && S.ctaBtnOff]}
           onPress={() => {
-            if (credits <= 0) { setShowNoCredits(true); return; }
+            if (!canAfford(CREDIT_COSTS.script)) { setShowNoCredits(true); return; }
             scriptMutation.mutate();
           }}
           disabled={!canSubmit}
@@ -975,7 +976,7 @@ export default function ProductScriptScreen() {
             <TouchableOpacity
               style={S.regenBtn}
               onPress={() => {
-                if (credits <= 0) { setShowNoCredits(true); return; }
+                if (!canAfford(CREDIT_COSTS.script)) { setShowNoCredits(true); return; }
                 handleReset(); setTimeout(() => scriptMutation.mutate(), 50);
               }}
               disabled={scriptMutation.isPending}

@@ -9,6 +9,10 @@ interface AuthContextType {
   profile: CreatorProfile | null;
   meData: CreatorMeData | null;
   credits: number;
+  /** Unlimited plan (active, or canceled but not yet expired). */
+  unlimited: boolean;
+  /** Can the creator run something that costs `n` scripts? Always true on Unlimited. */
+  canAfford: (n: number) => boolean;
   login: (email: string, password: string) => Promise<{ error: string | null }>;
   register: (handle: string, email: string, password: string) => Promise<{ error: string | null }>;
   loginWithTikTok: (code: string) => Promise<{ error: string | null }>;
@@ -159,10 +163,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const unlimited = profile?.plan === 'unlimited' && ['active', 'canceled', 'grace'].includes(profile?.plan_status ?? '');
+
   return (
     <AuthContext.Provider value={{
       isAuthenticated, isLoading, profile, meData,
       credits: profile?.ai_generations_remaining ?? 0,
+      unlimited,
+      canAfford: (n: number) => unlimited || n <= 0 || (profile?.ai_generations_remaining ?? 0) >= n,
       login, register, loginWithTikTok, loginWithTikTokNative, loginWithTikTokLink, loginWithApple, logout, refreshMe, patchMe, setAuthenticated,
     }}>
       {children}

@@ -49,29 +49,29 @@ export default function NoCreditsModal({ visible, onClose }: Props) {
             </LinearGradient>
           </View>
 
-          <Text style={S.title}>Out of Credits</Text>
+          <Text style={S.title}>Out of scripts</Text>
           <Text style={S.sub}>
-            You've used all your AI credits. Top up to keep generating scripts
-            and pulling product intelligence.
+            You've used this month's free scripts. Top up a pack, or go
+            Unlimited and never count again.
           </Text>
 
           {/* Stats row */}
           <View style={S.statsRow}>
             <View style={S.statBox}>
               <Text style={S.statNum}>0</Text>
-              <Text style={S.statLabel}>Credits left</Text>
+              <Text style={S.statLabel}>Scripts left</Text>
             </View>
             <View style={S.statDivider} />
             <View style={S.statBox}>
               <Text style={[S.statNum, { color: D.limeDeep }]}>1</Text>
-              <Text style={S.statLabel}>Per generation</Text>
+              <Text style={S.statLabel}>Per script</Text>
             </View>
           </View>
 
           {/* CTA */}
           <TouchableOpacity style={S.buyBtn} onPress={handleBuy} activeOpacity={0.88}>
             <ShoppingBag size={16} color="#FFF" strokeWidth={2} />
-            <Text style={S.buyBtnText}>Get More Credits</Text>
+            <Text style={S.buyBtnText}>Get more scripts</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={S.dismissBtn} onPress={onClose} activeOpacity={0.7}>

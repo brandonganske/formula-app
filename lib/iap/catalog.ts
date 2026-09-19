@@ -6,7 +6,8 @@
 // RevenueCat webhook — nothing here grants anything. Prices shown here are
 // fallbacks; RevenueCat provides the localized price string at runtime.
 
-export type PlanTier = 'free' | 'creator' | 'pro' | 'studio';
+// 'unlimited' is the only plan sold; creator/pro/studio are grandfathered.
+export type PlanTier = 'free' | 'creator' | 'pro' | 'studio' | 'unlimited';
 
 export interface SubPlan {
   productId: string;
@@ -24,19 +25,17 @@ export interface CreditPack {
   popular?: boolean;
 }
 
-// Auto-renewable subscriptions (one RevenueCat offering, three packages).
+// One subscription: Unlimited. (monthlyCredits 0 = the plan is the entitlement.)
 export const SUB_PLANS: SubPlan[] = [
-  { productId: 'formula.sub.creator.monthly', tier: 'creator', name: 'Creator', priceLabel: '$9.99',  monthlyCredits: 20,  blurb: 'For creators posting every week.' },
-  { productId: 'formula.sub.pro.monthly',     tier: 'pro',     name: 'Pro',     priceLabel: '$14.99', monthlyCredits: 35,  blurb: 'For creators posting daily.' },
-  { productId: 'formula.sub.studio.monthly',  tier: 'studio',  name: 'Studio',  priceLabel: '$39.99', monthlyCredits: 100, blurb: 'For teams and power users.' },
+  { productId: 'formula.sub.unlimited.monthly', tier: 'unlimited', name: 'Unlimited', priceLabel: '$14.99', monthlyCredits: 0, blurb: 'Every script, every tool, no counting.' },
 ];
+export const UNLIMITED_PLAN = SUB_PLANS[0];
 
-// Consumable credit packs (buyable repeatedly).
+// Consumable script packs (buyable repeatedly).
 export const CREDIT_PACKS: CreditPack[] = [
   { productId: 'formula.credits.5',  credits: 5,  priceLabel: '$2.99'  },
   { productId: 'formula.credits.10', credits: 10, priceLabel: '$4.99'  },
   { productId: 'formula.credits.25', credits: 25, priceLabel: '$10.99', popular: true },
-  { productId: 'formula.credits.60', credits: 60, priceLabel: '$23.99' },
 ];
 
 export const ALL_PRODUCT_IDS: string[] = [
@@ -49,16 +48,23 @@ export function planLabel(tier?: string | null): string {
     case 'creator': return 'Creator';
     case 'pro':     return 'Pro';
     case 'studio':  return 'Studio';
+    case 'unlimited': return 'Unlimited';
     default:        return 'Free';
   }
 }
 
 // Client-side credit costs (the backend is the real enforcer — these just let
 // us block early and prompt to buy). Keep in sync with docs/pricing.md.
+// The unit is a "script": 1 script = 1 AI run. Product analysis is free.
 export const CREDIT_COSTS = {
   script: 1,
-  productAnalysis: 1,
+  productAnalysis: 0,
   brainRefresh: 2,
 } as const;
+
+/** "1 script" / "2 scripts" / "Free" — the only way the unit should be written. */
+export const scriptsLabel = (n: number) => (n === 0 ? 'Free' : `${n} script${n === 1 ? '' : 's'}`);
+/** On a button: what a run costs. */
+export const usesLabel = (n: number) => (n === 0 ? 'Free' : `Uses ${scriptsLabel(n)}`);
 
 export const FREE_MONTHLY_CREDITS = 5;

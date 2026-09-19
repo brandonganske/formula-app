@@ -19,6 +19,7 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import NoCreditsModal from '@/components/NoCreditsModal';
+import { CREDIT_COSTS, usesLabel } from '@/lib/iap/catalog';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import AfterSaveRow from '@/components/AfterSaveRow';
 import { haptic } from '@/lib/haptics';
@@ -554,7 +555,7 @@ const RB = StyleSheet.create({
 // ── Main screen ────────────────────────────────────────────────────────────
 
 export default function OrganicScriptScreen() {
-  const { credits, refreshMe } = useAuth();
+  const { credits, canAfford, refreshMe } = useAuth();
   const [showNoCredits, setShowNoCredits] = useState(false);
   const { topic: prefillTopic } = useLocalSearchParams<{ topic?: string }>();
   const [topic, setTopic]               = useState(prefillTopic ?? '');
@@ -600,7 +601,7 @@ export default function OrganicScriptScreen() {
           topic={result.topic ?? topic}
           result={result}
           onBack={handleBack}
-          onRegenerate={() => { if (credits <= 0) { setShowNoCredits(true); return; } mutation.mutate(); }}
+          onRegenerate={() => { if (!canAfford(CREDIT_COSTS.script)) { setShowNoCredits(true); return; } mutation.mutate(); }}
           isPending={mutation.isPending}
         />
         <ScrollView contentContainerStyle={S.resultScroll} showsVerticalScrollIndicator={false}>
@@ -712,7 +713,7 @@ export default function OrganicScriptScreen() {
         <AnimatedPressable
           style={[S.ctaBtn, !canSubmit && S.ctaBtnOff]}
           onPress={() => {
-            if (credits <= 0) { setShowNoCredits(true); return; }
+            if (!canAfford(CREDIT_COSTS.script)) { setShowNoCredits(true); return; }
             mutation.mutate();
           }}
           disabled={!canSubmit}

@@ -20,10 +20,10 @@ function ProfileAvatarIcon() {
 
 export default function AppHeader() {
   const router = useRouter();
-  const { credits, isAuthenticated, profile } = useAuth();
+  const { credits, unlimited, isAuthenticated, profile } = useAuth();
   const insets = useSafeAreaInsets();
 
-  const lowCredits = credits <= 3;
+  const lowCredits = !unlimited && credits <= 3;
 
   return (
     <View style={[S.root, { paddingTop: insets.top + 12 }]}>
@@ -51,7 +51,7 @@ export default function AppHeader() {
               fill={lowCredits ? D.coral : D.limeDeep}
             />
             <Text style={[S.creditsText, lowCredits && S.creditsTextLow]}>
-              {credits}
+              {unlimited ? '∞' : credits}
             </Text>
           </TouchableOpacity>
         )}

@@ -196,7 +196,6 @@ export default function ProductsScreen() {
   };
 
   const handleLearn = useCallback((product: ProductSearchResult) => {
-    if (credits <= 0) { setShowNoCredits(true); return; }
     // Drop the keyboard so the product panel isn't hidden behind it.
     Keyboard.dismiss();
     inputRef.current?.blur();
@@ -205,7 +204,7 @@ export default function ProductsScreen() {
     setLearnError(null);
     setLearnLoading(true);
     engineMutation.mutate(product);
-  }, [engineMutation, credits]);
+  }, [engineMutation]);
 
   const handleClosePanel = () => {
     setActiveProduct(null);
@@ -412,7 +411,7 @@ export default function ProductsScreen() {
               </View>
               <TouchableOpacity
                 style={[LP.saveBtn, { borderRadius: R.full, overflow: 'hidden' }]}
-                onPress={() => { if (credits <= 0) { setShowNoCredits(true); return; } setLearnError(null); setLearnLoading(true); engineMutation.mutate(activeProduct); }}
+                onPress={() => { setLearnError(null); setLearnLoading(true); engineMutation.mutate(activeProduct); }}
                 activeOpacity={0.88}
               >
                 <LinearGradient colors={Gradient.heroCompact} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />

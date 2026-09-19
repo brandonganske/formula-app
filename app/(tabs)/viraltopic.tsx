@@ -21,6 +21,7 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import NoCreditsModal from '@/components/NoCreditsModal';
+import { CREDIT_COSTS, usesLabel } from '@/lib/iap/catalog';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import AfterSaveRow from '@/components/AfterSaveRow';
 import { haptic } from '@/lib/haptics';
@@ -631,7 +632,7 @@ const VS = StyleSheet.create({
 // ── Main screen ────────────────────────────────────────────────────────────
 
 export default function ViralTopicScreen() {
-  const { credits, refreshMe } = useAuth();
+  const { credits, canAfford, refreshMe } = useAuth();
   const { prefillUrl, topic: prefillTopic } = useLocalSearchParams<{ prefillUrl?: string; topic?: string }>();
   const [videoUrl, setVideoUrl]     = useState(prefillUrl ?? '');
   const [topic, setTopic]           = useState(prefillTopic ?? '');
@@ -670,7 +671,7 @@ export default function ViralTopicScreen() {
           videoUrl={videoUrl}
           topic={result.topic ?? topic}
           onBack={handleBack}
-          onRegenerate={() => { if (credits <= 0) { setShowNoCredits(true); return; } mutation.mutate(); }}
+          onRegenerate={() => { if (!canAfford(CREDIT_COSTS.script)) { setShowNoCredits(true); return; } mutation.mutate(); }}
           isPending={mutation.isPending}
         />
 
@@ -824,7 +825,7 @@ export default function ViralTopicScreen() {
         <AnimatedPressable
           style={[S.ctaBtn, !canSubmit && S.ctaBtnOff]}
           onPress={() => {
-            if (credits <= 0) { setShowNoCredits(true); return; }
+            if (!canAfford(CREDIT_COSTS.script)) { setShowNoCredits(true); return; }
             mutation.mutate();
           }}
           disabled={!canSubmit}

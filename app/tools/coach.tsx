@@ -51,10 +51,10 @@ export default function CoachScreen() {
     staleTime: 60_000,
   });
 
-  const { credits, refreshMe } = useAuth();
+  const { canAfford, refreshMe } = useAuth();
   const [showNoCredits, setShowNoCredits] = useState(false);
   const run = async (id: string) => {
-    if (TOOL_COST.coach > 0 && credits < TOOL_COST.coach) { haptic.warning(); setShowNoCredits(true); setPicked(null); return; }
+    if (!canAfford(TOOL_COST.coach)) { haptic.warning(); setShowNoCredits(true); setPicked(null); return; }
     setBusy(true); setRes(null);
     try { setRes(extractData<CoachResult>(await api.post('/creators/tools/coach', { take_id: id }, { timeout: 300_000 })) as CoachResult); haptic.success(); void refreshMe(); }
     catch (e: any) { haptic.error(); setPicked(null); if (isInsufficientCredits(e)) setShowNoCredits(true); else Alert.alert('Couldn’t coach that take', e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.'); }

@@ -13,4 +13,10 @@ export function isInsufficientCredits(err: any): boolean {
   return status === 402 || code === 'INSUFFICIENT_CREDITS';
 }
 
-export const creditLabel = (n: number) => (n === 0 ? 'Free' : `${n} credit${n === 1 ? '' : 's'}`);
+import { usesLabel } from '@/lib/iap/catalog';
+export const creditLabel = usesLabel;
+
+export function isFairUse(err: any): boolean {
+  const code = err?.response?.data?.error?.code ?? err?.response?.data?.code;
+  return err?.response?.status === 429 || code === 'FAIR_USE_REACHED';
+}

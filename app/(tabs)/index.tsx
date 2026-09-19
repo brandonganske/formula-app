@@ -1584,7 +1584,7 @@ const pS = StyleSheet.create({
 });
 
 export default function BrainScreen() {
-  const { meData, profile, refreshMe, credits } = useAuth();
+  const { meData, profile, refreshMe, credits, canAfford } = useAuth();
   const router = useRouter();
 
   // Real performance data (shared cache with the Shop tab): top videos from the
@@ -1681,12 +1681,12 @@ export default function BrainScreen() {
   const handleAnalyze = async () => {
     // The FIRST brain build is free (core onboarding). Only a re-analysis of an
     // existing brain costs credits — block early when short.
-    if (hasBrain && credits < CREDIT_COSTS.brainRefresh) {
+    if (hasBrain && !canAfford(CREDIT_COSTS.brainRefresh)) {
       Alert.alert(
-        'Not enough credits',
-        `Refreshing your profile costs ${CREDIT_COSTS.brainRefresh} credits — you have ${credits}.`,
+        'Not enough scripts',
+        `Refreshing your profile uses ${CREDIT_COSTS.brainRefresh} scripts — you have ${credits}.`,
         [
-          { text: 'Get credits', onPress: () => router.push('/(tabs)/profile') },
+          { text: 'Get scripts', onPress: () => router.push('/(tabs)/profile') },
           { text: 'Cancel', style: 'cancel' },
         ],
       );

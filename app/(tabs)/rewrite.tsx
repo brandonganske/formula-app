@@ -21,6 +21,7 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import NoCreditsModal from '@/components/NoCreditsModal';
+import { CREDIT_COSTS, usesLabel } from '@/lib/iap/catalog';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import AfterSaveRow from '@/components/AfterSaveRow';
 import { haptic } from '@/lib/haptics';
@@ -770,7 +771,7 @@ function buildRewriteBody(videoUrl: string, choice: ProductChoice): ViralRewrite
 // ── Main screen ────────────────────────────────────────────────────────────
 
 export default function RewriteScreen() {
-  const { credits, refreshMe } = useAuth();
+  const { credits, canAfford, refreshMe } = useAuth();
   const { prefillUrl, url: clipboardUrl, product: productParamRaw } = useLocalSearchParams<{ prefillUrl?: string; url?: string; product?: string }>();
   const handedProduct = parseProductParam(productParamRaw);
   const [videoUrl, setVideoUrl] = useState(prefillUrl ?? '');
@@ -816,7 +817,7 @@ export default function RewriteScreen() {
   };
 
   const handleRegenerate = () => {
-    if (credits <= 0) { setShowNoCredits(true); return; }
+    if (!canAfford(CREDIT_COSTS.script)) { setShowNoCredits(true); return; }
     rewriteMutation.mutate();
   };
 
@@ -1028,7 +1029,7 @@ export default function RewriteScreen() {
         <AnimatedPressable
           style={[S.ctaBtn, !canSubmit && S.ctaBtnOff]}
           onPress={() => {
-            if (credits <= 0) { setShowNoCredits(true); return; }
+            if (!canAfford(CREDIT_COSTS.script)) { setShowNoCredits(true); return; }
             rewriteMutation.mutate();
           }}
           disabled={!canSubmit}

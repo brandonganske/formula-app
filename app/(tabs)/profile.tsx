@@ -21,7 +21,7 @@ import {
 import { api } from '@/lib/api';
 import { haptic } from '@/lib/haptics';
 import { usePurchases } from '@/context/PurchasesContext';
-import { planLabel, SUB_PLANS, CREDIT_PACKS, CREDIT_COSTS, FREE_MONTHLY_CREDITS } from '@/lib/iap/catalog';
+import { planLabel, UNLIMITED_PLAN, CREDIT_PACKS, CREDIT_COSTS, FREE_MONTHLY_CREDITS, scriptsLabel } from '@/lib/iap/catalog';
 import {
   GENDER_OPTIONS, AGE_RANGE_OPTIONS, COUNTRY_OPTIONS,
   labelFor, OptionDef, normalizeTikTokHandle, looksLikeLink,
@@ -106,7 +106,7 @@ function Toggle({ value, onChange, disabled }: { value: boolean; onChange: (v: b
 // tab (index); this screen is account plumbing only. Everything editable here
 // is something the onboarding flow asked for, plus plan + account controls.
 export default function SettingsScreen() {
-  const { profile, logout, credits, refreshMe, patchMe } = useAuth();
+  const { profile, logout, credits, unlimited, refreshMe, patchMe } = useAuth();
   const router = useRouter();
   const p = (profile ?? {}) as any;
 
@@ -154,7 +154,6 @@ export default function SettingsScreen() {
   const { restore, openCustomerCenter, purchase, priceById, available: iapAvailable } = usePurchases();
   const [restoring, setRestoring] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const currentTier = (profile?.plan ?? 'free').toLowerCase();
 
   const runPurchase = async (productId: string) => {
     if (!iapAvailable) {
@@ -164,7 +163,7 @@ export default function SettingsScreen() {
     setBusyId(productId);
     const res = await purchase(productId);
     setBusyId(null);
-    if (res.ok) Alert.alert('Purchase complete', 'Your plan and credits will update in a moment.');
+    if (res.ok) Alert.alert('Purchase complete', 'Your plan and scripts will update in a moment.');
     else if (!res.cancelled) Alert.alert('Couldn’t complete purchase', res.error ?? 'Please try again.');
   };
 
@@ -182,7 +181,7 @@ export default function SettingsScreen() {
     setRestoring(false);
     Alert.alert(
       res.ok ? 'Purchases restored' : 'Restore failed',
-      res.ok ? 'Your plan and credits will update shortly.' : (res.error ?? 'Please try again.'),
+      res.ok ? 'Your plan and scripts will update shortly.' : (res.error ?? 'Please try again.'),
     );
   };
 
@@ -338,14 +337,14 @@ export default function SettingsScreen() {
         <Text style={S.titleSub}>{profile?.handle ? `@${profile.handle}` : 'Your account'}</Text>
       </FadeInView>
 
-      {/* ── Plan & credits ──────────────────────────────────────── */}
+      {/* ── Plan & scripts ──────────────────────────────────────── */}
       <FadeInView delay={60} style={S.section}>
-        <Text style={S.sectionLabel}>PLAN & CREDITS</Text>
+        <Text style={S.sectionLabel}>PLAN & SCRIPTS</Text>
         <View style={S.card}>
           <View style={S.balRow}>
             <View style={S.balIcon}><Zap size={18} color="#FFF" strokeWidth={2} fill="#FFF" /></View>
             <View style={{ flex: 1 }}>
-              <Text style={S.balNum}>{credits} credits</Text>
+              <Text style={S.balNum}>{unlimited ? 'Unlimited scripts' : `${credits} script${credits === 1 ? '' : 's'} left`}</Text>
               <Text style={S.balSub}>{planSub}</Text>
             </View>
             <View style={S.planBadge}><Text style={S.planBadgeText}>{planLabel(profile?.plan)}</Text></View>
@@ -353,67 +352,73 @@ export default function SettingsScreen() {
 
           <View style={S.divider} />
 
-          <Text style={S.subLabel}>Monthly plans</Text>
-          {SUB_PLANS.map((plan) => {
-            const isCurrent = currentTier === plan.tier;
+          {/* Unlimited — the one plan */}
+          {(() => {
+            const plan = UNLIMITED_PLAN;
             const price = priceById[plan.productId] ?? plan.priceLabel;
-            const popular = plan.tier === 'pro';
+            const busy = busyId === plan.productId;
             return (
-              <View key={plan.productId} style={[S.tierRow, popular && S.tierRowPopular]}>
+              <View style={[S.tierRow, S.tierRowPopular]}>
                 <View style={{ flex: 1 }}>
                   <View style={S.tierTitleRow}>
-                    <Text style={S.tierName}>{plan.name}</Text>
-                    {popular && <View style={S.tierTag}><Text style={S.tierTagText}>POPULAR</Text></View>}
+                    <Text style={S.tierName}>Unlimited</Text>
+                    {!unlimited && <View style={S.tierTag}><Text style={S.tierTagText}>BEST VALUE</Text></View>}
                   </View>
-                  <Text style={S.tierCredits}>{plan.monthlyCredits} credits / month</Text>
+                  <Text style={S.tierCredits}>Every script and every tool. No counting.</Text>
                 </View>
                 <AnimatedPressable
-                  style={[S.tierBtn, isCurrent && S.tierBtnCurrent]}
+                  style={[S.tierBtn, unlimited && S.tierBtnCurrent]}
                   hitSlop={8}
-                  onPress={() => !isCurrent && runPurchase(plan.productId)}
-                  disabled={isCurrent || busyId === plan.productId}
+                  onPress={() => !unlimited && runPurchase(plan.productId)}
+                  disabled={unlimited || busy}
                   haptic="medium"
                 >
-                  {busyId === plan.productId
+                  {busy
                     ? <ActivityIndicator size="small" color={D.coral} />
-                    : isCurrent
+                    : unlimited
                       ? <Text style={[S.tierBtnText, { color: D.success }]}>Current</Text>
                       : <Text style={S.tierBtnText}>{price}<Text style={S.tierBtnPer}>/mo</Text></Text>}
                 </AnimatedPressable>
               </View>
             );
-          })}
+          })()}
 
-          <Text style={[S.subLabel, { marginTop: 16 }]}>Top up</Text>
-          <View style={S.packsRow}>
-            {CREDIT_PACKS.map((pack) => {
-              const price = priceById[pack.productId] ?? pack.priceLabel;
-              const busy = busyId === pack.productId;
-              return (
-                <AnimatedPressable
-                  key={pack.productId}
-                  style={[S.packCard, pack.popular && S.packCardPopular]}
-                  onPress={() => runPurchase(pack.productId)}
-                  disabled={busy}
-                  haptic="medium"
-                >
-                  {pack.popular && <View style={S.packBadge}><Text style={S.packBadgeText}>BEST</Text></View>}
-                  {busy
-                    ? <ActivityIndicator size="small" color={D.coral} style={{ marginVertical: 14 }} />
-                    : (
-                      <>
-                        <Text style={[S.packCredits, pack.popular && { color: D.coral }]}>{pack.credits}</Text>
-                        <Text style={S.packLabel}>credits</Text>
-                        <Text style={[S.packPrice, pack.popular && { color: D.coral }]}>{price}</Text>
-                      </>
-                    )}
-                </AnimatedPressable>
-              );
-            })}
-          </View>
+          {!unlimited && (
+            <>
+              <Text style={[S.subLabel, { marginTop: 16 }]}>Or top up</Text>
+              <View style={S.packsRow}>
+                {CREDIT_PACKS.map((pack) => {
+                  const price = priceById[pack.productId] ?? pack.priceLabel;
+                  const busy = busyId === pack.productId;
+                  return (
+                    <AnimatedPressable
+                      key={pack.productId}
+                      style={[S.packCard, pack.popular && S.packCardPopular]}
+                      onPress={() => runPurchase(pack.productId)}
+                      disabled={busy}
+                      haptic="medium"
+                    >
+                      {pack.popular && <View style={S.packBadge}><Text style={S.packBadgeText}>POPULAR</Text></View>}
+                      {busy
+                        ? <ActivityIndicator size="small" color={D.coral} style={{ marginVertical: 14 }} />
+                        : (
+                          <>
+                            <Text style={[S.packCredits, pack.popular && { color: D.coral }]}>{pack.credits}</Text>
+                            <Text style={S.packLabel}>scripts</Text>
+                            <Text style={[S.packPrice, pack.popular && { color: D.coral }]}>{price}</Text>
+                          </>
+                        )}
+                    </AnimatedPressable>
+                  );
+                })}
+              </View>
+            </>
+          )}
 
           <Text style={S.costLine}>
-            {CREDIT_COSTS.script} per script  ·  {CREDIT_COSTS.productAnalysis} per product  ·  {CREDIT_COSTS.brainRefresh} per profile refresh  ·  {FREE_MONTHLY_CREDITS} free every month
+            {unlimited
+              ? 'Scripts, checks, breakdowns and coaching are all included. Fair use applies to video analysis.'
+              : `1 script = 1 AI run  ·  Product analysis and script checks are free  ·  Profile refresh uses ${CREDIT_COSTS.brainRefresh}  ·  ${FREE_MONTHLY_CREDITS} free every month`}
           </Text>
 
           <View style={S.footRow}>
