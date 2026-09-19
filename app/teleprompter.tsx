@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { storage } from '@/lib/storage';
 import { isNativeTikTokAvailable, isTikTokAppInstalled, shareVideos } from '@/modules/tiktok-login';
 import { uploadTake } from '@/lib/takes';
+import { stitchVideos, isStitchAvailable } from '@/modules/video-stitch';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,7 +13,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api, extractData } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { D, T, R } from '@/constants/ds';
-import { X, RotateCcw, Move, Share2, Minus, Plus, FlipHorizontal, Type, Film, ChevronRight, Camera as CameraIcon, CameraOff, SwitchCamera, ClipboardPaste, Settings2, Eye, Check, Zap, ZapOff, Gauge, UserRound, Clapperboard, ChevronUp, ChevronDown } from 'lucide-react-native';
+import { X, RotateCcw, Move, Share2, Check as CheckIcon, Play, Minus, Plus, FlipHorizontal, Type, Film, ChevronRight, Camera as CameraIcon, CameraOff, SwitchCamera, ClipboardPaste, Settings2, Eye, Check, Zap, ZapOff, Gauge, UserRound, Clapperboard, ChevronUp, ChevronDown } from 'lucide-react-native';
 import type { SavedScriptItem, SavedScriptsResponse } from '@/types/api';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import { haptic } from '@/lib/haptics';
@@ -148,6 +149,11 @@ export default function TeleprompterScreen() {
   const [recording, setRecording] = useState(false);
   const [torch, setTorch] = useState(false);
   const [recSec, setRecSec] = useState(0);
+  // Multi-clip: each press of the red button records one clip; Done stitches them.
+  const [clips, setClips] = useState<string[]>([]);
+  const [doneSec, setDoneSec] = useState(0);
+  const [stitching, setStitching] = useState(false);
+  const totalSec = doneSec + recSec;
   const [reviewUri, setReviewUri] = useState<string | null>(null);
   const [showSpeed, setShowSpeed] = useState(false);
   const [railOpen, setRailOpen] = useState(true);
@@ -289,6 +295,13 @@ export default function TeleprompterScreen() {
   const startFromRef = useRef<(y: number) => void>(() => {});
   startFromRef.current = startFrom;
   const reset = () => { anim.current?.stop(); setPlaying(false); curY.current = 0; scrollY.setValue(0); };
+  const restartAll = () => {
+    if (clips.length === 0) { reset(); return; }
+    Alert.alert('Start over?', `This discards ${clips.length} recorded clip${clips.length === 1 ? '' : 's'}.`, [
+      { text: 'Keep', style: 'cancel' },
+      { text: 'Start over', style: 'destructive', onPress: () => { discardClips(); reset(); } },
+    ]);
+  };
   const nudge = (d: number) => {
     const next = Math.max(0.5, Math.min(1.8, Math.round((speedMul + d) * 10) / 10));
     setSpeedMul(next);
@@ -363,20 +376,40 @@ export default function TeleprompterScreen() {
       const rec = await camRef.current.recordAsync({ maxDuration: 300 });
       setRecording(false);
       pause();
-      if (rec?.uri) setReviewUri(rec.uri);
+      if (rec?.uri) { setClips((c) => [...c, rec.uri]); setDoneSec((d) => d + recSecRef.current); haptic.select(); }
     } catch (e: any) {
       haptic.error();
       setRecording(false);
       Alert.alert('Couldn’t record', e?.message ?? 'Please try again.');
     }
   };
+  const recSecRef = useRef(0); recSecRef.current = recSec;
   const startRecording = async () => {
     if (!camRef.current || recording || countdown != null) return;
     if (playing) { void beginCapture(); return; } // already scrolling: record now
+    if (clips.length > 0) { startFrom(curY.current); void beginCapture(); return; } // continue: no countdown, pick up where the script stopped
     haptic.tap();
     armedRef.current = true;
     play(); // 3-2-1-Go, then beginCapture fires on Go
   };
+  // Done: join the clips into one take and open review.
+  const finishClips = async () => {
+    if (clips.length === 0 || recording) return;
+    if (clips.length === 1) { setReviewUri(clips[0]); return; }
+    if (!isStitchAvailable()) {
+      Alert.alert('Update needed', 'Joining clips needs the latest build. This take will use the first clip only.', [{ text: 'OK', onPress: () => setReviewUri(clips[0]) }]);
+      return;
+    }
+    setStitching(true);
+    try {
+      const out = await stitchVideos(clips);
+      if (!out) throw new Error('Could not join the clips');
+      haptic.success();
+      setReviewUri(out);
+    } catch (e: any) { haptic.error(); Alert.alert('Couldn’t join clips', e?.message ?? 'Please try again.'); }
+    finally { setStitching(false); }
+  };
+  const discardClips = () => { setClips([]); setDoneSec(0); };
   // Review → Save: only now does the take go to Photos (then optional TikTok).
   const saveTake = async (postAfter = false) => {
     if (!reviewUri) return;
@@ -396,10 +429,11 @@ export default function TeleprompterScreen() {
       let inFormula = false;
       try {
         setSaveStep('Saving to Formula…');
-        await uploadTake({ uri, scriptId: item?.id ?? null, productName: item?.product_name ?? null, photosAssetId: assetId, durationSec: recSec, title: item?.option_label ?? item?.product_name ?? null, onProgress: (f) => setSaveStep(`Saving to Formula… ${Math.round(f * 100)}%`) });
+        await uploadTake({ uri, scriptId: item?.id ?? null, productName: item?.product_name ?? null, photosAssetId: assetId, durationSec: totalSec, title: item?.option_label ?? item?.product_name ?? null, onProgress: (f) => setSaveStep(`Saving to Formula… ${Math.round(f * 100)}%`) });
         inFormula = true;
         setTakesThisSession((n) => n + 1);
         qc.invalidateQueries({ queryKey: ['takes'] });
+        discardClips();
       } catch (e: any) {
         console.warn('[takes] upload failed', e?.message);
         Alert.alert('Saved to Photos only', e?.message ?? 'Couldn’t save the take to Formula.');
@@ -431,7 +465,7 @@ export default function TeleprompterScreen() {
       );
     } finally { setSaving(false); setSaveStep(''); }
   };
-  const retake = () => { setReviewUri(null); reset(); };
+  const retake = () => { setReviewUri(null); discardClips(); reset(); };
 
   const stopRecording = () => { haptic.press(); try { camRef.current?.stopRecording?.(); } catch {} pause(); };
 
@@ -489,7 +523,7 @@ export default function TeleprompterScreen() {
 
   // ── Prompter ─────────────────────────────────────────────────────────────
   const camLive = !!(cam && camOn && camReady);
-  const closePrompter = () => { pause(); if (recording) stopRecording(); if (scriptId || textParam) router.back(); else { setPasted(''); setPickedId(null); reset(); } };
+  const closePrompter = () => { pause(); if (recording) stopRecording(); discardClips(); if (scriptId || textParam) router.back(); else { setPasted(''); setPickedId(null); reset(); } };
   const toggleTorch = () => {
     if (facing !== 'back') { Alert.alert('Flash', 'Flash works with the back camera. Flip the camera to use it.'); return; }
     setTorch((t) => !t);
@@ -535,7 +569,9 @@ export default function TeleprompterScreen() {
           <TouchableOpacity onPress={closePrompter} hitSlop={12} style={S.glassBtn}><X size={17} color="#FFF" strokeWidth={2.2} /></TouchableOpacity>
           <View style={S.titleWrap}>
             {recording ? (
-              <View style={S.recPill}><View style={S.recPillDot} /><Text style={S.recPillText}>{fmt(recSec)}</Text></View>
+              <View style={S.recPill}><View style={S.recPillDot} /><Text style={S.recPillText}>{fmt(totalSec)}</Text>{clips.length > 0 && <Text style={S.recPillClips}> · clip {clips.length + 1}</Text>}</View>
+            ) : clips.length > 0 ? (
+              <View style={S.recPill}><View style={[S.recPillDot, { backgroundColor: 'rgba(255,255,255,0.6)' }]} /><Text style={S.recPillText}>{fmt(totalSec)}</Text><Text style={S.recPillClips}> · {clips.length} clip{clips.length === 1 ? '' : 's'} · paused</Text></View>
             ) : (
               <View style={S.titlePill}>
                 <Text style={S.barTitle} numberOfLines={1}>{item?.option_label ?? item?.product_name ?? 'Script'}</Text>
@@ -617,14 +653,18 @@ export default function TeleprompterScreen() {
       {/* Bottom: restart · RECORD · takes */}
       <View pointerEvents="box-none" style={[S.bottom, { paddingBottom: Math.max(insets.bottom, 12) + 10 }]}>
         <View style={S.bottomRow}>
-          <TouchableOpacity style={S.sideBtn} onPress={reset} activeOpacity={0.8} disabled={recording}>
+          <TouchableOpacity style={S.sideBtn} onPress={restartAll} activeOpacity={0.8} disabled={recording}>
             <View style={[S.sideIcon, recording && { opacity: 0.35 }]}><RotateCcw size={18} color="#FFF" strokeWidth={2.2} /></View>
             <Text style={S.sideLabel}>Restart</Text>
           </TouchableOpacity>
 
           {camLive ? (
-            <TouchableOpacity style={S.recWrap} onPress={() => (recording ? stopRecording() : startRecording())} activeOpacity={0.85}>
-              <View style={[S.recRing, recording && S.recRingOn]}><View style={[S.recCore, recording && S.recCoreOn]} /></View>
+            <TouchableOpacity style={S.recWrap} onPress={() => (recording ? stopRecording() : startRecording())} activeOpacity={0.85} disabled={stitching}>
+              <View style={[S.recRing, recording && S.recRingOn]}>
+                <View style={[S.recCore, recording && S.recCoreOn]}>
+                  {!recording && clips.length > 0 && <Play size={26} color="#FFF" strokeWidth={2.6} fill="#FFF" />}
+                </View>
+              </View>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity style={S.recWrap} onPress={() => (playing ? pause() : play())} activeOpacity={0.85}>
@@ -632,12 +672,19 @@ export default function TeleprompterScreen() {
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity style={S.sideBtn} onPress={() => { closePrompter(); router.push({ pathname: '/(tabs)/scripts', params: { seg: 'videos' } }); }} activeOpacity={0.8} disabled={recording}>
-            <View style={[S.sideIcon, recording && { opacity: 0.35 }]}><Clapperboard size={18} color="#FFF" strokeWidth={2.2} />{takesThisSession > 0 && <View style={S.badge}><Text style={S.badgeText}>{takesThisSession}</Text></View>}</View>
-            <Text style={S.sideLabel}>Takes</Text>
-          </TouchableOpacity>
+          {clips.length > 0 ? (
+            <TouchableOpacity style={S.sideBtn} onPress={finishClips} activeOpacity={0.8} disabled={recording || stitching}>
+              <View style={[S.sideIcon, S.sideIconDone, recording && { opacity: 0.35 }]}>{stitching ? <ActivityIndicator size="small" color="#FFF" /> : <CheckIcon size={20} color="#FFF" strokeWidth={2.8} />}</View>
+              <Text style={S.sideLabel}>Done</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={S.sideBtn} onPress={() => { closePrompter(); router.push({ pathname: '/(tabs)/scripts', params: { seg: 'videos' } }); }} activeOpacity={0.8} disabled={recording}>
+              <View style={[S.sideIcon, recording && { opacity: 0.35 }]}><Clapperboard size={18} color="#FFF" strokeWidth={2.2} />{takesThisSession > 0 && <View style={S.badge}><Text style={S.badgeText}>{takesThisSession}</Text></View>}</View>
+              <Text style={S.sideLabel}>Takes</Text>
+            </TouchableOpacity>
+          )}
         </View>
-        <Text style={S.bottomHint}>{camLive ? (recording ? 'Tap to stop · touch the text to hold or move it' : 'Tap to count down, scroll and record') : (playing ? 'Touch the text to hold or move it' : 'Tap to count down and scroll')}</Text>
+        <Text style={S.bottomHint}>{camLive ? (recording ? 'Tap to pause · touch the text to hold or move it' : clips.length > 0 ? 'Tap to keep going · ✓ when you’re done' : 'Tap to count down, scroll and record') : (playing ? 'Touch the text to hold or move it' : 'Tap to count down and scroll')}</Text>
       </View>
 
       {/* Review the take before committing it to Photos */}
@@ -648,7 +695,7 @@ export default function TeleprompterScreen() {
             <View style={S.reviewNoPlayer}><Film size={28} color="rgba(255,255,255,0.5)" strokeWidth={1.8} /><Text style={S.reviewNoPlayerText}>Preview needs the latest build — you can still save or retake.</Text></View>
           ))}
           <View pointerEvents="box-none" style={[S.reviewTop, { paddingTop: insets.top + 8 }]}>
-            <View style={S.titlePill}><Text style={S.barTitle}>Review take · {fmt(recSec)}</Text></View>
+            <View style={S.titlePill}><Text style={S.barTitle}>Review take · {fmt(totalSec)}{clips.length > 1 ? ` · ${clips.length} clips` : ''}</Text></View>
           </View>
           <View pointerEvents="box-none" style={[S.reviewBottom, { paddingBottom: Math.max(insets.bottom, 12) + 10 }]}>
             <View style={S.reviewPanel}>
@@ -770,6 +817,8 @@ const S = StyleSheet.create({
   bottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 44 },
   sideBtn: { alignItems: 'center', gap: 5, width: 64 },
   sideIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
+  sideIconDone: { backgroundColor: D.limeDeep, borderColor: D.limeDeep },
+  recPillClips: { ...T.medium, fontSize: 12, color: 'rgba(255,255,255,0.75)' },
   sideLabel: { ...T.bold, fontSize: 11.5, color: '#FFF', textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 4 },
   badge: { position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: D.coral, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   badgeText: { ...T.bold, fontSize: 10, color: '#FFF' },
