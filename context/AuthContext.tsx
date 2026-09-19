@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import { maskProfile } from '@/lib/screenshot-mode';
 import { login as doLogin, register as doRegister, loginWithTikTokCode as doTikTokLogin, loginWithTikTokNative as doTikTokNative, loginWithTikTokLink as doTikTokLink, loginWithApple as doAppleLogin, clearTokens, loadStoredAuth } from '@/lib/auth';
 import { api, extractData, setSessionExpiredHandler } from '@/lib/api';
 import { CreatorProfile, CreatorMeData, OnboardingPatch } from '@/types/api';
@@ -42,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await api.get('/creators/me');
       const d = extractData<CreatorMeData>(res);
       setMeData(d);
-      setProfile(d?.profile ?? null);
+      setProfile(maskProfile(d?.profile ?? null));
     } catch (err: any) {
       // 401 is handled by the axios interceptor (token refresh / session expiry).
       // Any other failure leaves existing state in place — not fatal.
@@ -152,7 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (v !== null && v !== undefined) (next as any)[k] = v;
       }
 
-      setProfile((prev) => ({ ...(prev ?? {} as CreatorProfile), ...next }));
+      setProfile((prev) => maskProfile({ ...(prev ?? {} as CreatorProfile), ...next }));
       setMeData((prev) => prev ? { ...prev, profile: { ...(prev.profile ?? {}), ...next } } : prev);
       return { error: null };
     } catch (err: any) {
