@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Easing, StatusBar, LayoutChangeEvent, TextInput, Alert, Keyboard, Modal, Pressable, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Easing, StatusBar, LayoutChangeEvent, TextInput, Alert, Keyboard, Modal, Pressable, useWindowDimensions, ActivityIndicator } from 'react-native';
 import Svg, { Path, Ellipse, Line, Circle } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { storage } from '@/lib/storage';
@@ -79,6 +79,14 @@ function Guides({ guide, w, h, readY }: { guide: Guide; w: number; h: number; re
   );
 }
 
+// expo-video is native too — only used for the review step.
+let VideoMod: any = null;
+try { VideoMod = require('expo-video'); } catch {}
+function TakePreview({ uri }: { uri: string }) {
+  const player = VideoMod.useVideoPlayer(uri, (p: any) => { p.loop = true; p.play(); });
+  return <VideoMod.VideoView player={player} style={StyleSheet.absoluteFill} contentFit="contain" nativeControls />;
+}
+
 function useKeepAwake(on: boolean) {
   useEffect(() => {
     if (!on) return;
@@ -117,6 +125,8 @@ export default function TeleprompterScreen() {
   const [recording, setRecording] = useState(false);
   const [torch, setTorch] = useState(false);
   const [recSec, setRecSec] = useState(0);
+  const [reviewUri, setReviewUri] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   useEffect(() => {
     if (!recording) { setRecSec(0); return; }
     const t = setInterval(() => setRecSec((n) => n + 1), 1000);
@@ -214,43 +224,48 @@ export default function TeleprompterScreen() {
       if (!playing && countdown == null) play();
       const rec = await camRef.current.recordAsync({ maxDuration: 300 });
       setRecording(false);
-      if (rec?.uri) {
-        const ml = loadMediaLibrary();
-        if (!ml) { Alert.alert('Take recorded', 'Update the app from TestFlight to save takes to Photos.'); return; }
-        // Full access lets us get the asset id back (needed to hand the take to
-        // TikTok). Add-only access can still save, just without the hand-off.
-        let perm = await ml.requestPermissionsAsync?.(false);
-        if (!perm?.granted && perm?.accessPrivileges !== 'limited') perm = await ml.requestPermissionsAsync?.(true);
-        if (!perm?.granted) { Alert.alert('Photo access needed', 'Allow photo library access in Settings so takes can be saved.'); return; }
-        let assetId: string | null = null;
-        try {
-          const asset = await ml.createAssetAsync(rec.uri);
-          assetId = asset?.id ?? null;
-        } catch {
-          try { await ml.saveToLibraryAsync(rec.uri); } catch (e2: any) { Alert.alert('Couldn’t save', e2?.message ?? 'Please try again.'); return; }
-        }
-        const canShare = !!assetId && isNativeTikTokAvailable() && isTikTokAppInstalled();
-        Alert.alert(
-          'Saved to Photos',
-          canShare ? 'Your take is in your library. Post it to TikTok now?' : 'Your take is in your photo library.',
-          canShare
-            ? [
-                { text: 'Later', style: 'cancel' },
-                { text: 'Post to TikTok', onPress: async () => {
-                    try {
-                      const r = await shareVideos([assetId!], 'https://iq.influenceish.com/tiktok/native');
-                      if (!r.isSuccess) Alert.alert('Not posted', r.errorMsg);
-                    } catch (e: any) { Alert.alert('Not posted', e?.message ?? 'Please try again.'); }
-                  } },
-              ]
-            : undefined,
-        );
-      }
+      pause();
+      if (rec?.uri) setReviewUri(rec.uri);
     } catch (e: any) {
       setRecording(false);
       Alert.alert('Couldn’t record', e?.message ?? 'Please try again.');
     }
   };
+  // Review → Save: only now does the take go to Photos (then optional TikTok).
+  const saveTake = async () => {
+    if (!reviewUri) return;
+    const uri = reviewUri;
+    setSaving(true);
+    try {
+      const ml = loadMediaLibrary();
+      if (!ml) { Alert.alert('Take recorded', 'Update the app from TestFlight to save takes to Photos.'); return; }
+      let perm = await ml.requestPermissionsAsync?.(false);
+      if (!perm?.granted && perm?.accessPrivileges !== 'limited') perm = await ml.requestPermissionsAsync?.(true);
+      if (!perm?.granted) { Alert.alert('Photo access needed', 'Allow photo library access in Settings so takes can be saved.'); return; }
+      let assetId: string | null = null;
+      try { const asset = await ml.createAssetAsync(uri); assetId = asset?.id ?? null; }
+      catch { try { await ml.saveToLibraryAsync(uri); } catch (e2: any) { Alert.alert('Couldn’t save', e2?.message ?? 'Please try again.'); return; } }
+      setReviewUri(null);
+      const canShare = !!assetId && isNativeTikTokAvailable() && isTikTokAppInstalled();
+      Alert.alert(
+        'Saved to Photos',
+        canShare ? 'Your take is in your library. Post it to TikTok now?' : 'Your take is in your photo library.',
+        canShare
+          ? [
+              { text: 'Later', style: 'cancel' },
+              { text: 'Post to TikTok', onPress: async () => {
+                  try {
+                    const r = await shareVideos([assetId!], 'https://iq.influenceish.com/tiktok/native');
+                    if (!r.isSuccess) Alert.alert('Not posted', r.errorMsg);
+                  } catch (e: any) { Alert.alert('Not posted', e?.message ?? 'Please try again.'); }
+                } },
+            ]
+          : undefined,
+      );
+    } finally { setSaving(false); }
+  };
+  const retake = () => { setReviewUri(null); reset(); };
+
   const stopRecording = () => { try { camRef.current?.stopRecording?.(); } catch {} pause(); };
 
   const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
@@ -408,6 +423,29 @@ export default function TeleprompterScreen() {
         </View>
       </View>
 
+      {/* Review the take before committing it to Photos */}
+      <Modal visible={!!reviewUri} animationType="slide" onRequestClose={retake}>
+        <View style={S.review}>
+          <StatusBar barStyle="light-content" />
+          {reviewUri && (VideoMod ? <TakePreview uri={reviewUri} /> : (
+            <View style={S.reviewNoPlayer}><Film size={28} color="rgba(255,255,255,0.5)" strokeWidth={1.8} /><Text style={S.reviewNoPlayerText}>Preview needs the latest build — you can still save or retake.</Text></View>
+          ))}
+          <View pointerEvents="box-none" style={[S.reviewTop, { paddingTop: insets.top + 8 }]}>
+            <View style={S.titlePill}><Text style={S.barTitle}>Review take · {fmt(recSec)}</Text></View>
+          </View>
+          <View pointerEvents="box-none" style={[S.reviewBottom, { paddingBottom: Math.max(insets.bottom, 12) + 10 }]}>
+            <View style={S.panel}>
+              <TouchableOpacity style={S.reviewBtn} onPress={retake} activeOpacity={0.85} disabled={saving}>
+                <RotateCcw size={16} color="#FFF" strokeWidth={2.4} /><Text style={S.reviewBtnText}>Retake</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[S.reviewBtn, S.reviewBtnPrimary]} onPress={saveTake} activeOpacity={0.85} disabled={saving}>
+                {saving ? <ActivityIndicator size="small" color="#FFF" /> : <><Check size={16} color="#FFF" strokeWidth={2.6} /><Text style={S.reviewBtnText}>Save to Photos</Text></>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Settings sheet */}
       <Modal visible={showSettings} transparent animationType="fade" onRequestClose={() => setShowSettings(false)}>
         <Pressable style={S.sheetBackdrop} onPress={() => setShowSettings(false)}>
@@ -474,6 +512,16 @@ const S = StyleSheet.create({
   clusterBtnOn: { backgroundColor: D.coral },
   progressTrack: { height: 2, marginHorizontal: 12, borderRadius: 1, backgroundColor: 'rgba(255,255,255,0.18)' },
   progressFill: { height: 2, borderRadius: 1, backgroundColor: D.coral },
+
+  // Review
+  review: { flex: 1, backgroundColor: '#000' },
+  reviewTop: { position: 'absolute', top: 0, left: 0, right: 0, alignItems: 'center' },
+  reviewBottom: { position: 'absolute', bottom: 0, left: 0, right: 0, alignItems: 'center' },
+  reviewNoPlayer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, padding: 32 },
+  reviewNoPlayerText: { ...T.medium, fontSize: 13.5, color: 'rgba(255,255,255,0.6)', textAlign: 'center', lineHeight: 19 },
+  reviewBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: R.full, paddingHorizontal: 18, height: 46, backgroundColor: 'rgba(255,255,255,0.12)' },
+  reviewBtnPrimary: { backgroundColor: D.coral },
+  reviewBtnText: { ...T.bold, fontSize: 14.5, color: '#FFF' },
 
   // Floating bottom panel
   bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' },
