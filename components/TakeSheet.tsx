@@ -39,7 +39,7 @@ export default function TakeSheet({ take, onClose }: { take: Take; onClose: () =
   });
 
   const post = async () => {
-    if (!take.photos_asset_id || !isNativeTikTokAvailable() || !isTikTokAppInstalled()) { Alert.alert('Post to TikTok', 'This take isn\'t in your Photos library on this phone, so TikTok can\'t pick it up here.'); return; }
+    if (!take.photos_asset_id || !isNativeTikTokAvailable() || !isTikTokAppInstalled()) { Alert.alert('Edit in TikTok & post', 'This take isn\'t in your Photos library on this phone, so TikTok can\'t pick it up here.'); return; }
     try { const r = await shareVideos([take.photos_asset_id], 'https://iq.influenceish.com/tiktok/native'); if (!r.isSuccess) Alert.alert('Not posted', r.errorMsg); }
     catch (e: any) { Alert.alert('Not posted', e?.message ?? 'Please try again.'); }
   };
@@ -85,7 +85,7 @@ export default function TakeSheet({ take, onClose }: { take: Take; onClose: () =
                 {take.video_url && VideoMod ? <Player uri={take.video_url} /> : <Text style={S.noPlayer}>Preview needs the latest build.</Text>}
               </View>
               <View style={S.actions}>
-                <TouchableOpacity style={[S.btn, S.btnPrimary]} onPress={post} activeOpacity={0.85}><Share2 size={15} color="#FFF" strokeWidth={2.4} /><Text style={S.btnTextOn}>Post to TikTok</Text></TouchableOpacity>
+                <TouchableOpacity style={[S.btn, S.btnPrimary]} onPress={post} activeOpacity={0.85}><Share2 size={15} color="#FFF" strokeWidth={2.4} /><Text style={S.btnTextOn}>Edit in TikTok & post</Text></TouchableOpacity>
                 <TouchableOpacity style={S.btn} onPress={() => setAttaching(true)} activeOpacity={0.85}><Link2 size={15} color={D.textPrimary} strokeWidth={2.2} /><Text style={S.btnText}>{take.script_id ? 'Change script' : 'Attach to script'}</Text></TouchableOpacity>
                 <TouchableOpacity style={[S.btn, S.btnDanger]} onPress={() => Alert.alert('Delete take?', 'This removes it from Formula (not from your Photos).', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => remove.mutate() }])} activeOpacity={0.85} disabled={remove.isPending}>
                   {remove.isPending ? <ActivityIndicator size="small" color={D.error} /> : <Trash2 size={15} color={D.error} strokeWidth={2.2} />}

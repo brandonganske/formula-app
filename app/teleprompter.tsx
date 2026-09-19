@@ -277,11 +277,11 @@ export default function TeleprompterScreen() {
       const canShare = !!assetId && isNativeTikTokAvailable() && isTikTokAppInstalled();
       Alert.alert(
         inFormula ? 'Saved' : 'Saved to Photos',
-        (inFormula ? `In your Photos and in Saved → Videos${item ? ', attached to this script' : ''}. ` : 'Your take is in your photo library. ') + (canShare ? 'Post it to TikTok now?' : ''),
+        (inFormula ? `In your Photos and in Saved → Videos${item ? ', attached to this script' : ''}. ` : 'Your take is in your photo library. ') + (canShare ? 'Edit it in TikTok and post now?' : ''),
         canShare
           ? [
               { text: 'Later', style: 'cancel' },
-              { text: 'Post to TikTok', onPress: async () => {
+              { text: 'Edit in TikTok & post', onPress: async () => {
                   try {
                     const r = await shareVideos([assetId!], 'https://iq.influenceish.com/tiktok/native');
                     if (!r.isSuccess) Alert.alert('Not posted', r.errorMsg);
