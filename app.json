@@ -72,7 +72,8 @@
           "savePhotosPermission": "Formula saves your takes to your photo library.",
           "isAccessMediaLocationEnabled": false
         }
-      ]
+      ],
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true
