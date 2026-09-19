@@ -12,7 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api, extractData } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { D, T, R } from '@/constants/ds';
-import { X, RotateCcw, Minus, Plus, FlipHorizontal, Type, Film, ChevronRight, Camera as CameraIcon, CameraOff, SwitchCamera, ClipboardPaste, Settings2, Eye, Check, Zap, ZapOff, Gauge, UserRound, Clapperboard } from 'lucide-react-native';
+import { X, RotateCcw, Minus, Plus, FlipHorizontal, Type, Film, ChevronRight, Camera as CameraIcon, CameraOff, SwitchCamera, ClipboardPaste, Settings2, Eye, Check, Zap, ZapOff, Gauge, UserRound, Clapperboard, ChevronUp, ChevronDown } from 'lucide-react-native';
 import type { SavedScriptItem, SavedScriptsResponse } from '@/types/api';
 import AnimatedPressable from '@/components/AnimatedPressable';
 
@@ -139,6 +139,7 @@ export default function TeleprompterScreen() {
   const [recSec, setRecSec] = useState(0);
   const [reviewUri, setReviewUri] = useState<string | null>(null);
   const [showSpeed, setShowSpeed] = useState(false);
+  const [railOpen, setRailOpen] = useState(true);
   const [takesThisSession, setTakesThisSession] = useState(0);
   const [saving, setSaving] = useState(false);
   const [saveStep, setSaveStep] = useState<string>('');
@@ -373,8 +374,8 @@ export default function TeleprompterScreen() {
           </ScrollView>
         </TouchableOpacity>
         {camLive && <Guides guide={prefs.guide} w={winW} h={viewH} readY={viewH * readFrac} />}
-        <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0.9)', 'rgba(0,0,0,0)']} style={[S.fade, { top: 0, height: Math.max(0, viewH * readFrac - fontSize * 0.9) }]} />
-        <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.9)']} style={[S.fade, { bottom: 0, height: Math.max(0, viewH * (1 - readFrac) - fontSize * 2.2) }]} />
+        <LinearGradient pointerEvents="none" colors={[camLive ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.9)', 'rgba(0,0,0,0)']} style={[S.fade, { top: 0, height: Math.max(0, viewH * readFrac - fontSize * 0.9) }]} />
+        <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0)', camLive ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.9)']} style={[S.fade, { bottom: 0, height: Math.max(0, viewH * (1 - readFrac) - fontSize * 2.2) }]} />
         <View pointerEvents="none" style={[S.readLine, { top: viewH * readFrac - 1 }]} />
         {prefs.readPos === 'camera' && !playing && countdown == null && !recording && (
           <View pointerEvents="none" style={[S.eyeHint, { top: viewH * readFrac + 10 }]}><Eye size={12} color="rgba(255,255,255,0.7)" strokeWidth={2.2} /><Text style={S.eyeHintText}>Eyes here — closest to the lens</Text></View>
@@ -406,15 +407,18 @@ export default function TeleprompterScreen() {
       {/* Right rail — labeled tools, CapCut-style but ours */}
       {!recording && (
         <View pointerEvents="box-none" style={[S.rail, { top: insets.top + 64 }]}>
-          {cam && (
+          {!railOpen && (
+            <TouchableOpacity style={S.railIcon} onPress={() => setRailOpen(true)} activeOpacity={0.8} hitSlop={8}><ChevronDown size={18} color="#FFF" strokeWidth={2.4} /></TouchableOpacity>
+          )}
+          {railOpen && cam && (
             <RailBtn label={camOn ? 'Camera' : 'Camera off'} onPress={() => setCamOn((v) => !v)} active={camOn}>
               {camOn ? <CameraIcon size={18} color="#FFF" strokeWidth={2.2} /> : <CameraOff size={18} color="#FFF" strokeWidth={2.2} />}
             </RailBtn>
           )}
-          {camLive && (
+          {railOpen && camLive && (
             <RailBtn label="Flip" onPress={() => setFacing((f) => (f === 'front' ? 'back' : 'front'))}><SwitchCamera size={18} color="#FFF" strokeWidth={2.2} /></RailBtn>
           )}
-          {camLive && (
+          {railOpen && camLive && (
             <RailBtn
               label={prefs.guide === 'none' ? 'Outline' : prefs.guide === 'head' ? 'Head' : prefs.guide === 'face' ? 'Face' : 'Thirds'}
               active={prefs.guide !== 'none'}
@@ -423,16 +427,19 @@ export default function TeleprompterScreen() {
               <UserRound size={18} color="#FFF" strokeWidth={2.2} />
             </RailBtn>
           )}
-          <RailBtn label={`${wpm} wpm`} active={showSpeed} onPress={() => setShowSpeed((v) => !v)}><Gauge size={18} color="#FFF" strokeWidth={2.2} /></RailBtn>
-          <RailBtn label="Text size" onPress={() => setFontSize((f) => (f >= 52 ? 26 : f + 6))}><Type size={18} color="#FFF" strokeWidth={2.2} /></RailBtn>
-          <RailBtn label={prefs.readPos === 'camera' ? 'Eyes: lens' : prefs.readPos === 'third' ? 'Eyes: third' : 'Eyes: center'} onPress={() => setPrefs({ readPos: prefs.readPos === 'camera' ? 'third' : prefs.readPos === 'third' ? 'center' : 'camera' })}><Eye size={18} color="#FFF" strokeWidth={2.2} /></RailBtn>
-          {camLive && (
+          {railOpen && <RailBtn label={`${wpm} wpm`} active={showSpeed} onPress={() => setShowSpeed((v) => !v)}><Gauge size={18} color="#FFF" strokeWidth={2.2} /></RailBtn>}
+          {railOpen && <RailBtn label="Text size" onPress={() => setFontSize((f) => (f >= 52 ? 26 : f + 6))}><Type size={18} color="#FFF" strokeWidth={2.2} /></RailBtn>}
+          {railOpen && <RailBtn label={prefs.readPos === 'camera' ? 'Eyes: lens' : prefs.readPos === 'third' ? 'Eyes: third' : 'Eyes: center'} onPress={() => setPrefs({ readPos: prefs.readPos === 'camera' ? 'third' : prefs.readPos === 'third' ? 'center' : 'camera' })}><Eye size={18} color="#FFF" strokeWidth={2.2} /></RailBtn>}
+          {railOpen && camLive && (
             <RailBtn label="Flash" active={torch && facing === 'back'} dim={facing !== 'back'} onPress={toggleTorch}>
               {torch && facing === 'back' ? <Zap size={18} color="#FFF" strokeWidth={2.2} fill="#FFF" /> : <ZapOff size={18} color="#FFF" strokeWidth={2.2} />}
             </RailBtn>
           )}
-          <RailBtn label="Mirror" active={mirror} onPress={() => setMirror((m) => !m)}><FlipHorizontal size={18} color="#FFF" strokeWidth={2.2} /></RailBtn>
-          <RailBtn label="More" onPress={() => { pause(); setShowSettings(true); }}><Settings2 size={18} color="#FFF" strokeWidth={2.2} /></RailBtn>
+          {railOpen && <RailBtn label="Mirror" active={mirror} onPress={() => setMirror((m) => !m)}><FlipHorizontal size={18} color="#FFF" strokeWidth={2.2} /></RailBtn>}
+          {railOpen && <RailBtn label="More" onPress={() => { pause(); setShowSettings(true); }}><Settings2 size={18} color="#FFF" strokeWidth={2.2} /></RailBtn>}
+          {railOpen && (
+            <TouchableOpacity style={[S.railIcon, { marginTop: 2 }]} onPress={() => setRailOpen(false)} activeOpacity={0.8} hitSlop={8}><ChevronUp size={18} color="#FFF" strokeWidth={2.4} /></TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -544,8 +551,8 @@ const S = StyleSheet.create({
   pickTitle: { ...T.bold, fontSize: 15, color: '#FFF' },
   pickHook: { ...T.regular, fontSize: 13, color: 'rgba(255,255,255,0.55)', marginTop: 2, fontStyle: 'italic' },
 
-  script: { ...T.bold, color: '#FFF', letterSpacing: -0.3 },
-  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.32)' },
+  script: { ...T.bold, color: '#FFF', letterSpacing: -0.3, textShadowColor: 'rgba(0,0,0,0.75)', textShadowRadius: 8, textShadowOffset: { width: 0, height: 1 } },
+  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.10)' },
 
   // Floating top layer
   top: { position: 'absolute', left: 0, right: 0, top: 0 },
