@@ -61,4 +61,4 @@ export const CREDIT_COSTS = {
   brainRefresh: 2,
 } as const;
 
-export const FREE_MONTHLY_CREDITS = 3;
+export const FREE_MONTHLY_CREDITS = 5;
