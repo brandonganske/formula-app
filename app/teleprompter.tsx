@@ -41,7 +41,7 @@ type Align = 'center' | 'left';
 interface Prefs { guide: Guide; readPos: ReadPos; align: Align; width: 'wide' | 'narrow'; fontSize: number; mirror: boolean; cardTop: number; cardH: number }
 // The script lives in a floating card (like CapCut's) that can be dragged to
 // sit right under the lens and resized. cardTop/cardH are fractions of the view.
-const DEFAULT_PREFS: Prefs = { guide: 'head', readPos: 'camera', align: 'left', width: 'wide', fontSize: 22, mirror: false, cardTop: 0, cardH: 0.42 };
+const DEFAULT_PREFS: Prefs = { guide: 'head', readPos: 'camera', align: 'left', width: 'wide', fontSize: 22, mirror: true, cardTop: 0, cardH: 0.42 };
 const READ_IN_CARD = 0.34; // read line sits a third of the way down the card
 const PREFS_KEY = 'teleprompter.prefs.v1';
 // Presets for the card's top edge (fraction of view height).
@@ -492,7 +492,7 @@ export default function TeleprompterScreen() {
       <StatusBar barStyle="light-content" />
 
       {/* Camera fills the whole screen; everything else floats over it */}
-      {camLive && <cam.CameraView key={`${facing}-${mirror ? 'm' : 'n'}`} ref={camRef} style={[StyleSheet.absoluteFill, mirror && { transform: [{ scaleX: -1 }] }]} facing={facing} mode="video" mute={false} enableTorch={torch && facing === 'back'} mirror={mirror} videoQuality="720p" />}
+      {camLive && <cam.CameraView key={`${facing}-${mirror ? 'm' : 'n'}`} ref={camRef} style={StyleSheet.absoluteFill} facing={facing} mode="video" mute={false} enableTorch={torch && facing === 'back'} mirror={mirror} videoQuality="720p" />}
       {camLive && <View pointerEvents="none" style={S.scrim} />}
 
       {/* Floating script card — drag ✥ to move, corner grip to resize */}
@@ -571,7 +571,7 @@ export default function TeleprompterScreen() {
               {torch && facing === 'back' ? <Zap size={18} color="#FFF" strokeWidth={2.2} fill="#FFF" /> : <ZapOff size={18} color="#FFF" strokeWidth={2.2} />}
             </RailBtn>
           )}
-          {railOpen && <RailBtn label="Mirror" active={mirror} onPress={() => setMirror((m) => !m)}><FlipHorizontal size={18} color="#FFF" strokeWidth={2.2} /></RailBtn>}
+          {railOpen && <RailBtn label={mirror ? 'Save as seen' : 'Save true'} active={mirror} onPress={() => setMirror((m) => !m)}><FlipHorizontal size={18} color="#FFF" strokeWidth={2.2} /></RailBtn>}
           {railOpen && <RailBtn label="More" onPress={() => { pause(); setShowSettings(true); }}><Settings2 size={18} color="#FFF" strokeWidth={2.2} /></RailBtn>}
           {railOpen && (
             <TouchableOpacity style={[S.railIcon, { marginTop: 2 }]} onPress={() => setRailOpen(false)} activeOpacity={0.8} hitSlop={8}><ChevronUp size={18} color="#FFF" strokeWidth={2.4} /></TouchableOpacity>
