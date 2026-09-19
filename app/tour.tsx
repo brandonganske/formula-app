@@ -70,8 +70,8 @@ const PAGES: Page[] = [
   },
   {
     key: 'share', eyebrow: 'FROM TIKTOK · SHARE SHEET', title: 'See a video you love? Share it to Formula.',
-    body: 'Tap Share on any TikTok and pick Formula. Rewrite it for a product, break down why it works, recreate it on your topic, or run Shop Safe on it.',
-    bullets: ['Works from TikTok, Reels and Shorts', 'No copying links by hand', 'Lands you straight on the right tool'],
+    body: 'On any TikTok: Share → More → Formula Share. Rewrite it for a product, break down why it works, recreate it on your topic, or run Shop Safe on it.',
+    bullets: ['First time: tap More, then Edit, and pin Formula Share to Favorites', 'After that it sits at the front of your share sheet', 'Works from TikTok, Reels and Shorts'],
     Icon: Share2, colors: [D.ink, D.coral],
   },
 ];
