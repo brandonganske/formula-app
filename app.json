@@ -73,7 +73,21 @@
           "isAccessMediaLocationEnabled": false
         }
       ],
-      "expo-video"
+      "expo-video",
+      [
+        "expo-share-intent",
+        {
+          "iosActivationRules": {
+            "NSExtensionActivationSupportsWebURLWithMaxCount": 1,
+            "NSExtensionActivationSupportsWebPageWithMaxCount": 1,
+            "NSExtensionActivationSupportsText": true
+          },
+          "iosShareExtensionName": "Formula",
+          "androidIntentFilters": [
+            "text/*"
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

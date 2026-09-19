@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, TextInput, Keyboard } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,10 +21,23 @@ export default function ShopSafeScreen() {
   const [pct, setPct] = useState(0);
   const [result, setResult] = useState<ShopSafeResult | null>(null);
   const [name, setName] = useState<string | null>(null);
-  const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
+  const { mode: modeParam, url: urlParam } = useLocalSearchParams<{ mode?: string; url?: string }>();
   const [mode, setMode] = useState<'video' | 'script' | null>(modeParam === 'script' || modeParam === 'video' ? modeParam : null);
   const scriptMode = mode === 'script';
   const [script, setScript] = useState('');
+
+  // Links shared in from TikTok (or pasted): check the posted video by URL.
+  const runUrl = async (u: string) => {
+    try {
+      setMode('video'); setPhase('checking'); setResult(null); setName(u);
+      const r = extractData<ShopSafeResult>(await api.post('/creators/compliance/check', { video_url: u }, { timeout: 300_000 })) as ShopSafeResult;
+      setResult(r); setPhase('done');
+    } catch (e: any) {
+      setPhase('idle');
+      Alert.alert('Couldn’t check that video', e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.');
+    }
+  };
+  useEffect(() => { if (urlParam && /^https?:\/\//i.test(urlParam)) runUrl(urlParam); }, [urlParam]);
 
   const runScript = async () => {
     if (!script.trim()) return;

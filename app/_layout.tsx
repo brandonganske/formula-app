@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { Stack, SplashScreen } from 'expo-router';
+import { Stack, SplashScreen, useRouter } from 'expo-router';
+import { ShareIntentProvider, useShareIntentContext } from 'expo-share-intent';
 import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -18,6 +19,20 @@ const queryClient = new QueryClient({
 function RootLayoutNav() {
   const { isLoading, isAuthenticated } = useAuth();
   usePushNotifications(isAuthenticated);
+  const router = useRouter();
+
+  // Links shared from TikTok's share sheet land here; hand them to /share
+  // where the creator picks rewrite / breakdown / recreate / Shop Safe.
+  const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntentContext();
+  useEffect(() => {
+    if (isLoading || !hasShareIntent) return;
+    const raw = shareIntent?.webUrl ?? shareIntent?.text ?? '';
+    const m = String(raw).match(/https?:\/\/[^\s]+/);
+    resetShareIntent();
+    if (!m) return;
+    if (!isAuthenticated) { router.replace('/'); return; }
+    router.push({ pathname: '/share', params: { url: m[0] } });
+  }, [hasShareIntent, isLoading, isAuthenticated]);
 
   useEffect(() => {
     if (!isLoading) SplashScreen.hideAsync();
@@ -50,6 +65,7 @@ function RootLayoutNav() {
       <Stack.Screen name="tools/breakdown" options={{ animation: 'slide_from_bottom' }} />
       {/* TikTok native-login Universal Link return target */}
       <Stack.Screen name="tiktok/native" />
+      <Stack.Screen name="share" options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="+not-found" />
     </Stack>
   );
@@ -59,6 +75,7 @@ export default function RootLayout() {
   useFrameworkReady();
 
   return (
+    <ShareIntentProvider>
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#F4F3EF' }}>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
@@ -69,5 +86,6 @@ export default function RootLayout() {
         </AuthProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>
+    </ShareIntentProvider>
   );
 }
