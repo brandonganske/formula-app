@@ -472,7 +472,7 @@ export default function TeleprompterScreen() {
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity style={S.sideBtn} onPress={() => { closePrompter(); router.push('/(tabs)/scripts'); }} activeOpacity={0.8} disabled={recording}>
+          <TouchableOpacity style={S.sideBtn} onPress={() => { closePrompter(); router.push({ pathname: '/(tabs)/scripts', params: { seg: 'videos' } }); }} activeOpacity={0.8} disabled={recording}>
             <View style={[S.sideIcon, recording && { opacity: 0.35 }]}><Clapperboard size={18} color="#FFF" strokeWidth={2.2} />{takesThisSession > 0 && <View style={S.badge}><Text style={S.badgeText}>{takesThisSession}</Text></View>}</View>
             <Text style={S.sideLabel}>Takes</Text>
           </TouchableOpacity>

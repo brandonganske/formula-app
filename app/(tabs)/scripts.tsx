@@ -5,7 +5,7 @@ import {
   Alert, Modal,
 } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
 import FadeInView from '@/components/FadeInView';
@@ -645,7 +645,10 @@ export default function ToolkitScreen() {
     Animated.timing(screenOpacity, { toValue: 1, duration: 180, easing: Ease.out, useNativeDriver: true }).start();
   }, []));
 
-  const [seg, setSeg]                                 = useState<'scripts' | 'products' | 'videos'>('scripts');
+  const { seg: segParam } = useLocalSearchParams<{ seg?: string }>();
+  const [seg, setSeg]                                 = useState<'scripts' | 'products' | 'videos'>(segParam === 'videos' || segParam === 'products' ? segParam : 'scripts');
+  // Deep links (e.g. the teleprompter's Takes button) can switch the shelf.
+  useEffect(() => { if (segParam === 'videos' || segParam === 'products' || segParam === 'scripts') setSeg(segParam); }, [segParam]);
 
   // Counts for the asset tiles (cheap, cached; the views own the full data).
   const { data: savedProductsLite } = useQuery({
