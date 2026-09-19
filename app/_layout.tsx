@@ -44,6 +44,9 @@ function RootLayoutNav() {
       <Stack.Screen name="shop-preview" />
       <Stack.Screen name="shop-safe" options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="teleprompter" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+      <Stack.Screen name="tools/sample-pitch" options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="tools/objections" options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="tools/coach" options={{ animation: 'slide_from_bottom' }} />
       {/* TikTok native-login Universal Link return target */}
       <Stack.Screen name="tiktok/native" />
       <Stack.Screen name="+not-found" />

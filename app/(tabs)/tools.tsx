@@ -5,7 +5,7 @@ import FadeInView from '@/components/FadeInView';
 import TabFadeView from '@/components/TabFadeView';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import { D, T, R } from '@/constants/ds';
-import { ShieldCheck, Clapperboard } from 'lucide-react-native';
+import { ShieldCheck, Clapperboard, Mail, MessageSquareWarning, Mic } from 'lucide-react-native';
 
 // Tools — a simple grid of same-size tiles. Each opens its own screen where
 // the explanation and actions live, so this page never becomes a long scroll.
@@ -14,6 +14,9 @@ type Tool = { key: string; title: string; sub: string; Icon: any; bg: string; ro
 const TOOLS: Tool[] = [
   { key: 'shopsafe', title: 'Shop Safe', sub: 'Policy check', Icon: ShieldCheck, bg: D.limeDeep, route: '/shop-safe', isNew: true },
   { key: 'prompter', title: 'Teleprompter', sub: 'Film at your pace', Icon: Clapperboard, bg: D.ink, route: '/teleprompter', isNew: true },
+  { key: 'coach', title: 'Rehearsal coach', sub: 'Grade your delivery', Icon: Mic, bg: '#6C5CE7', route: '/tools/coach', isNew: true },
+  { key: 'objections', title: 'Objection killer', sub: '5 comments, 5 answers', Icon: MessageSquareWarning, bg: '#F5A623', route: '/tools/objections', isNew: true },
+  { key: 'pitch', title: 'Sample pitch', sub: 'Get the free product', Icon: Mail, bg: D.coral, route: '/tools/sample-pitch', isNew: true },
 ];
 
 export default function ToolsScreen() {
