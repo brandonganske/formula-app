@@ -184,107 +184,75 @@ function ScriptCard({
     <GestureDetector gesture={drag}>
     <View collapsable={false}>
     <FadeInView delay={index * 40} style={[SC.card, isDraggingThis && SC.cardDragging]}>
-      {/* Header row — taps into the full script screen */}
-      <View style={SC.hdr}>
-        <TouchableOpacity
-          style={SC.hdrLeft}
-          onPress={() => { if (!renaming) router.push(`/script/${item.id}`); }}
-          activeOpacity={0.8}
-        >
-          <View style={[SC.originDot, { backgroundColor: color }]} />
-          <View style={{ flex: 1 }}>
-            {/* Title row with inline rename */}
-            {renaming ? (
-              <View style={SC.renameRow}>
-                <TextInput
-                  style={SC.renameInput}
-                  value={nameInput}
-                  onChangeText={setNameInput}
-                  autoFocus
-                  returnKeyType="done"
-                  onSubmitEditing={saveRename}
-                  onBlur={saveRename}
-                  maxLength={80}
-                />
-                <TouchableOpacity onPress={saveRename} hitSlop={14}>
-                  <Check size={14} color={D.success} strokeWidth={2.5} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setRenaming(false)} hitSlop={14}>
-                  <X size={14} color={D.textMuted} strokeWidth={2} />
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={SC.titleRow}>
-                <Text style={SC.title} numberOfLines={1}>{displayTitle}</Text>
-                <TouchableOpacity onPress={startRename} hitSlop={10}>
-                  <Pencil size={11} color={D.textDisabled} strokeWidth={2} />
-                </TouchableOpacity>
-              </View>
-            )}
-            {/* Meta row */}
-            <View style={SC.meta}>
-              {item.product_name ? (
-                <View style={SC.productChip}>
-                  <ShoppingBag size={10} color={D.coral} strokeWidth={2} />
-                  <Text style={SC.productName} numberOfLines={1}>{item.product_name}</Text>
-                </View>
-              ) : (
-                <View style={[SC.originPill, { backgroundColor: color + '14' }]}>
-                  <OriginIcon origin={item.origin} />
-                  <Text style={[SC.originText, { color }]}>{originLabel(item.origin)}</Text>
-                </View>
-              )}
-              <Text style={SC.date}>{relDate(item.created_at)}</Text>
-              <TouchableOpacity onPress={() => setShowSafe(true)} hitSlop={6} activeOpacity={0.8}>
-                {item.shop_safe_grade
-                  ? <GradePill grade={item.shop_safe_grade} />
-                  : <View style={SC.safeCheck}><Text style={SC.safeCheckText}>Shop Safe</Text></View>}
-              </TouchableOpacity>
-              {folderCount > 0 && (
-                <>
-                  <View style={SC.dot} />
-                  <Folder size={11} color={D.textMuted} strokeWidth={2} />
-                  <Text style={SC.date}>{folderCount}</Text>
-                </>
-              )}
+      {/* Identity — origin mark, title, context. Tap → full script. */}
+      <TouchableOpacity style={SC.top} onPress={() => { if (!renaming) router.push(`/script/${item.id}`); }} activeOpacity={0.8}>
+        <View style={[SC.mark, { backgroundColor: color + '18' }]}>
+          <OriginIcon origin={item.origin} />
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          {renaming ? (
+            <View style={SC.renameRow}>
+              <TextInput
+                style={SC.renameInput}
+                value={nameInput}
+                onChangeText={setNameInput}
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={saveRename}
+                onBlur={saveRename}
+                maxLength={80}
+              />
+              <TouchableOpacity onPress={saveRename} hitSlop={14}><Check size={15} color={D.success} strokeWidth={2.5} /></TouchableOpacity>
+              <TouchableOpacity onPress={() => setRenaming(false)} hitSlop={14}><X size={15} color={D.textMuted} strokeWidth={2} /></TouchableOpacity>
             </View>
-          </View>
-        </TouchableOpacity>
-        {!renaming && (
-          <View style={SC.hdrActions}>
-            <TouchableOpacity
-              style={SC.folderIconBtn}
-              onPress={() => onAddToFolder(item)}
-              hitSlop={6}
-              activeOpacity={0.7}
-            >
-              <FolderPlus size={15} color={D.coral} strokeWidth={2} />
+          ) : (
+            <Text style={SC.title} numberOfLines={1}>{displayTitle}</Text>
+          )}
+          <Text style={SC.context} numberOfLines={1}>
+            {item.product_name ? item.product_name : originLabel(item.origin)}
+            <Text style={SC.contextDim}>  ·  {relDate(item.created_at)}</Text>
+          </Text>
+        </View>
+        {!renaming && <ChevronRight size={16} color={D.textDisabled} strokeWidth={2} />}
+      </TouchableOpacity>
+
+      {/* The hook — the one line that sells the script */}
+      {item.hook ? <Text style={SC.hook} numberOfLines={2}>“{item.hook}”</Text> : null}
+
+      {/* Status strip — Shop Safe + results on the left, actions on the right */}
+      <View style={SC.strip}>
+        <View style={SC.stripLeft}>
+          <TouchableOpacity onPress={() => setShowSafe(true)} hitSlop={6} activeOpacity={0.8}>
+            {item.shop_safe_grade
+              ? <GradePill grade={item.shop_safe_grade} />
+              : <View style={SC.chip}><Text style={SC.chipText}>Shop Safe</Text></View>}
+          </TouchableOpacity>
+          {outcome ? (
+            <TouchableOpacity style={[SC.chip, SC.chipLime]} onPress={() => setShowOutcome(true)} activeOpacity={0.8} hitSlop={6}>
+              <Text style={[SC.chipText, SC.chipLimeText]} numberOfLines={1}>
+                {fmtCompact(outcome.views)} views{outcome.gmv != null ? ` · $${fmtCompact(outcome.gmv)}` : ''}
+              </Text>
             </TouchableOpacity>
-            <ChevronRight size={16} color={D.textMuted} strokeWidth={2} />
+          ) : recent ? (
+            <TouchableOpacity style={[SC.chip, SC.chipCoral]} onPress={() => setShowOutcome(true)} activeOpacity={0.8} hitSlop={6}>
+              <Text style={[SC.chipText, SC.chipCoralText]}>Posted it?</Text>
+            </TouchableOpacity>
+          ) : null}
+          {folderCount > 0 && (
+            <View style={SC.chip}><Folder size={10} color={D.textMuted} strokeWidth={2.2} /><Text style={SC.chipText}>{folderCount}</Text></View>
+          )}
+        </View>
+        {!renaming && (
+          <View style={SC.stripRight}>
+            <TouchableOpacity style={SC.iconBtn} onPress={startRename} hitSlop={6} activeOpacity={0.7}>
+              <Pencil size={13} color={D.textMuted} strokeWidth={2} />
+            </TouchableOpacity>
+            <TouchableOpacity style={[SC.iconBtn, SC.iconBtnCoral]} onPress={() => onAddToFolder(item)} hitSlop={6} activeOpacity={0.7}>
+              <FolderPlus size={14} color={D.coral} strokeWidth={2.2} />
+            </TouchableOpacity>
           </View>
         )}
       </View>
-
-      {/* Hook preview */}
-      {item.hook ? (
-        <View style={SC.hookRow}>
-          <Text style={SC.hookText} numberOfLines={2}>"{item.hook}"</Text>
-        </View>
-      ) : null}
-
-      {/* Results — the video this script became, or a nudge to link it */}
-      {outcome ? (
-        <TouchableOpacity style={SC.result} onPress={() => setShowOutcome(true)} activeOpacity={0.8}>
-          <View style={SC.resultDot} />
-          <Text style={SC.resultText} numberOfLines={1}>
-            Posted · {fmtCompact(outcome.views)} views · {fmtCompact(outcome.likes)} likes{outcome.gmv != null ? ` · $${fmtCompact(outcome.gmv)} sales` : ''}
-          </Text>
-        </TouchableOpacity>
-      ) : recent ? (
-        <TouchableOpacity style={SC.nudge} onPress={() => setShowOutcome(true)} activeOpacity={0.8} hitSlop={6}>
-          <Text style={SC.nudgeText}>Did you post this?</Text>
-        </TouchableOpacity>
-      ) : null}
       {showOutcome && <OutcomeSheet scriptId={item.id} current={outcome} onClose={() => setShowOutcome(false)} />}
       {showSafe && <ShopSafeSheet item={item} onClose={() => setShowSafe(false)} />}
     </FadeInView>
@@ -295,9 +263,9 @@ function ScriptCard({
 
 const SC = StyleSheet.create({
   card: {
-    backgroundColor: D.card, borderRadius: R.xl,
-    borderWidth: 1, borderColor: D.cardBorder, padding: 14,
-    marginBottom: 10, ...Shadow.soft,
+    backgroundColor: D.card, borderRadius: 22,
+    borderWidth: 1, borderColor: D.border, padding: 16,
+    marginBottom: 12,
   },
   cardDragging: { opacity: 0.25, transform: [{ scale: 0.97 }] },
   ghost: {
@@ -308,37 +276,28 @@ const SC = StyleSheet.create({
   },
   ghostIcon: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   ghostLabel: { ...T.bold, fontSize: 10, color: D.textMuted, maxWidth: 64, textAlign: 'center' },
-  hdr: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  hdrLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  originDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 5 },
-  title: { ...T.bold, fontSize: 14, color: D.textPrimary, flex: 1 },
-  renameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5 },
-  renameInput: { ...T.bold, fontSize: 14, color: D.textPrimary, flex: 1, borderBottomWidth: 1, borderBottomColor: D.coral, paddingVertical: 2 },
-  meta: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
-  originPill: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: R.full },
-  originText: { ...T.bold, fontSize: 11 },
-  productChip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: D.coralSubtle, paddingHorizontal: 7, paddingVertical: 2, borderRadius: R.full },
-  productName: { ...T.bold, fontSize: 11, color: D.coral, maxWidth: 120 },
-  date: { ...T.regular, fontSize: 11, color: D.textMuted },
-  dot: { width: 3, height: 3, borderRadius: 2, backgroundColor: D.textDisabled },
-  chevron: {},
-  hdrActions: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
-  folderIconBtn: {
-    width: 30, height: 30, borderRadius: 9,
-    backgroundColor: D.coralSubtle, borderWidth: 1, borderColor: D.coral + '22',
-    alignItems: 'center', justifyContent: 'center',
-  },
 
-  hookRow: { marginTop: 8, paddingLeft: 18 },
-  result: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 10, marginLeft: 18, alignSelf: 'flex-start', backgroundColor: D.limeSubtle, borderRadius: R.full, paddingHorizontal: 10, paddingVertical: 5 },
-  resultDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: D.limeDeep },
-  resultText: { ...T.bold, fontSize: 12, color: D.limeDeep },
-  nudge: { marginTop: 8, marginLeft: 18, alignSelf: 'flex-start' },
-  safeCheck: { borderRadius: R.full, borderWidth: 1, borderColor: D.border, paddingHorizontal: 7, paddingVertical: 2 },
-  safeCheckText: { ...T.bold, fontSize: 10.5, color: D.textMuted },
-  nudgeText: { ...T.bold, fontSize: 12, color: D.coral },
-  hookText: { ...T.regular, fontSize: 13, color: D.textMuted, lineHeight: 19, fontStyle: 'italic' },
+  top: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  mark: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  title: { ...T.bold, fontSize: 15.5, color: D.textPrimary, letterSpacing: -0.2 },
+  context: { ...T.medium, fontSize: 12.5, color: D.textMuted, marginTop: 2 },
+  contextDim: { ...T.regular, color: D.textDisabled },
+  renameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  renameInput: { ...T.bold, fontSize: 15, color: D.textPrimary, flex: 1, borderBottomWidth: 1, borderBottomColor: D.coral, paddingVertical: 2 },
+
+  hook: { ...T.regular, fontSize: 14, color: D.textSecondary, lineHeight: 20, fontStyle: 'italic', marginTop: 12 },
+
+  strip: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: D.divider },
+  stripLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  stripRight: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: R.full, borderWidth: 1, borderColor: D.border, paddingHorizontal: 8, paddingVertical: 3 },
+  chipText: { ...T.bold, fontSize: 11, color: D.textMuted },
+  chipLime: { backgroundColor: D.limeSubtle, borderColor: 'transparent' },
+  chipLimeText: { color: D.limeDeep },
+  chipCoral: { backgroundColor: D.coralSubtle, borderColor: 'transparent' },
+  chipCoralText: { color: D.coral },
+  iconBtn: { width: 30, height: 30, borderRadius: 10, backgroundColor: D.surface, borderWidth: 1, borderColor: D.border, alignItems: 'center', justifyContent: 'center' },
+  iconBtnCoral: { backgroundColor: D.coralSubtle, borderColor: D.coral + '22' },
 
   divider: { height: 1, backgroundColor: D.divider, marginVertical: 12 },
   scriptText: { ...T.regular, fontSize: 13, color: D.textSecondary, lineHeight: 22, marginBottom: 4 },
@@ -348,8 +307,8 @@ const SC = StyleSheet.create({
 
   actions: { flexDirection: 'row', gap: 8, paddingTop: 12, borderTopWidth: 1, borderTopColor: D.divider, marginTop: 8 },
   copyBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 9, borderRadius: R.md, backgroundColor: D.surface,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+    height: 30, paddingHorizontal: 10, borderRadius: 10, backgroundColor: D.surface,
     borderWidth: 1, borderColor: D.border,
   },
   folderBtn: {
@@ -357,7 +316,7 @@ const SC = StyleSheet.create({
     paddingVertical: 9, borderRadius: R.md,
     backgroundColor: D.coralSubtle, borderWidth: 1, borderColor: D.coral + '30',
   },
-  actionText: { ...T.medium, fontSize: 12, color: D.textMuted },
+  actionText: { ...T.bold, fontSize: 11.5, color: D.textMuted },
   folderBtnText: { ...T.medium, fontSize: 12, color: D.coral },
 });
 
@@ -595,33 +554,34 @@ function FolderDetail({
         ) : (
           folderScripts.map((item, i) => (
             <FadeInView key={item.id} delay={i * 40} style={SC.card}>
-              <View style={FD.scriptRow}>
-                <View style={[SC.originDot, { backgroundColor: originColor(item.origin), marginTop: 2 }]} />
-                <View style={{ flex: 1 }}>
-                  <Text style={SC.title} numberOfLines={1}>{item.option_label ?? item.product_name ?? 'Untitled'}</Text>
-                  <View style={SC.meta}>
-                    <View style={[SC.originPill, { backgroundColor: originColor(item.origin) + '14' }]}>
-                      <OriginIcon origin={item.origin} />
-                      <Text style={[SC.originText, { color: originColor(item.origin) }]}>{originLabel(item.origin)}</Text>
-                    </View>
-                    <Text style={SC.date}>{relDate(item.created_at)}</Text>
-                  </View>
+              <View style={SC.top}>
+                <View style={[SC.mark, { backgroundColor: originColor(item.origin) + '18' }]}>
+                  <OriginIcon origin={item.origin} />
                 </View>
-                <TouchableOpacity onPress={() => onRemove(item.id)} hitSlop={8} activeOpacity={0.7}>
-                  <X size={14} color={D.textDisabled} strokeWidth={2} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={SC.title} numberOfLines={1}>{item.option_label ?? item.product_name ?? 'Untitled'}</Text>
+                  <Text style={SC.context} numberOfLines={1}>
+                    {item.product_name ? item.product_name : originLabel(item.origin)}
+                    <Text style={SC.contextDim}>  ·  {relDate(item.created_at)}</Text>
+                  </Text>
+                </View>
+                <TouchableOpacity style={SC.iconBtn} onPress={() => onRemove(item.id)} hitSlop={6} activeOpacity={0.7}>
+                  <X size={14} color={D.textMuted} strokeWidth={2} />
                 </TouchableOpacity>
               </View>
-              {item.hook ? (
-                <View style={SC.hookRow}>
-                  <Text style={SC.hookText} numberOfLines={2}>"{item.hook}"</Text>
+              {item.hook ? <Text style={SC.hook} numberOfLines={2}>“{item.hook}”</Text> : null}
+              <View style={SC.strip}>
+                <View style={SC.stripLeft}>
+                  {item.shop_safe_grade
+                    ? <GradePill grade={item.shop_safe_grade} />
+                    : <View style={SC.chip}><Text style={SC.chipText}>Shop Safe</Text></View>}
                 </View>
-              ) : null}
-              <View style={FD.folderActions}>
-                <CopyButton item={item} />
-                <TouchableOpacity style={SC.folderBtn} onPress={() => onAddToFolder(item)} activeOpacity={0.8}>
-                  <FolderPlus size={13} color={D.coral} strokeWidth={2} />
-                  <Text style={SC.folderBtnText}>Folders</Text>
-                </TouchableOpacity>
+                <View style={SC.stripRight}>
+                  <CopyButton item={item} />
+                  <TouchableOpacity style={[SC.iconBtn, SC.iconBtnCoral]} onPress={() => onAddToFolder(item)} hitSlop={6} activeOpacity={0.7}>
+                    <FolderPlus size={14} color={D.coral} strokeWidth={2.2} />
+                  </TouchableOpacity>
+                </View>
               </View>
             </FadeInView>
           ))
@@ -652,7 +612,7 @@ function CopyButton({ item }: { item: SavedScriptItem }) {
 const FD = StyleSheet.create({
   hdr: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 20, paddingTop: 14, paddingBottom: 14,
+    paddingHorizontal: 16, paddingTop: 14, paddingBottom: 14,
     borderBottomWidth: 3,
   },
   backBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: D.surface, borderWidth: 1, borderColor: D.border, alignItems: 'center', justifyContent: 'center' },
@@ -1094,8 +1054,8 @@ export default function ToolkitScreen() {
             <View style={S.emptyIcon}>
               <BookOpen size={26} color={D.textDisabled} strokeWidth={1.5} />
             </View>
-            <Text style={S.emptyTitle}>Your toolkit is empty</Text>
-            <Text style={S.emptySub}>Generate scripts from ScriptIQ and save them — they'll appear here, ready to file into folders.</Text>
+            <Text style={S.emptyTitle}>Nothing saved yet</Text>
+            <Text style={S.emptySub}>Write a script in ScriptIQ and save it — it lands here, checked by Shop Safe, ready to file.</Text>
           </FadeInView>
         )}
 
@@ -1103,7 +1063,7 @@ export default function ToolkitScreen() {
           <>
             {unfiledScripts.length > 0 && (
               <View style={S.section}>
-                <Text style={S.sectionLabel}>
+                <Text style={[S.sectionLabel, { marginTop: 4 }]}>
                   {folders.length > 0 ? 'UNFILED' : 'ALL SCRIPTS'}
                   <Text style={S.sectionCount}> · {unfiledScripts.length}</Text>
                 </Text>
@@ -1226,6 +1186,7 @@ const S = StyleSheet.create({
   sub: { ...T.regular, fontSize: 14, color: D.textMuted, marginTop: 4 },
   tiles: { flexDirection: 'row', gap: 10, marginHorizontal: 16, marginBottom: 14 },
   tile: { flex: 1, backgroundColor: D.card, borderRadius: 18, borderWidth: 1, borderColor: D.border, padding: 12, gap: 6 },
+  tilesWrap: { marginBottom: 6 },
   tileOn: { backgroundColor: D.ink, borderColor: D.ink },
   tileIcon: { width: 28, height: 28, borderRadius: 9, backgroundColor: D.inkHairline, alignItems: 'center', justifyContent: 'center' },
   tileIconOn: { backgroundColor: 'rgba(255,255,255,0.16)' },
@@ -1242,11 +1203,11 @@ const S = StyleSheet.create({
   segTxt: { ...T.bold, fontSize: 13.5, color: D.textMuted },
   segTxtOn: { color: '#FFF' },
 
-  section: { marginBottom: 8 },
+  section: { marginBottom: 12 },
   sectionLabel: { ...T.bold, ...SectionLabelStyle, marginBottom: 12 },
   sectionCount: { ...T.regular, color: D.textDisabled },
 
-  folderGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
+  folderGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
   folderCell: { width: '48%' },
 
   emptyState: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 32, gap: 12 },
