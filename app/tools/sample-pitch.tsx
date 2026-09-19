@@ -1,13 +1,14 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Keyboard, Image } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
 import FadeInView from '@/components/FadeInView';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import { api, extractData } from '@/lib/api';
-import { fromSaved, coverOf } from '@/lib/product-handoff';
+import { fromSaved, coverOf, parseProductParam } from '@/lib/product-handoff';
+import { haptic } from '@/lib/haptics';
 import { D, T, R, Shadow } from '@/constants/ds';
 import { X, Mail, Copy, Check, Search, ShoppingBag, Sparkles } from 'lucide-react-native';
 import type { ProductSearchResult, ProductSearchResponse, SavedProductItem } from '@/types/api';
@@ -47,10 +48,13 @@ function ProductRow({ p, onPress }: { p: ProductSearchResult; onPress: () => voi
 export default function SamplePitchScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [q, setQ] = useState('');
-  const [query, setQuery] = useState('');
+  // Handed a product from Saved, a script, or the product Learn panel.
+  const params = useLocalSearchParams<{ productName?: string; product?: string }>();
+  const handed = parseProductParam(params.product);
+  const [q, setQ] = useState(handed ? '' : (params.productName ?? ''));
+  const [query, setQuery] = useState(handed ? '' : (params.productName ?? ''));
   const deb = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [picked, setPicked] = useState<ProductSearchResult | null>(null);
+  const [picked, setPicked] = useState<ProductSearchResult | null>(handed);
   const [busy, setBusy] = useState(false);
   const [pitch, setPitch] = useState<Pitch | null>(null);
 
@@ -70,12 +74,15 @@ export default function SamplePitchScreen() {
     staleTime: 120_000,
   });
 
+  // Auto-run when a product arrived with the route (from a script or Saved).
+  useEffect(() => { if (handed && !pitch && !busy) run(handed); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+
   const run = async (p: ProductSearchResult) => {
     Keyboard.dismiss(); setPicked(p); setBusy(true); setPitch(null);
     try {
       const r = extractData<Pitch>(await api.post('/creators/tools/sample-pitch', { product: p.title, category: p.category ?? undefined, price: p.price ?? undefined, commission_rate: p.commission_rate ?? undefined }, { timeout: 60_000 }));
-      setPitch(r as Pitch);
-    } catch (e: any) { Alert.alert('Couldn’t write it', e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.'); setPicked(null); }
+      setPitch(r as Pitch); haptic.success();
+    } catch (e: any) { haptic.error(); Alert.alert('Couldn’t write it', e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.'); setPicked(null); }
     finally { setBusy(false); }
   };
 

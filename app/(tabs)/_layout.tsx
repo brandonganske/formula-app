@@ -8,29 +8,12 @@ import AppHeader from '@/components/AppHeader';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import ClipboardCatch from '@/components/ClipboardCatch';
 import { useAuth } from '@/context/AuthContext';
+import { IconSaved, IconProducts, IconTools, IconSettings, ScriptIQIcon } from '@/components/TabIcons';
+import { haptic } from '@/lib/haptics';
 
 const INACTIVE = 'rgba(26,20,38,0.34)';
 
 // ─── SVG icons ────────────────────────────────────────────────────────────────
-
-function IconSaved({ color }: { color: string }) {
-  return (
-    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
-      <Path d="M3.5 7.5a2 2 0 0 1 2-2h4.2l2 2.2h6.8a2 2 0 0 1 2 2v8.3a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2v-10.5Z" />
-    </Svg>
-  );
-}
-
-function IconProducts({ color }: { color: string }) {
-  return (
-    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
-      <Path d="M4 9.5 5.2 5.4A1.6 1.6 0 0 1 6.74 4.3h10.52a1.6 1.6 0 0 1 1.54 1.1L20 9.5" />
-      <Path d="M4 9.5a2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0" />
-      <Path d="M5.5 12v6.4a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V12" />
-      <Path d="M10 19.4v-3.6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3.6" />
-    </Svg>
-  );
-}
 
 function IconProfile({ color }: { color: string }) {
   return (
@@ -52,37 +35,6 @@ function IconProfileAvatar({ color }: { color: string }) {
     <View style={[S.avatarWrap, active ? S.avatarWrapActive : S.avatarWrapIdle]}>
       <Image source={{ uri }} style={S.avatarImg} />
     </View>
-  );
-}
-
-function IconTools({ color }: { color: string }) {
-  return (
-    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
-      <Rect x={3.5} y={3.5} width={7} height={7} rx={2} />
-      <Rect x={13.5} y={3.5} width={7} height={7} rx={2} />
-      <Rect x={3.5} y={13.5} width={7} height={7} rx={2} />
-      <Rect x={13.5} y={13.5} width={7} height={7} rx={2} />
-    </Svg>
-  );
-}
-
-function IconSettings({ color }: { color: string }) {
-  return (
-    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
-      <Circle cx={12} cy={12} r={3.2} />
-      <Path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" />
-    </Svg>
-  );
-}
-
-function ScriptIQIcon() {
-  return (
-    <Svg width={28} height={28} viewBox="0 0 32 32" fill="none">
-      <Rect x={6}  y={8}  width={20} height={3.4} rx={1.7} fill="#fff" />
-      <Rect x={6}  y={15} width={14} height={3.4} rx={1.7} fill="#fff" />
-      <Rect x={6}  y={22} width={9}  height={3.4} rx={1.7} fill="#fff" />
-      <Rect x={23} y={20} width={3.4} height={7.6} rx={1.7} fill="#B6FF8A" />
-    </Svg>
   );
 }
 
@@ -141,6 +93,7 @@ function CustomTabBar({ state, navigation }: any) {
                   pointerEvents="none"
                 />
                 <ScriptIQIcon />
+                <Text style={S.fabLabel}>Scripting</Text>
               </AnimatedPressable>
             </View>
           );
@@ -150,7 +103,7 @@ function CustomTabBar({ state, navigation }: any) {
         if (!cfg) return null;
 
         return (
-          <TouchableOpacity key={route.key} style={S.tab} onPress={onPress} activeOpacity={0.7}>
+          <TouchableOpacity key={route.key} style={S.tab} onPress={() => { if (!focused) haptic.select(); onPress(); }} activeOpacity={0.7}>
             <TabItem Icon={cfg.Icon} label={cfg.label} focused={focused} />
           </TouchableOpacity>
         );
@@ -238,10 +191,11 @@ const S = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  fabLabel: { ...T.bold, fontSize: 9, color: '#FFF', letterSpacing: 0.2, marginTop: -2 },
   fab: {
-    width: 54,
-    height: 54,
-    borderRadius: 18,
+    width: 64,
+    height: 60,
+    borderRadius: 20,
     backgroundColor: D.coral,
     alignItems: 'center',
     justifyContent: 'center',

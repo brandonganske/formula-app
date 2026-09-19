@@ -20,6 +20,8 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import NoCreditsModal from '@/components/NoCreditsModal';
 import AnimatedPressable from '@/components/AnimatedPressable';
+import AfterSaveRow from '@/components/AfterSaveRow';
+import { haptic } from '@/lib/haptics';
 
 // ── Video style / tone config ──────────────────────────────────────────────
 
@@ -201,6 +203,7 @@ function OptionCard({
 }) {
   const [copied, setCopied]           = useState(false);
   const [saved, setSaved]             = useState(false);
+  const [savedId, setSavedId] = useState<string | null>(null);
   const [saving, setSaving]           = useState(false);
   const [expanded, setExpanded]       = useState(true);
   const [showHookAnalysis, setShowHA] = useState(false);
@@ -216,14 +219,16 @@ function OptionCard({
     if (saved || saving) return;
     setSaving(true);
     try {
-      await api.post('/creators/scripts', {
+      const res = await api.post('/creators/scripts', {
         option,
         title: option.label,
         origin: 'organic_script',
       });
       setSaved(true);
+      setSavedId(extractData<{ script?: { id?: string } }>(res)?.script?.id ?? null);
       queryClient.invalidateQueries({ queryKey: ['saved-scripts'] });
     } catch (err: any) {
+      haptic.error();
       Alert.alert('Couldn’t save script', err?.response?.data?.error?.message ?? err?.message ?? 'Please try again.');
     } finally {
       setSaving(false);
@@ -381,6 +386,7 @@ function OptionCard({
               )}
             </AnimatedPressable>
           </View>
+          {saved && savedId ? <AfterSaveRow scriptId={savedId} /> : null}
         </FadeInView>
       ) : null}
     </FadeInView>

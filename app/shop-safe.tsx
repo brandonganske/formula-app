@@ -6,6 +6,9 @@ import FadeInView from '@/components/FadeInView';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import ShopSafeReport from '@/components/ShopSafeReport';
 import { api, extractData } from '@/lib/api';
+import { haptic } from '@/lib/haptics';
+import { useQuery } from '@tanstack/react-query';
+import type { SavedScriptItem, SavedScriptsResponse } from '@/types/api';
 import { D, T, R, Shadow } from '@/constants/ds';
 import { ShieldCheck, Upload, X, Film, FileText } from 'lucide-react-native';
 import type { ShopSafeResult } from '@/types/api';
@@ -21,19 +24,39 @@ export default function ShopSafeScreen() {
   const [pct, setPct] = useState(0);
   const [result, setResult] = useState<ShopSafeResult | null>(null);
   const [name, setName] = useState<string | null>(null);
-  const { mode: modeParam, url: urlParam } = useLocalSearchParams<{ mode?: string; url?: string }>();
-  const [mode, setMode] = useState<'video' | 'script' | null>(modeParam === 'script' || modeParam === 'video' ? modeParam : null);
+  const { mode: modeParam, url: urlParam, text: textParam, scriptId } = useLocalSearchParams<{ mode?: string; url?: string; text?: string; scriptId?: string }>();
+  const [mode, setMode] = useState<'video' | 'script' | null>(modeParam === 'script' || modeParam === 'video' || textParam || scriptId ? (modeParam === 'video' ? 'video' : 'script') : null);
   const scriptMode = mode === 'script';
-  const [script, setScript] = useState('');
+  const [script, setScript] = useState(textParam ?? '');
+  const [fromTitle, setFromTitle] = useState<string | null>(null);
+
+  // A saved script handed in by id: prefill its text and run the check.
+  const { data: saved } = useQuery<SavedScriptItem[]>({
+    queryKey: ['saved-scripts'],
+    queryFn: async () => { const d = extractData<SavedScriptsResponse>(await api.get('/creators/scripts')); return d?.scripts ?? (Array.isArray(d) ? d : []); },
+    staleTime: 60_000,
+    enabled: !!scriptId,
+  });
+  useEffect(() => {
+    if (!scriptId || !saved) return;
+    const it = saved.find((x) => x.id === scriptId);
+    if (!it) return;
+    const t = it.full_script?.trim() || [it.hook, ...(it.body ?? []), it.cta].filter(Boolean).join('\n');
+    setFromTitle(it.option_label ?? it.product_name ?? null);
+    setScript(t);
+  }, [scriptId, saved]);
+
+  // A pass feels different from a fail in the hand.
+  const gradeHaptic = (r: ShopSafeResult) => { if (r.grade === 'A' || r.grade === 'B') haptic.success(); else haptic.warning(); };
 
   // Links shared in from TikTok (or pasted): check the posted video by URL.
   const runUrl = async (u: string) => {
     try {
       setMode('video'); setPhase('checking'); setResult(null); setName(u);
       const r = extractData<ShopSafeResult>(await api.post('/creators/compliance/check', { video_url: u }, { timeout: 300_000 })) as ShopSafeResult;
-      setResult(r); setPhase('done');
+      setResult(r); setPhase('done'); gradeHaptic(r);
     } catch (e: any) {
-      setPhase('idle');
+      haptic.error(); setPhase('idle');
       Alert.alert('Couldn’t check that video', e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.');
     }
   };
@@ -45,9 +68,9 @@ export default function ShopSafeScreen() {
     try {
       setPhase('checking'); setResult(null);
       const r = extractData<ShopSafeResult>(await api.post('/creators/compliance/check', { script: script.trim() }, { timeout: 120_000 })) as ShopSafeResult;
-      setResult(r); setPhase('done');
+      setResult(r); setPhase('done'); gradeHaptic(r);
     } catch (e: any) {
-      setPhase('idle');
+      haptic.error(); setPhase('idle');
       Alert.alert('Couldn’t check that script', e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.');
     }
   };
@@ -96,9 +119,9 @@ export default function ShopSafeScreen() {
       }
       setPhase('checking');
       const r = extractData<ShopSafeResult>(await api.post('/creators/compliance/check', { storage_path: up.storage_path }, { timeout: 300_000 })) as ShopSafeResult;
-      setResult(r); setPhase('done');
+      setResult(r); setPhase('done'); gradeHaptic(r);
     } catch (e: any) {
-      setPhase('idle');
+      haptic.error(); setPhase('idle');
       Alert.alert('Couldn’t check that video', e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.');
     }
   };
@@ -136,8 +159,8 @@ export default function ShopSafeScreen() {
         {phase === 'idle' && scriptMode && (
           <FadeInView style={S.card}>
             <View style={S.dropIcon}><FileText size={26} color={D.coral} strokeWidth={2} /></View>
-            <Text style={S.dropTitle}>Paste your script</Text>
-            <Text style={S.dropSub}>Spoken lines, captions, on-screen text — anything the viewer will see or hear.</Text>
+            <Text style={S.dropTitle}>{fromTitle ? fromTitle : 'Paste your script'}</Text>
+            <Text style={S.dropSub}>{fromTitle ? 'Loaded from Saved. Edit anything, then check it.' : 'Spoken lines, captions, on-screen text — anything the viewer will see or hear.'}</Text>
             <View style={S.inputBox}>
               <TextInput
                 style={S.input}

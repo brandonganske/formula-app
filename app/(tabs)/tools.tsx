@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Modal, Pressable, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { storage } from '@/lib/storage';
+import { TOUR_SEEN_KEY } from '@/lib/tour';
 import FadeInView from '@/components/FadeInView';
 import TabFadeView from '@/components/TabFadeView';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import { D, T, R } from '@/constants/ds';
-import { ShieldCheck, Clapperboard, Mail, MessageSquareWarning, Mic, TrendingUp, Info, X, ArrowRight } from 'lucide-react-native';
+import { ShieldCheck, Clapperboard, Mail, MessageSquareWarning, Mic, TrendingUp, Info, X, ArrowRight, Compass, User } from 'lucide-react-native';
 
 // Tools — a grid of same-size tiles. Tap a tile to open the tool; tap ⓘ for
 // what it does and when to use it.
@@ -53,6 +56,10 @@ const TOOLS: Tool[] = [
 export default function ToolsScreen() {
   const router = useRouter();
   const [info, setInfo] = useState<Tool | null>(null);
+  // First-run nudge: offer the tour once, until it's taken or dismissed.
+  const [showTour, setShowTour] = useState(false);
+  useEffect(() => { storage.getItem(TOUR_SEEN_KEY).then((v) => setShowTour(!v)).catch(() => {}); }, []);
+  const dismissTour = () => { setShowTour(false); void storage.setItem(TOUR_SEEN_KEY, '1'); };
   return (
     <TabFadeView>
       <ScrollView style={S.root} contentContainerStyle={S.scroll} showsVerticalScrollIndicator={false}>
@@ -60,6 +67,21 @@ export default function ToolsScreen() {
           <Text style={S.title}>Tools</Text>
           <Text style={S.sub}>Everything you need before you post.</Text>
         </FadeInView>
+
+        {showTour && (
+          <FadeInView delay={20} style={S.tourWrap}>
+            <AnimatedPressable style={S.tour} haptic="light" onPress={() => router.push({ pathname: '/tour', params: { from: 'first' } })}>
+              <LinearGradient colors={['#FF7A45', D.coral]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={S.tourIcon}>
+                <Compass size={18} color="#FFF" strokeWidth={2.2} />
+              </LinearGradient>
+              <View style={{ flex: 1 }}>
+                <Text style={S.tourTitle}>New here? Take the 60-second tour</Text>
+                <Text style={S.tourSub}>Every tab and tool, and how they connect.</Text>
+              </View>
+              <TouchableOpacity onPress={dismissTour} hitSlop={10} style={S.tourClose}><X size={14} color={D.textMuted} strokeWidth={2.2} /></TouchableOpacity>
+            </AnimatedPressable>
+          </FadeInView>
+        )}
 
         <View style={S.grid}>
           {TOOLS.map((t, i) => (
@@ -77,6 +99,11 @@ export default function ToolsScreen() {
             </FadeInView>
           ))}
         </View>
+        <AnimatedPressable style={S.brain} haptic="light" onPress={() => router.push('/(tabs)')}>
+          <View style={S.brainIcon}><User size={14} color={D.ink} strokeWidth={2.2} /></View>
+          <Text style={S.brainText}>Every tool reads your profile first: your pace, your hooks, your numbers.</Text>
+          <ArrowRight size={14} color={D.textMuted} strokeWidth={2.2} />
+        </AnimatedPressable>
         <View style={{ height: 40 }} />
       </ScrollView>
 
@@ -123,6 +150,15 @@ const S = StyleSheet.create({
   icon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   info: { width: 28, height: 28, borderRadius: 14, backgroundColor: D.surface, borderWidth: 1, borderColor: D.border, alignItems: 'center', justifyContent: 'center' },
   tileTitle: { ...T.bold, fontSize: 16, color: D.textPrimary, letterSpacing: -0.3 },
+  tourWrap: { marginBottom: 12 },
+  tour: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: D.card, borderRadius: 22, borderWidth: 1, borderColor: D.border, padding: 14 },
+  tourIcon: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  tourTitle: { ...T.bold, fontSize: 14.5, color: D.textPrimary, letterSpacing: -0.2 },
+  tourSub: { ...T.regular, fontSize: 12.5, color: D.textMuted, marginTop: 1 },
+  tourClose: { width: 28, height: 28, borderRadius: 14, backgroundColor: D.surface, alignItems: 'center', justifyContent: 'center' },
+  brain: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 16, paddingHorizontal: 4 },
+  brainIcon: { width: 28, height: 28, borderRadius: 9, backgroundColor: D.inkHairline, alignItems: 'center', justifyContent: 'center' },
+  brainText: { ...T.medium, fontSize: 12.5, color: D.textMuted, flex: 1, lineHeight: 17 },
   tileSub: { ...T.regular, fontSize: 12.5, color: D.textMuted, marginTop: 2 },
 
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },

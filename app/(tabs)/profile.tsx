@@ -16,9 +16,10 @@ import { D, T, R, Shadow, SectionLabelStyle } from '@/constants/ds';
 import {
   LogOut, ExternalLink, Shield, ChevronRight, Zap, AtSign, X, Bell, Mail,
   HelpCircle, FileText, KeyRound, Check, Phone, CreditCard, Trash2,
-  User, Calendar, MapPin, MessageSquare, MessageCircle,
+  User, Calendar, MapPin, MessageSquare, MessageCircle, Compass,
 } from 'lucide-react-native';
 import { api } from '@/lib/api';
+import { haptic } from '@/lib/haptics';
 import { usePurchases } from '@/context/PurchasesContext';
 import { planLabel, SUB_PLANS, CREDIT_PACKS, CREDIT_COSTS, FREE_MONTHLY_CREDITS } from '@/lib/iap/catalog';
 import {
@@ -43,7 +44,7 @@ function SettingsRow({
   return (
     <TouchableOpacity
       style={[SR.row, last && SR.rowLast]}
-      onPress={onPress}
+      onPress={onPress ? () => { haptic.tap(); onPress(); } : undefined}
       activeOpacity={onPress ? 0.72 : 1}
       disabled={!onPress}
     >
@@ -549,6 +550,12 @@ export default function SettingsScreen() {
       <FadeInView delay={180} style={S.section}>
         <Text style={S.sectionLabel}>SUPPORT</Text>
         <View style={S.group}>
+          <SettingsRow
+            icon={<Compass size={19} color={D.coral} strokeWidth={1.8} />}
+            label="App tour"
+            sub="A 60-second walk through every tab and tool"
+            onPress={() => router.push('/tour')}
+          />
           <SettingsRow
             icon={<HelpCircle size={19} color={D.textMuted} strokeWidth={1.8} />}
             label="Help & support"

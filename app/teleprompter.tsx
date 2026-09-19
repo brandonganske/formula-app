@@ -15,6 +15,7 @@ import { D, T, R } from '@/constants/ds';
 import { X, RotateCcw, Minus, Plus, FlipHorizontal, Type, Film, ChevronRight, Camera as CameraIcon, CameraOff, SwitchCamera, ClipboardPaste, Settings2, Eye, Check, Zap, ZapOff, Gauge, UserRound, Clapperboard, ChevronUp, ChevronDown } from 'lucide-react-native';
 import type { SavedScriptItem, SavedScriptsResponse } from '@/types/api';
 import AnimatedPressable from '@/components/AnimatedPressable';
+import { haptic } from '@/lib/haptics';
 
 // Teleprompter — scrolls the script at the creator's own talking speed
 // (avg_wpm from their profile), so the pace on screen is the pace they
@@ -236,6 +237,7 @@ export default function TeleprompterScreen() {
   const startRecording = async () => {
     if (!camRef.current || recording) return;
     try {
+      haptic.heavy();
       setRecording(true);
       if (!playing && countdown == null) play();
       const rec = await camRef.current.recordAsync({ maxDuration: 300 });
@@ -243,6 +245,7 @@ export default function TeleprompterScreen() {
       pause();
       if (rec?.uri) setReviewUri(rec.uri);
     } catch (e: any) {
+      haptic.error();
       setRecording(false);
       Alert.alert('Couldn’t record', e?.message ?? 'Please try again.');
     }
@@ -295,7 +298,7 @@ export default function TeleprompterScreen() {
   };
   const retake = () => { setReviewUri(null); reset(); };
 
-  const stopRecording = () => { try { camRef.current?.stopRecording?.(); } catch {} pause(); };
+  const stopRecording = () => { haptic.press(); try { camRef.current?.stopRecording?.(); } catch {} pause(); };
 
   const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
 

@@ -8,10 +8,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, extractData } from '@/lib/api';
-import { SavedScriptItem, SavedScriptsResponse } from '@/types/api';
+import { haptic } from '@/lib/haptics';
+import AnimatedPressable from '@/components/AnimatedPressable';
+import OutcomeSheet from '@/components/OutcomeSheet';
+import ShopSafeSheet from '@/components/ShopSafeSheet';
+import { GradePill } from '@/components/ShopSafeReport';
+import { SavedScriptItem, SavedScriptsResponse, Take } from '@/types/api';
 import { D, T, R, Shadow, Gradient } from '@/constants/ds';
 import {
   ChevronLeft, Copy, Check, ShoppingBag, Film, Sparkles, AlertTriangle, TrendingUp, Zap,
+  ShieldCheck, BarChart3, MessageSquareWarning, Clapperboard, Mail,
 } from 'lucide-react-native';
 
 // ── Helpers (kept in sync with the Saved tab) ──────────────────────────────
@@ -58,6 +64,16 @@ export default function ScriptDetailScreen() {
 
   const item = useMemo(() => scripts.find((s) => s.id === id) ?? null, [scripts, id]);
 
+  // Takes filmed for this script (teleprompter → Saved → here).
+  const { data: takes = [] } = useQuery<Take[]>({
+    queryKey: ['takes'],
+    queryFn: async () => extractData<{ takes: Take[] }>(await api.get('/creators/takes'))?.takes ?? [],
+    staleTime: 60_000,
+  });
+  const myTakes = takes.filter((t) => t.script_id === id);
+  const [showSafe, setShowSafe] = useState(false);
+  const [showOutcome, setShowOutcome] = useState(false);
+
   const original = item ? scriptToText(item) : '';
   const [text, setText] = useState<string | null>(null); // null until item resolves
   const value = text ?? original;
@@ -77,6 +93,7 @@ export default function ScriptDetailScreen() {
   const title = item?.option_label ?? item?.product_name ?? 'Script';
 
   const handleCopy = () => {
+    haptic.select();
     void Clipboard.setStringAsync(value);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -93,9 +110,11 @@ export default function ScriptDetailScreen() {
     );
     try {
       await api.patch(`/creators/scripts/${item.id}`, { full_script: next });
+      haptic.success();
       queryClient.invalidateQueries({ queryKey: ['saved-scripts'] });
       router.back();
     } catch (err: any) {
+      haptic.error();
       if (prevList) queryClient.setQueryData(['saved-scripts'], prevList);
       Alert.alert(
         'Couldn’t save',
@@ -160,12 +179,43 @@ export default function ScriptDetailScreen() {
           keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
         >
           <ScrollView contentContainerStyle={S.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            {/* Everything this script connects to — film it, check it, track it, defend it */}
+            <View style={S.hub}>
+              <AnimatedPressable style={[S.hubBtn, S.hubBtnInk]} haptic="medium" onPress={() => router.push({ pathname: '/teleprompter', params: { scriptId: item.id } })}>
+                <Film size={16} color="#FFF" strokeWidth={2.2} />
+                <Text style={S.hubTextOn}>Film</Text>
+              </AnimatedPressable>
+              <AnimatedPressable style={S.hubBtn} haptic="light" onPress={() => setShowSafe(true)}>
+                {item.shop_safe_grade ? <GradePill grade={item.shop_safe_grade} /> : <ShieldCheck size={16} color={D.limeDeep} strokeWidth={2.2} />}
+                <Text style={S.hubText}>Shop Safe</Text>
+              </AnimatedPressable>
+              <AnimatedPressable style={S.hubBtn} haptic="light" onPress={() => setShowOutcome(true)}>
+                <BarChart3 size={16} color={item.outcome ? D.limeDeep : D.textPrimary} strokeWidth={2.2} />
+                <Text style={S.hubText}>{item.outcome ? 'Results' : 'Posted it?'}</Text>
+              </AnimatedPressable>
+              {myTakes.length > 0 && (
+                <AnimatedPressable style={S.hubBtn} haptic="light" onPress={() => router.push({ pathname: '/(tabs)/scripts', params: { seg: 'videos' } })}>
+                  <Clapperboard size={16} color={D.textPrimary} strokeWidth={2.2} />
+                  <Text style={S.hubText}>{myTakes.length} take{myTakes.length === 1 ? '' : 's'}</Text>
+                </AnimatedPressable>
+              )}
+              {item.product_name ? (
+                <>
+                  <AnimatedPressable style={S.hubBtn} haptic="light" onPress={() => router.push({ pathname: '/tools/objections', params: { productName: item.product_name! } })}>
+                    <MessageSquareWarning size={16} color="#F5A623" strokeWidth={2.2} />
+                    <Text style={S.hubText}>Objections</Text>
+                  </AnimatedPressable>
+                  <AnimatedPressable style={S.hubBtn} haptic="light" onPress={() => router.push({ pathname: '/tools/sample-pitch', params: { productName: item.product_name! } })}>
+                    <Mail size={16} color={D.coral} strokeWidth={2.2} />
+                    <Text style={S.hubText}>Pitch</Text>
+                  </AnimatedPressable>
+                </>
+              ) : null}
+            </View>
+
             <View style={S.editorCard}>
               <View style={S.editorHead}>
                 <Text style={S.editorLabel}>SCRIPT</Text>
-                <TouchableOpacity style={[S.copyBtn, { backgroundColor: D.ink, borderColor: D.ink }]} onPress={() => router.push({ pathname: '/teleprompter', params: { scriptId: item.id } })} activeOpacity={0.75}>
-                  <Film size={13} color="#FFF" strokeWidth={2.2} /><Text style={[S.copyText, { color: '#FFF' }]}>Film</Text>
-                </TouchableOpacity>
                 <TouchableOpacity style={S.copyBtn} onPress={handleCopy} activeOpacity={0.75}>
                   {copied
                     ? <><Check size={13} color={D.success} strokeWidth={2.5} /><Text style={[S.copyText, { color: D.success }]}>Copied</Text></>
@@ -210,6 +260,8 @@ export default function ScriptDetailScreen() {
           </ScrollView>
         </KeyboardAvoidingView>
       )}
+      {item && showSafe && <ShopSafeSheet item={item} onClose={() => setShowSafe(false)} />}
+      {item && showOutcome && <OutcomeSheet scriptId={item.id} current={item.outcome ?? null} onClose={() => setShowOutcome(false)} />}
     </View>
   );
 }
@@ -247,6 +299,11 @@ const S = StyleSheet.create({
   backPillText: { ...T.bold, fontSize: 13, color: D.coral },
 
   scroll: { padding: 16 },
+  hub: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
+  hubBtn: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: D.card, borderWidth: 1, borderColor: D.border, borderRadius: R.full, paddingHorizontal: 14, height: 40 },
+  hubBtnInk: { backgroundColor: D.ink, borderColor: D.ink },
+  hubText: { ...T.bold, fontSize: 13, color: D.textPrimary },
+  hubTextOn: { ...T.bold, fontSize: 13, color: '#FFF' },
   editorCard: {
     backgroundColor: D.card, borderRadius: R.xl,
     borderWidth: 1, borderColor: D.cardBorder, padding: 16, ...Shadow.soft,

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import AnimatedPressable from '@/components/AnimatedPressable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Folder, Trash2 } from 'lucide-react-native';
 import { D, T, R, Shadow } from '@/constants/ds';
@@ -17,7 +18,7 @@ export default function FolderCard({
   isDropTarget?: boolean;
 }) {
   return (
-    <TouchableOpacity style={[FC.card, isDropTarget && FC.cardDropTarget]} onPress={onPress} activeOpacity={0.85}>
+    <AnimatedPressable style={[FC.card, isDropTarget && FC.cardDropTarget]} onPress={onPress} haptic="light" scaleTo={0.965}>
       <View style={FC.top}>
         <LinearGradient colors={[color + 'E6', color]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={FC.iconBox}>
           <Folder size={19} color="#FFF" strokeWidth={2} />
@@ -32,7 +33,7 @@ export default function FolderCard({
       <View style={[FC.countPill, { backgroundColor: color + '14' }]}>
         <Text style={[FC.count, { color }]}>{countLabel}</Text>
       </View>
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 }
 

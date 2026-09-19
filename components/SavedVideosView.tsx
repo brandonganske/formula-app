@@ -19,7 +19,7 @@ const fmtNum = (n: number | null | undefined) => {
 
 // The creator's own TikToks as assets: same screengrabs the Profile uses,
 // each one a starting point for a rewrite.
-export default function SavedVideosView() {
+export default function SavedVideosView({ query = '' }: { query?: string }) {
   const router = useRouter();
   const { data, isLoading } = useQuery<ShopDashboard>({
     queryKey: ['shop-dashboard'],
@@ -29,13 +29,16 @@ export default function SavedVideosView() {
     },
     staleTime: 5 * 60_000,
   });
-  const videos: ShopVideo[] = data?.top_videos ?? [];
   const takesQ = useQuery<Take[]>({
     queryKey: ['takes'],
     queryFn: async () => extractData<{ takes: Take[] }>(await api.get('/creators/takes'))?.takes ?? [],
     staleTime: 60_000,
   });
-  const takes = takesQ.data ?? [];
+  const q = query.trim().toLowerCase();
+  const allTakes = takesQ.data ?? [];
+  const takes = q ? allTakes.filter((t) => [t.title, t.product_name, t.script?.title, t.script?.product_name, t.script?.hook].some((v) => (v ?? '').toLowerCase().includes(q))) : allTakes;
+  const videosAll: ShopVideo[] = data?.top_videos ?? [];
+  const videos = q ? videosAll.filter((v) => Object.values(v).some((x) => typeof x === 'string' && x.toLowerCase().includes(q))) : videosAll;
   const [openTake, setOpenTake] = useState<Take | null>(null);
 
   const recreate = (v: ShopVideo) => {
@@ -49,12 +52,12 @@ export default function SavedVideosView() {
       <FadeInView style={[S.card, { marginBottom: 14 }]}>
         <View style={S.hdr}>
           <Text style={S.label}>Your takes</Text>
-          <Text style={S.hint}>{takes.length === 0 ? 'from the teleprompter' : `${takes.length} filmed`}</Text>
+          <Text style={S.hint}>{q ? `${takes.length} match` : takes.length === 0 ? 'from the teleprompter' : `${takes.length} filmed`}</Text>
         </View>
         {takes.length === 0 ? (
           <View style={S.takesEmpty}>
             <Clapperboard size={18} color={D.textDisabled} strokeWidth={1.8} />
-            <Text style={S.takesEmptyText}>Film a script in the teleprompter and your takes land here, attached to the script.</Text>
+            <Text style={S.takesEmptyText}>{q ? `No takes match “${query.trim()}”.` : 'Film a script in the teleprompter and your takes land here, attached to the script.'}</Text>
           </View>
         ) : (
           <View style={S.grid}>

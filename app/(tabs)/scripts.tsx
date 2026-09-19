@@ -16,7 +16,9 @@ import OutcomeSheet from '@/components/OutcomeSheet';
 import ShopSafeSheet from '@/components/ShopSafeSheet';
 import { GradePill } from '@/components/ShopSafeReport';
 import FolderCard from '@/components/FolderCard';
-import { SavedProductItem, ShopDashboard } from '@/types/api';
+import AnimatedPressable from '@/components/AnimatedPressable';
+import { haptic } from '@/lib/haptics';
+import { SavedProductItem, ShopDashboard, Take } from '@/types/api';
 import * as Haptics from 'expo-haptics';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, extractData } from '@/lib/api';
@@ -27,7 +29,7 @@ import { D, T, R, Shadow, Ease, Gradient, SectionLabelStyle, FOLDER_COLORS } fro
 import {
   FolderPlus, Folder, FolderOpen, Copy, Check, RefreshCw,
   ChevronRight, ChevronLeft, Plus, X, Trash2, Zap,
-  ShoppingBag, Film, Sparkles, BookOpen, AlertTriangle, Pencil, TrendingUp,
+  ShoppingBag, Film, Sparkles, BookOpen, AlertTriangle, Pencil, TrendingUp, Search, Clapperboard, ShieldCheck,
 } from 'lucide-react-native';
 
 const fmtCompact = (n: number | null | undefined) => {
@@ -115,6 +117,8 @@ function ScriptCard({
   item,
   index,
   folders,
+  takeCount = 0,
+  onShowTakes,
   onAddToFolder,
   isDraggingThis,
   onDragStart,
@@ -125,6 +129,8 @@ function ScriptCard({
   item: SavedScriptItem;
   index: number;
   folders: FolderData[];
+  takeCount?: number;
+  onShowTakes?: (item: SavedScriptItem) => void;
   onAddToFolder: (item: SavedScriptItem) => void;
   isDraggingThis?: boolean;
   onDragStart: (item: SavedScriptItem, absX: number, absY: number) => void;
@@ -222,10 +228,10 @@ function ScriptCard({
       {/* Status strip — Shop Safe + results on the left, actions on the right */}
       <View style={SC.strip}>
         <View style={SC.stripLeft}>
-          <TouchableOpacity onPress={() => setShowSafe(true)} hitSlop={6} activeOpacity={0.8}>
+          <TouchableOpacity onPress={() => { haptic.tap(); setShowSafe(true); }} hitSlop={6} activeOpacity={0.8}>
             {item.shop_safe_grade
               ? <GradePill grade={item.shop_safe_grade} />
-              : <View style={SC.chip}><Text style={SC.chipText}>Shop Safe</Text></View>}
+              : <View style={SC.chip}><ShieldCheck size={10} color={D.textMuted} strokeWidth={2.2} /><Text style={SC.chipText}>Shop Safe</Text></View>}
           </TouchableOpacity>
           {outcome ? (
             <TouchableOpacity style={[SC.chip, SC.chipLime]} onPress={() => setShowOutcome(true)} activeOpacity={0.8} hitSlop={6}>
@@ -238,21 +244,26 @@ function ScriptCard({
               <Text style={[SC.chipText, SC.chipCoralText]}>Posted it?</Text>
             </TouchableOpacity>
           ) : null}
+          {takeCount > 0 && (
+            <TouchableOpacity style={[SC.chip, SC.chipInk]} onPress={() => { haptic.select(); onShowTakes?.(item); }} activeOpacity={0.8} hitSlop={6}>
+              <Clapperboard size={10} color="#FFF" strokeWidth={2.2} /><Text style={[SC.chipText, SC.chipInkText]}>{takeCount} take{takeCount === 1 ? '' : 's'}</Text>
+            </TouchableOpacity>
+          )}
           {folderCount > 0 && (
             <View style={SC.chip}><Folder size={10} color={D.textMuted} strokeWidth={2.2} /><Text style={SC.chipText}>{folderCount}</Text></View>
           )}
         </View>
         {!renaming && (
           <View style={SC.stripRight}>
-            <TouchableOpacity style={[SC.iconBtn, SC.iconBtnInk]} onPress={() => router.push({ pathname: '/teleprompter', params: { scriptId: item.id } })} hitSlop={6} activeOpacity={0.7}>
+            <AnimatedPressable style={[SC.iconBtn, SC.iconBtnInk]} haptic="light" scaleTo={0.9} onPress={() => router.push({ pathname: '/teleprompter', params: { scriptId: item.id } })} hitSlop={6}>
               <Film size={14} color="#FFF" strokeWidth={2.2} />
-            </TouchableOpacity>
-            <TouchableOpacity style={SC.iconBtn} onPress={startRename} hitSlop={6} activeOpacity={0.7}>
+            </AnimatedPressable>
+            <AnimatedPressable style={SC.iconBtn} haptic="selection" scaleTo={0.9} onPress={startRename} hitSlop={6}>
               <Pencil size={13} color={D.textMuted} strokeWidth={2} />
-            </TouchableOpacity>
-            <TouchableOpacity style={[SC.iconBtn, SC.iconBtnCoral]} onPress={() => onAddToFolder(item)} hitSlop={6} activeOpacity={0.7}>
+            </AnimatedPressable>
+            <AnimatedPressable style={[SC.iconBtn, SC.iconBtnCoral]} haptic="light" scaleTo={0.9} onPress={() => onAddToFolder(item)} hitSlop={6}>
               <FolderPlus size={14} color={D.coral} strokeWidth={2.2} />
-            </TouchableOpacity>
+            </AnimatedPressable>
           </View>
         )}
       </View>
@@ -299,6 +310,8 @@ const SC = StyleSheet.create({
   chipLimeText: { color: D.limeDeep },
   chipCoral: { backgroundColor: D.coralSubtle, borderColor: 'transparent' },
   chipCoralText: { color: D.coral },
+  chipInk: { backgroundColor: D.ink, borderColor: D.ink },
+  chipInkText: { color: '#FFF' },
   iconBtn: { width: 30, height: 30, borderRadius: 10, backgroundColor: D.surface, borderWidth: 1, borderColor: D.border, alignItems: 'center', justifyContent: 'center' },
   iconBtnCoral: { backgroundColor: D.coralSubtle, borderColor: D.coral + '22' },
   iconBtnInk: { backgroundColor: D.ink, borderColor: D.ink },
@@ -667,13 +680,48 @@ export default function ToolkitScreen() {
     },
     staleTime: 5 * 60_000,
   });
-  const { data: takesLite } = useQuery({
+  const { data: takesLite } = useQuery<Take[]>({
     queryKey: ['takes'],
-    queryFn: async () => extractData<{ takes: unknown[] }>(await api.get('/creators/takes'))?.takes ?? [],
+    queryFn: async () => extractData<{ takes: Take[] }>(await api.get('/creators/takes'))?.takes ?? [],
     staleTime: 60_000,
   });
+  const takes = takesLite ?? [];
   const productCount = savedProductsLite?.length ?? 0;
-  const videoCount = (takesLite?.length ?? 0) + (shopLite?.top_videos?.length ?? 0);
+  const videoCount = takes.length + (shopLite?.top_videos?.length ?? 0);
+  const takeCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const t of takes) if (t.script_id) m[t.script_id] = (m[t.script_id] ?? 0) + 1;
+    return m;
+  }, [takes]);
+
+  // One search box for every shelf. Switching shelves keeps the query so a
+  // creator can look for "gummies" across scripts, products and takes.
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+  const matchesScript = useCallback((s: SavedScriptItem) => {
+    if (!q) return true;
+    return [s.option_label, s.product_name, s.hook, s.full_script].some((v) => (v ?? '').toLowerCase().includes(q));
+  }, [q]);
+
+  // Segmented control: sliding ink pill.
+  const SEGS = ['scripts', 'products', 'videos'] as const;
+  const [segW, setSegW] = useState(0);
+  const segX = useRef(new Animated.Value(0)).current;
+  const contentFade = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    Animated.spring(segX, { toValue: SEGS.indexOf(seg) * segW, useNativeDriver: true, speed: 22, bounciness: 4 }).start();
+  }, [seg, segW]);
+  const switchSeg = (k: typeof SEGS[number]) => {
+    if (k === seg) return;
+    haptic.select();
+    contentFade.setValue(0.35);
+    setSeg(k);
+    Animated.timing(contentFade, { toValue: 1, duration: 220, easing: Ease.out, useNativeDriver: true }).start();
+  };
+  const showTakesFor = (item: SavedScriptItem) => {
+    setQuery(item.option_label ?? item.product_name ?? '');
+    switchSeg('videos');
+  };
   const [selectedFolderId, setSelectedFolderId]       = useState<string | null>(null);
   const [showCreateFolder, setShowCreateFolder]       = useState(false);
   const [addingScript, setAddingScript]               = useState<SavedScriptItem | null>(null);
@@ -921,9 +969,10 @@ export default function ToolkitScreen() {
     }
   }, []);
 
-  // Unfiled = not in ANY folder
+  // Unfiled = not in ANY folder. While searching, every match shows in one
+  // list regardless of folder — the folders grid steps aside.
   const allFiledIds = new Set(folders.flatMap((f) => f.scriptIds));
-  const unfiledScripts = scripts.filter((s) => !allFiledIds.has(s.id));
+  const unfiledScripts = q ? scripts.filter(matchesScript) : scripts.filter((s) => !allFiledIds.has(s.id));
 
   // ── Content ───────────────────────────────────────────────────────────
 
@@ -975,30 +1024,48 @@ export default function ToolkitScreen() {
       {/* Header */}
       <FadeInView style={S.head}>
         <Text style={S.title}>Saved</Text>
-        <Text style={S.sub}>Everything you've kept, in one place.</Text>
+        <Text style={S.sub}>{scripts.length} script{scripts.length === 1 ? '' : 's'} · {productCount} product{productCount === 1 ? '' : 's'} · {videoCount} video{videoCount === 1 ? '' : 's'}</Text>
       </FadeInView>
 
-      {/* Asset tiles double as the switcher */}
-      <View style={S.tiles}>
-        {([
-          { k: 'scripts' as const, label: 'Scripts', n: scripts.length, Icon: BookOpen },
-          { k: 'products' as const, label: 'Products', n: productCount, Icon: ShoppingBag },
-          { k: 'videos' as const, label: 'Videos', n: videoCount, Icon: Film },
-        ]).map(({ k, label, n, Icon }) => {
-          const on = seg === k;
-          return (
-            <TouchableOpacity key={k} style={[S.tile, on && S.tileOn]} onPress={() => setSeg(k)} activeOpacity={0.85}>
-              <View style={[S.tileIcon, on && S.tileIconOn]}>
-                <Icon size={15} color={on ? '#FFF' : D.textMuted} strokeWidth={2.2} />
-              </View>
-              <Text style={[S.tileNum, on && S.tileNumOn]}>{n}</Text>
-              <Text style={[S.tileLabel, on && S.tileLabelOn]}>{label}</Text>
-            </TouchableOpacity>
-          );
-        })}
+      {/* Segmented control — one library, three shelves */}
+      <View style={S.segWrap}>
+        <View style={S.seg} onLayout={(e) => setSegW((e.nativeEvent.layout.width - 8) / 3)}>
+          {segW > 0 && <Animated.View style={[S.segPill, { width: segW, transform: [{ translateX: segX }] }]} pointerEvents="none" />}
+          {([
+            { k: 'scripts' as const, label: 'Scripts', n: scripts.length, Icon: BookOpen },
+            { k: 'products' as const, label: 'Products', n: productCount, Icon: ShoppingBag },
+            { k: 'videos' as const, label: 'Videos', n: videoCount, Icon: Film },
+          ]).map(({ k, label, n, Icon }) => {
+            const on = seg === k;
+            return (
+              <TouchableOpacity key={k} style={S.segBtn} onPress={() => switchSeg(k)} activeOpacity={0.8}>
+                <Icon size={14} color={on ? '#FFF' : D.textMuted} strokeWidth={2.2} />
+                <Text style={[S.segTxt, on && S.segTxtOn]}>{label}</Text>
+                <Text style={[S.segNum, on && S.segNumOn]}>{n}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <View style={S.search}>
+          <Search size={15} color={D.textMuted} strokeWidth={2.2} />
+          <TextInput
+            style={S.searchInput}
+            value={query}
+            onChangeText={setQuery}
+            placeholder={seg === 'scripts' ? 'Search scripts, hooks, products…' : seg === 'products' ? 'Search saved products…' : 'Search takes and videos…'}
+            placeholderTextColor={D.textDisabled}
+            returnKeyType="search"
+            autoCorrect={false}
+            clearButtonMode="never"
+          />
+          {query.length > 0 && (
+            <TouchableOpacity onPress={() => { haptic.tap(); setQuery(''); }} hitSlop={10} style={S.searchClear}><X size={12} color={D.textMuted} strokeWidth={2.4} /></TouchableOpacity>
+          )}
+        </View>
       </View>
 
-      {seg === 'products' ? <SavedProductsView /> : seg === 'videos' ? <SavedVideosView /> : (
+      <Animated.View style={{ flex: 1, opacity: contentFade }}>
+      {seg === 'products' ? <SavedProductsView query={q} /> : seg === 'videos' ? <SavedVideosView query={q} /> : (
       <ScrollView
         contentContainerStyle={S.scroll}
         showsVerticalScrollIndicator={false}
@@ -1006,16 +1073,16 @@ export default function ToolkitScreen() {
       >
 
         {/* Folders section */}
-        <View style={S.toolbar}>
+        {!q && <View style={S.toolbar}>
           <Text style={[S.sectionLabel, { marginBottom: 0 }]}>
             FOLDERS{dragScript ? <Text style={{ color: D.coral }}>{'   ↑ drop to file'}</Text> : ''}
           </Text>
-          <TouchableOpacity style={S.newBtn} onPress={() => setShowCreateFolder(true)} activeOpacity={0.85} hitSlop={6}>
+          <TouchableOpacity style={S.newBtn} onPress={() => { haptic.tap(); setShowCreateFolder(true); }} activeOpacity={0.85} hitSlop={6}>
             <FolderPlus size={13} color={D.coral} strokeWidth={2.4} />
             <Text style={S.newBtnText}>New folder</Text>
           </TouchableOpacity>
-        </View>
-        {foldersLoaded && folders.length > 0 && (
+        </View>}
+        {!q && foldersLoaded && folders.length > 0 && (
           <View style={S.section}>
             <View style={S.folderGrid}>
               {folders.map((f) => {
@@ -1076,7 +1143,7 @@ export default function ToolkitScreen() {
             {unfiledScripts.length > 0 && (
               <View style={S.section}>
                 <Text style={[S.sectionLabel, { marginTop: 4 }]}>
-                  {folders.length > 0 ? 'UNFILED' : 'ALL SCRIPTS'}
+                  {q ? 'RESULTS' : folders.length > 0 ? 'UNFILED' : 'ALL SCRIPTS'}
                   <Text style={S.sectionCount}> · {unfiledScripts.length}</Text>
                 </Text>
                 {unfiledScripts.map((item, i) => (
@@ -1085,6 +1152,8 @@ export default function ToolkitScreen() {
                     item={item}
                     index={i}
                     folders={folders}
+                    takeCount={takeCounts[item.id] ?? 0}
+                    onShowTakes={showTakesFor}
                     onAddToFolder={(s) => setAddingScript(s)}
                     isDraggingThis={dragScript?.id === item.id}
                     onDragStart={handleDragStart}
@@ -1096,7 +1165,13 @@ export default function ToolkitScreen() {
               </View>
             )}
 
-            {folders.length > 0 && unfiledScripts.length === 0 && (
+            {q && unfiledScripts.length === 0 && (
+              <View style={S.allFiledMsg}>
+                <Search size={14} color={D.textMuted} strokeWidth={2} />
+                <Text style={S.allFiledText}>No scripts match “{query.trim()}”.</Text>
+              </View>
+            )}
+            {!q && folders.length > 0 && unfiledScripts.length === 0 && (
               <View style={S.allFiledMsg}>
                 <Zap size={14} color={D.limeDeep} strokeWidth={2} />
                 <Text style={S.allFiledText}>All scripts are organized into folders.</Text>
@@ -1108,6 +1183,7 @@ export default function ToolkitScreen() {
         <View style={{ height: 90 }} />
       </ScrollView>
       )}
+      </Animated.View>
 
       {/* Add to folder overlay */}
       {addingScript && (
@@ -1196,24 +1272,20 @@ const S = StyleSheet.create({
   head: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 16 },
   title: { ...T.bold, fontSize: 30, color: D.textPrimary, letterSpacing: -0.8, lineHeight: 34 },
   sub: { ...T.regular, fontSize: 14, color: D.textMuted, marginTop: 4 },
-  tiles: { flexDirection: 'row', gap: 10, marginHorizontal: 16, marginBottom: 14 },
-  tile: { flex: 1, backgroundColor: D.card, borderRadius: 18, borderWidth: 1, borderColor: D.border, padding: 12, gap: 6 },
-  tilesWrap: { marginBottom: 6 },
-  tileOn: { backgroundColor: D.ink, borderColor: D.ink },
-  tileIcon: { width: 28, height: 28, borderRadius: 9, backgroundColor: D.inkHairline, alignItems: 'center', justifyContent: 'center' },
-  tileIconOn: { backgroundColor: 'rgba(255,255,255,0.16)' },
-  tileNum: { ...T.bold, fontSize: 22, color: D.textPrimary, letterSpacing: -0.6, marginTop: 2 },
-  tileNumOn: { color: '#FFF' },
-  tileLabel: { ...T.medium, fontSize: 12.5, color: D.textMuted },
-  tileLabelOn: { color: 'rgba(255,255,255,0.72)' },
+  segWrap: { marginHorizontal: 16, marginBottom: 12, gap: 10 },
+  seg: { flexDirection: 'row', backgroundColor: D.card, borderWidth: 1, borderColor: D.border, borderRadius: R.full, padding: 4 },
+  segPill: { position: 'absolute', top: 4, bottom: 4, left: 4, borderRadius: R.full, backgroundColor: D.ink },
+  segBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: R.full },
+  segTxt: { ...T.bold, fontSize: 13, color: D.textMuted },
+  segTxtOn: { color: '#FFF' },
+  segNum: { ...T.medium, fontSize: 11.5, color: D.textDisabled },
+  segNumOn: { color: 'rgba(255,255,255,0.7)' },
+  search: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: D.card, borderWidth: 1, borderColor: D.border, borderRadius: R.full, paddingHorizontal: 14, height: 42 },
+  searchInput: { ...T.medium, fontSize: 14, color: D.textPrimary, flex: 1, paddingVertical: 0 },
+  searchClear: { width: 22, height: 22, borderRadius: 11, backgroundColor: D.surface, alignItems: 'center', justifyContent: 'center' },
   toolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, marginTop: 4 },
   newBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: D.coralSubtle, borderRadius: R.full, paddingHorizontal: 11, paddingVertical: 6 },
   newBtnText: { ...T.bold, fontSize: 12.5, color: D.coral },
-  seg: { flexDirection: 'row', gap: 6, marginHorizontal: 20, marginTop: 14, marginBottom: 10, backgroundColor: D.inkHairline, borderRadius: R.full, padding: 4 },
-  segBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, borderRadius: R.full },
-  segBtnOn: { backgroundColor: D.ink },
-  segTxt: { ...T.bold, fontSize: 13.5, color: D.textMuted },
-  segTxtOn: { color: '#FFF' },
 
   section: { marginBottom: 12 },
   sectionLabel: { ...T.bold, ...SectionLabelStyle, marginBottom: 12 },

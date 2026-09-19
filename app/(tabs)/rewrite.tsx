@@ -22,6 +22,8 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import NoCreditsModal from '@/components/NoCreditsModal';
 import AnimatedPressable from '@/components/AnimatedPressable';
+import AfterSaveRow from '@/components/AfterSaveRow';
+import { haptic } from '@/lib/haptics';
 
 // ── coerce API values to string ────────────────────────────────────────────
 function str(value: unknown): string {
@@ -368,6 +370,7 @@ function ScriptCard({ option, index }: { option: RewriteOption; index: number })
   const [showHookAnalysis, setShowHookAnalysis] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [savedId, setSavedId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   // Support both current API (full_script) and legacy history items (script)
@@ -379,14 +382,16 @@ function ScriptCard({ option, index }: { option: RewriteOption; index: number })
     if (saved || saving) return;
     setSaving(true);
     try {
-      await api.post('/creators/scripts', {
+      const res = await api.post('/creators/scripts', {
         option,
         title: option.label,
         origin: 'viral_rewrite',
       });
       setSaved(true);
+      setSavedId(extractData<{ script?: { id?: string } }>(res)?.script?.id ?? null);
       queryClient.invalidateQueries({ queryKey: ['saved-scripts'] });
     } catch (err: any) {
+      haptic.error();
       Alert.alert('Couldn’t save script', err?.response?.data?.error?.message ?? err?.message ?? 'Please try again.');
     } finally { setSaving(false); }
   };
@@ -526,6 +531,7 @@ function ScriptCard({ option, index }: { option: RewriteOption; index: number })
               }
             </AnimatedPressable>
           </View>
+          {saved && savedId ? <AfterSaveRow scriptId={savedId} /> : null}
         </FadeInView>
       )}
     </FadeInView>

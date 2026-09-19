@@ -66,6 +66,7 @@ function RootLayoutNav() {
       {/* TikTok native-login Universal Link return target */}
       <Stack.Screen name="tiktok/native" />
       <Stack.Screen name="share" options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="tour" options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="+not-found" />
     </Stack>
   );

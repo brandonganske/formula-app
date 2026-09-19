@@ -1336,6 +1336,12 @@ const brainS = StyleSheet.create({
   dMeaning: { fontSize: 13, fontWeight: '400', color: D.textSecondary, lineHeight: 19, marginTop: 1 },
   basedOn: { fontSize: 12.5, fontWeight: '400', color: D.textMuted, lineHeight: 18, marginTop: 14 },
 
+  powers: { backgroundColor: D.card, borderRadius: 22, borderWidth: 1, borderColor: D.border, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4, marginTop: 14, marginHorizontal: 16 },
+  powersLabel: { fontSize: 11, fontWeight: '600', color: D.textMuted, letterSpacing: 1.2, marginBottom: 6 },
+  powerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: D.divider },
+  powerIcon: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  powerTitle: { fontSize: 15, fontWeight: '600', color: D.textPrimary, letterSpacing: -0.2 },
+  powerSub: { fontSize: 12.5, fontWeight: '400', color: D.textMuted, marginTop: 1 },
   cta: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     backgroundColor: D.coral, borderRadius: 999, paddingVertical: 17, gap: 10,
@@ -2183,6 +2189,26 @@ export default function BrainScreen() {
         )}
 
         <Text style={pS.footnote}>“Typical creator” = short-form talking-video norms, not a specific account.</Text>
+
+        {/* What this profile powers — the tools that read it before they work */}
+        <FadeInView delay={100} style={brainS.powers}>
+          <Text style={brainS.powersLabel}>WHAT THIS POWERS</Text>
+          {([
+            { k: 'scripting', title: 'Scripting', sub: 'Every script written in your voice, at your pace', Icon: Zap, color: D.coral, route: '/(tabs)/scriptiq' },
+            { k: 'prompter', title: 'Teleprompter', sub: `Scrolls at your ${speech?.avg_wpm ? Math.round(speech.avg_wpm) + ' wpm' : 'speaking speed'}`, Icon: Clapperboard, color: D.ink, route: '/teleprompter' },
+            { k: 'coach', title: 'Rehearsal coach', sub: 'Grades delivery against your own baseline', Icon: Mic, color: '#6C5CE7', route: '/tools/coach' },
+            { k: 'pitch', title: 'Sample pitch', sub: 'Pitches brands with your real numbers', Icon: Share2, color: D.limeDeep, route: '/tools/sample-pitch' },
+          ] as const).map((r, i, arr) => (
+            <AnimatedPressable key={r.k} style={[brainS.powerRow, i === arr.length - 1 && { borderBottomWidth: 0 }]} haptic="light" onPress={() => router.push(r.route as any)}>
+              <View style={[brainS.powerIcon, { backgroundColor: r.color }]}><r.Icon size={15} color="#FFF" strokeWidth={2.2} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={brainS.powerTitle}>{r.title}</Text>
+                <Text style={brainS.powerSub} numberOfLines={1}>{r.sub}</Text>
+              </View>
+              <ArrowRight size={15} color={D.textDisabled} strokeWidth={2.2} />
+            </AnimatedPressable>
+          ))}
+        </FadeInView>
 
         {/* CTA */}
         <FadeInView delay={120}>

@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
-type HapticKind = 'light' | 'medium' | 'selection' | 'success' | null;
+type HapticKind = 'light' | 'medium' | 'heavy' | 'selection' | 'success' | 'warning' | 'error' | null;
 
 export interface AnimatedPressableProps extends Omit<PressableProps, 'style'> {
   /** Scale target while pressed. Default 0.97. */
@@ -38,8 +38,17 @@ function fireHaptic(kind: HapticKind) {
       case 'selection':
         Haptics.selectionAsync();
         break;
+      case 'heavy':
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        break;
       case 'success':
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        break;
+      case 'warning':
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        break;
+      case 'error':
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         break;
     }
   } catch {

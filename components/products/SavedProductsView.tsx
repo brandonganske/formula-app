@@ -25,7 +25,7 @@ const PV = StyleSheet.create({
   dot: { width: 9, height: 9, borderRadius: 5 },
 });
 
-export default function SavedProductsView() {
+export default function SavedProductsView({ query = '' }: { query?: string }) {
   const queryClient = useQueryClient();
   const { profile } = useAuth();
   const creatorId = profile?.id ?? null;
@@ -110,7 +110,9 @@ export default function SavedProductsView() {
   });
 
   const savedItems = savedData ?? [];
-  const filteredItems = selectedFolderId ? savedItems.filter((item) => item.folder_id === selectedFolderId) : savedItems;
+  const q = query.trim().toLowerCase();
+  const searched = q ? savedItems.filter((i) => [i.title, i.shop_name, i.category].some((v) => (v ?? '').toLowerCase().includes(q))) : savedItems;
+  const filteredItems = selectedFolderId && !q ? searched.filter((item) => item.folder_id === selectedFolderId) : searched;
   const viewingSavedSource: PanelSource | null = viewingSaved ? fromSavedItem(viewingSaved) : null;
   const selectedFolder = selectedFolderId ? folderMap[selectedFolderId] : null;
 
@@ -118,14 +120,14 @@ export default function SavedProductsView() {
     <View style={{ flex: 1 }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.scroll}>
         {/* Folders — same tiles as saved scripts */}
-        <View style={PV.toolbar}>
+        {!q && <View style={PV.toolbar}>
           <Text style={[S.sectionLabel, { marginBottom: 0 }]}>FOLDERS</Text>
           <TouchableOpacity style={PV.newBtn} onPress={() => setShowNewFolderModal(true)} activeOpacity={0.85} hitSlop={6}>
             <FolderPlus size={13} color={D.coral} strokeWidth={2.4} />
             <Text style={PV.newBtnText}>New folder</Text>
           </TouchableOpacity>
-        </View>
-        {folders.length > 0 && !selectedFolderId && (
+        </View>}
+        {folders.length > 0 && !selectedFolderId && !q && (
           <View style={FOLDER_GRID.grid}>
             {folders.map((folder) => {
               const count = savedItems.filter((i) => i.folder_id === folder.id).length;
@@ -146,7 +148,12 @@ export default function SavedProductsView() {
 
         {/* Products header: "All" or the open folder */}
         <View style={S.sectionHdr}>
-          {selectedFolder ? (
+          {q ? (
+            <View style={S.sectionHdrLeft}>
+              <Text style={S.sectionLabel}>RESULTS</Text>
+              <View style={S.countBadge}><Text style={S.countBadgeTxt}>{filteredItems.length}</Text></View>
+            </View>
+          ) : selectedFolder ? (
             <TouchableOpacity style={PV.back} onPress={() => setSelectedFolderId(null)} activeOpacity={0.75} hitSlop={8}>
               <ChevronLeft size={16} color={D.coral} strokeWidth={2.4} />
               <View style={[PV.dot, { backgroundColor: selectedFolder.color }]} />
@@ -184,9 +191,9 @@ export default function SavedProductsView() {
                 ? <FolderOpen size={24} color={D.textDisabled} strokeWidth={1.5} />
                 : <Bookmark size={24} color={D.textDisabled} strokeWidth={1.5} />}
             </View>
-            <Text style={S.emptyTitle}>{selectedFolderId ? 'No products in this folder' : 'No saved products'}</Text>
+            <Text style={S.emptyTitle}>{q ? `No products match “${query.trim()}”` : selectedFolderId ? 'No products in this folder' : 'No saved products'}</Text>
             <Text style={S.emptySub}>
-              {selectedFolderId
+              {q ? 'Try a shorter word, or search TikTok Shop from the Products tab.' : selectedFolderId
                 ? 'In manage mode, use the folder icon to move products here.'
                 : 'Find a product on the Products tab, tap Learn, then save it.'}
             </Text>

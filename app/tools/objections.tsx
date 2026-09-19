@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Keyboard } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import FadeInView from '@/components/FadeInView';
@@ -8,8 +8,10 @@ import AnimatedPressable from '@/components/AnimatedPressable';
 import ProductPickField from '@/components/ProductPickField';
 import { GradePill } from '@/components/ShopSafeReport';
 import { api, extractData } from '@/lib/api';
+import { haptic } from '@/lib/haptics';
+import { parseProductParam } from '@/lib/product-handoff';
 import { D, T, R, Shadow } from '@/constants/ds';
-import { X, MessageSquareWarning, Copy, Film, Sparkles } from 'lucide-react-native';
+import { X, MessageSquareWarning, Copy, Film, Sparkles, ShieldCheck } from 'lucide-react-native';
 import type { ShopSafeFinding } from '@/types/api';
 
 interface Objection { objection: string; why_they_say_it: string; answer: string; on_screen: string }
@@ -18,17 +20,20 @@ interface Result { objections: Objection[]; shop_safe: { grade: 'A' | 'B' | 'C' 
 export default function ObjectionsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [product, setProduct] = useState('');
-  const [category, setCategory] = useState<string | null>(null);
-  const [price, setPrice] = useState<number | null>(null);
+  // Handed a product from Saved, a script, or the product Learn panel.
+  const params = useLocalSearchParams<{ productName?: string; product?: string }>();
+  const handed = parseProductParam(params.product);
+  const [product, setProduct] = useState(handed?.title ?? params.productName ?? '');
+  const [category, setCategory] = useState<string | null>(handed?.category ?? null);
+  const [price, setPrice] = useState<number | null>(handed?.price ?? null);
   const [busy, setBusy] = useState(false);
   const [res, setRes] = useState<Result | null>(null);
 
   const run = async () => {
     if (!product.trim()) return;
     Keyboard.dismiss(); setBusy(true);
-    try { setRes(extractData<Result>(await api.post('/creators/tools/objections', { product: product.trim(), category: category ?? undefined, price: price ?? undefined }, { timeout: 90_000 })) as Result); }
-    catch (e: any) { Alert.alert('Couldn’t generate', e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.'); }
+    try { setRes(extractData<Result>(await api.post('/creators/tools/objections', { product: product.trim(), category: category ?? undefined, price: price ?? undefined }, { timeout: 90_000 })) as Result); haptic.success(); }
+    catch (e: any) { haptic.error(); Alert.alert('Couldn’t generate', e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.'); }
     finally { setBusy(false); }
   };
 
@@ -76,7 +81,8 @@ export default function ObjectionsScreen() {
                   ))}
                   <View style={S.actions}>
                     <AnimatedPressable style={[S.btn, S.btnInk]} haptic="light" onPress={() => film(o)}><Film size={14} color="#FFF" strokeWidth={2.2} /><Text style={S.btnTextOn}>Film it</Text></AnimatedPressable>
-                    <AnimatedPressable style={S.btn} haptic="light" onPress={() => Clipboard.setStringAsync(o.answer)}><Copy size={14} color={D.textPrimary} strokeWidth={2.2} /><Text style={S.btnText}>Copy</Text></AnimatedPressable>
+                    <AnimatedPressable style={S.btn} haptic="selection" onPress={() => Clipboard.setStringAsync(o.answer)}><Copy size={14} color={D.textPrimary} strokeWidth={2.2} /><Text style={S.btnText}>Copy</Text></AnimatedPressable>
+                    <AnimatedPressable style={S.btn} haptic="light" onPress={() => router.push({ pathname: '/shop-safe', params: { mode: 'script', text: `${o.answer}\n[on screen: ${o.on_screen}]` } })}><ShieldCheck size={14} color={D.limeDeep} strokeWidth={2.2} /><Text style={S.btnText}>Check</Text></AnimatedPressable>
                   </View>
                 </View>
               );

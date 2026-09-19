@@ -22,7 +22,8 @@ import { D, T, R, Shadow, Gradient, SectionLabelStyle, FOLDER_COLORS } from '@/c
 import {
   Search, ShoppingBag, X, BookmarkPlus, Bookmark,
   ChevronDown, ChevronRight, Copy, Check, Trash2,
-  Zap, AlertCircle, FolderOpen, FolderPlus, Folder, PenLine } from 'lucide-react-native';
+  Zap, AlertCircle, FolderOpen, FolderPlus, Folder, PenLine, Mail, MessageSquareWarning } from 'lucide-react-native';
+import { haptic } from '@/lib/haptics';
 import { Skeleton } from '@/components/Skeleton';
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -195,6 +196,13 @@ export function LearnPanel({
 }) {
   const router = useRouter();
   const [openFaqs, setOpenFaqs] = useState<Set<number>>(new Set());
+  // The panel's product as a route param, for the generator and the tools.
+  const handoff = () => toSearchResult({
+    external_id: source.externalId, title: source.title, cover_url: source.imageUrl ?? null,
+    price: source.price ?? null, commission_rate: source.commissionRate ?? null,
+    day7_gmv: source.day7Gmv ?? null, total_units_sold: source.totalUnitsSold ?? null,
+    product_url: source.productUrl ?? null,
+  });
   const { learn } = source;
   const isSaved = !!source.savedId;
 
@@ -316,19 +324,23 @@ export function LearnPanel({
           style={LP.scriptBtn}
           activeOpacity={0.88}
           onPress={() => {
-            const product = toSearchResult({
-              external_id: source.externalId, title: source.title, cover_url: source.imageUrl ?? null,
-              price: source.price ?? null, commission_rate: source.commissionRate ?? null,
-              day7_gmv: source.day7Gmv ?? null, total_units_sold: source.totalUnitsSold ?? null,
-              product_url: source.productUrl ?? null,
-            });
+            haptic.press();
             onClose();
-            router.push({ pathname: '/(tabs)/productscript', params: { product: productParam(product) } });
+            router.push({ pathname: '/(tabs)/productscript', params: { product: productParam(handoff()) } });
           }}
         >
           <PenLine size={16} color="#FFF" strokeWidth={2.4} />
           <Text style={LP.scriptBtnText}>Write a script for this</Text>
         </TouchableOpacity>
+        {/* The same product, into the two tools that want one */}
+        <View style={LP.toolRow}>
+          <TouchableOpacity style={LP.toolBtn} activeOpacity={0.8} onPress={() => { haptic.tap(); onClose(); router.push({ pathname: '/tools/sample-pitch', params: { product: productParam(handoff()) } }); }}>
+            <Mail size={14} color={D.coral} strokeWidth={2.2} /><Text style={LP.toolBtnText}>Pitch for a sample</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={LP.toolBtn} activeOpacity={0.8} onPress={() => { haptic.tap(); onClose(); router.push({ pathname: '/tools/objections', params: { product: productParam(handoff()) } }); }}>
+            <MessageSquareWarning size={14} color="#F5A623" strokeWidth={2.2} /><Text style={LP.toolBtnText}>Objections</Text>
+          </TouchableOpacity>
+        </View>
         {saveError && (
           <View style={LP.saveErrRow}>
             <AlertCircle size={13} color={D.error} strokeWidth={2} />
@@ -439,6 +451,9 @@ export const LP = StyleSheet.create({
     backgroundColor: D.ink, borderRadius: R.full, paddingVertical: 15,
   },
   scriptBtnText: { ...T.bold, fontSize: 16, color: '#FFF', letterSpacing: -0.2 },
+  toolRow: { flexDirection: 'row', gap: 8 },
+  toolBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 40, borderRadius: R.full, backgroundColor: D.surface, borderWidth: 1, borderColor: D.border },
+  toolBtnText: { ...T.bold, fontSize: 12.5, color: D.textPrimary },
   saveBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9,
     paddingVertical: 16, borderRadius: R.full, overflow: 'hidden',

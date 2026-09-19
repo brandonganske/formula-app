@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Modal, Pressable, TouchableOpacity, ActivityInd
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { api, extractData } from '@/lib/api';
+import { haptic } from '@/lib/haptics';
 import { D, T, R } from '@/constants/ds';
 import { X, Trash2, Link2, Check, Share2, FileText, Mic } from 'lucide-react-native';
 import { isNativeTikTokAvailable, isTikTokAppInstalled, shareVideos } from '@/modules/tiktok-login';
@@ -32,8 +33,8 @@ export default function TakeSheet({ take, onClose }: { take: Take; onClose: () =
   const done = () => { qc.invalidateQueries({ queryKey: ['takes'] }); };
   const attach = useMutation({
     mutationFn: async (s: SavedScriptItem | null) => { await api.patch(`/creators/takes/${take.id}`, { script_id: s?.id ?? null, product_name: s?.product_name ?? null }); },
-    onSuccess: () => { done(); setAttaching(false); onClose(); },
-    onError: (e: any) => Alert.alert('Couldn’t attach', e?.message ?? 'Please try again.'),
+    onSuccess: () => { haptic.success(); done(); setAttaching(false); onClose(); },
+    onError: (e: any) => { haptic.error(); Alert.alert('Couldn’t attach', e?.message ?? 'Please try again.'); },
   });
   const remove = useMutation({
     mutationFn: async () => { await api.delete(`/creators/takes/${take.id}`); },
@@ -87,9 +88,9 @@ export default function TakeSheet({ take, onClose }: { take: Take; onClose: () =
                 {take.video_url && VideoMod ? <Player uri={take.video_url} /> : <Text style={S.noPlayer}>Preview needs the latest build.</Text>}
               </View>
               <View style={S.actions}>
-                <TouchableOpacity style={[S.btn, S.btnPrimary]} onPress={post} activeOpacity={0.85}><Share2 size={15} color="#FFF" strokeWidth={2.4} /><Text style={S.btnTextOn}>Edit in TikTok & post</Text></TouchableOpacity>
-                <TouchableOpacity style={S.btn} onPress={() => { onClose(); router.push({ pathname: '/tools/coach', params: { takeId: take.id } }); }} activeOpacity={0.85}><Mic size={15} color={D.textPrimary} strokeWidth={2.2} /><Text style={S.btnText}>Coach</Text></TouchableOpacity>
-                <TouchableOpacity style={S.btn} onPress={() => setAttaching(true)} activeOpacity={0.85}><Link2 size={15} color={D.textPrimary} strokeWidth={2.2} /><Text style={S.btnText}>{take.script_id ? 'Script' : 'Attach'}</Text></TouchableOpacity>
+                <TouchableOpacity style={[S.btn, S.btnPrimary]} onPress={() => { haptic.press(); post(); }} activeOpacity={0.85}><Share2 size={15} color="#FFF" strokeWidth={2.4} /><Text style={S.btnTextOn}>Edit in TikTok & post</Text></TouchableOpacity>
+                <TouchableOpacity style={S.btn} onPress={() => { haptic.tap(); onClose(); router.push({ pathname: '/tools/coach', params: { takeId: take.id } }); }} activeOpacity={0.85}><Mic size={15} color={D.textPrimary} strokeWidth={2.2} /><Text style={S.btnText}>Coach</Text></TouchableOpacity>
+                <TouchableOpacity style={S.btn} onPress={() => { haptic.tap(); if (take.script_id) { onClose(); router.push(`/script/${take.script_id}`); } else setAttaching(true); }} onLongPress={() => { haptic.select(); setAttaching(true); }} activeOpacity={0.85}><Link2 size={15} color={D.textPrimary} strokeWidth={2.2} /><Text style={S.btnText}>{take.script_id ? 'Script' : 'Attach'}</Text></TouchableOpacity>
                 <TouchableOpacity style={[S.btn, S.btnDanger]} onPress={() => Alert.alert('Delete take?', 'This removes it from Formula (not from your Photos).', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => remove.mutate() }])} activeOpacity={0.85} disabled={remove.isPending}>
                   {remove.isPending ? <ActivityIndicator size="small" color={D.error} /> : <Trash2 size={15} color={D.error} strokeWidth={2.2} />}
                 </TouchableOpacity>
