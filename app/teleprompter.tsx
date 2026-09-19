@@ -316,7 +316,9 @@ export default function TeleprompterScreen() {
   const moveStart = useRef(0);
   const movePan = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
+    onStartShouldSetPanResponderCapture: () => true,
     onMoveShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponderCapture: () => true,
     onPanResponderGrant: () => { moveStart.current = geomRef.current.cardTopPx; haptic.select(); },
     onPanResponderMove: (_, g) => {
       const { bandTop, bandH, cardHPx } = geomRef.current;
@@ -334,7 +336,9 @@ export default function TeleprompterScreen() {
   const sizeStart = useRef(0);
   const sizePan = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
+    onStartShouldSetPanResponderCapture: () => true,
     onMoveShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponderCapture: () => true,
     onPanResponderGrant: () => { sizeStart.current = prefsRef.current.cardH; haptic.select(); },
     onPanResponderMove: (_, g) => {
       const { bandH } = geomRef.current;
@@ -763,7 +767,7 @@ const S = StyleSheet.create({
   smallBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   readLine: { position: 'absolute', left: 12, right: 12, height: 2, backgroundColor: D.coral, opacity: 0.85, borderRadius: 1 },
   card: { position: 'absolute', backgroundColor: 'rgba(12,12,14,0.62)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', overflow: 'visible' },
-  cardMove: { position: 'absolute', left: 6, bottom: 6, width: 30, height: 32, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.7)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)', alignItems: 'center', justifyContent: 'center' },
+  cardMove: { position: 'absolute', left: 6, bottom: 6, width: 40, height: 36, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.7)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)', alignItems: 'center', justifyContent: 'center' },
   cardSize: { position: 'absolute', right: 4, bottom: 4, width: 30, height: 30, alignItems: 'flex-end', justifyContent: 'flex-end', padding: 6 },
   cardSizeGrip: { width: 12, height: 12, borderRightWidth: 2.5, borderBottomWidth: 2.5, borderColor: 'rgba(255,255,255,0.6)', borderBottomRightRadius: 4 },
   fade: { position: 'absolute', left: 0, right: 0 },
