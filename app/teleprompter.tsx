@@ -488,8 +488,8 @@ export default function TeleprompterScreen() {
       {/* Floating script card — drag ✥ to move, corner grip to resize */}
       <View style={{ flex: 1 }} onLayout={(e: LayoutChangeEvent) => setViewH(e.nativeEvent.layout.height)}>
         {camLive && <Guides guide={prefs.guide} w={winW} h={viewH} readY={-100} />}
-        <Animated.View pointerEvents="box-none" style={[S.card, { top: cardTopAnim, height: cardHPx, left: 64, right: 12 }]}>
-          <View style={{ flex: 1, overflow: 'hidden' }} {...pan.panHandlers}>
+        <Animated.View pointerEvents="box-none" style={[S.card, { top: cardTopAnim, height: cardHPx, left: 16, right: 16 }]}>
+          <View style={{ flex: 1, overflow: 'hidden', borderRadius: 18 }} {...pan.panHandlers}>
             <Animated.View
               style={{ position: 'absolute', left: 0, right: 0, top: scrollY.interpolate({ inputRange: [0, 1], outputRange: [0, -1] }), paddingTop: readInCardPx, paddingBottom: cardHPx - readInCardPx, paddingHorizontal: 16 }}
               onLayout={(e: LayoutChangeEvent) => setContentH(e.nativeEvent.layout.height)}
@@ -722,7 +722,7 @@ const S = StyleSheet.create({
 
   // Right rail
   rail: { position: 'absolute', right: 10, alignItems: 'flex-end', gap: 14 },
-  sliderWrap: { position: 'absolute', left: 8, top: 0, bottom: 0, justifyContent: 'center', width: 44 },
+  sliderWrap: { position: 'absolute', left: 8, bottom: 168, width: 44 },
   slider: { alignItems: 'center', gap: 5, paddingVertical: 8, paddingHorizontal: 4, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   sliderCap: { ...T.bold, fontSize: 9.5, color: 'rgba(255,255,255,0.7)', letterSpacing: 0.3 },
   sliderTrack: { width: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.22)', justifyContent: 'flex-end', overflow: 'visible' },
@@ -763,7 +763,7 @@ const S = StyleSheet.create({
   smallBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   readLine: { position: 'absolute', left: 12, right: 12, height: 2, backgroundColor: D.coral, opacity: 0.85, borderRadius: 1 },
   card: { position: 'absolute', backgroundColor: 'rgba(12,12,14,0.62)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', overflow: 'visible' },
-  cardMove: { position: 'absolute', left: -14, top: '50%', marginTop: -16, width: 30, height: 32, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.7)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)', alignItems: 'center', justifyContent: 'center' },
+  cardMove: { position: 'absolute', left: 6, bottom: 6, width: 30, height: 32, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.7)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)', alignItems: 'center', justifyContent: 'center' },
   cardSize: { position: 'absolute', right: 4, bottom: 4, width: 30, height: 30, alignItems: 'flex-end', justifyContent: 'flex-end', padding: 6 },
   cardSizeGrip: { width: 12, height: 12, borderRightWidth: 2.5, borderBottomWidth: 2.5, borderColor: 'rgba(255,255,255,0.6)', borderBottomRightRadius: 4 },
   fade: { position: 'absolute', left: 0, right: 0 },
