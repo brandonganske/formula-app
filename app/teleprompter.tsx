@@ -198,7 +198,10 @@ export default function TeleprompterScreen() {
 
   useEffect(() => {
     const id = scrollY.addListener(({ value }) => {
-      scrollRef.current?.scrollTo({ y: value, animated: false });
+      const sv: any = scrollRef.current;
+      if (!sv) return;
+      if (typeof sv.scrollTo === 'function') sv.scrollTo({ x: 0, y: value, animated: false });
+      else sv.getScrollResponder?.()?.scrollTo?.({ x: 0, y: value, animated: false });
       progress.setValue(travel > 0 ? value / travel : 0);
     });
     return () => scrollY.removeListener(id);
@@ -380,7 +383,7 @@ export default function TeleprompterScreen() {
         <TouchableOpacity activeOpacity={1} style={{ flex: 1 }} onPress={() => (playing ? pause() : play())}>
           <ScrollView
             ref={scrollRef}
-            scrollEnabled={!playing}
+            pointerEvents={playing ? 'none' : 'auto'}
             showsVerticalScrollIndicator={false}
             onScrollEndDrag={(e) => scrollY.setValue(e.nativeEvent.contentOffset.y)}
             onMomentumScrollEnd={(e) => scrollY.setValue(e.nativeEvent.contentOffset.y)}
