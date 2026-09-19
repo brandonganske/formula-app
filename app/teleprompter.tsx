@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Easing, StatusBar, LayoutChangeEvent, TextInput, Alert, Keyboard, Modal, Pressable, useWindowDimensions, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Easing, StatusBar, LayoutChangeEvent, TextInput, Alert, Keyboard, Modal, Pressable, useWindowDimensions, ActivityIndicator, PanResponder } from 'react-native';
 import Svg, { Path, Ellipse, Line, Circle } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { storage } from '@/lib/storage';
@@ -185,8 +185,11 @@ export default function TeleprompterScreen() {
   const { width: winW } = useWindowDimensions();
   const [contentH, setContentH] = useState(0);
   const [viewH, setViewH] = useState(0);
+  // The script is a plain translated view, not a ScrollView: we drive the
+  // offset ourselves so playback doesn't depend on the platform honouring
+  // programmatic scrollTo (Fabric/iOS doesn't while touches are disabled).
   const scrollY = useRef(new Animated.Value(0)).current;
-  const scrollRef = useRef<ScrollView>(null);
+  const curY = useRef(0);
   const anim = useRef<Animated.CompositeAnimation | null>(null);
   const progress = useRef(new Animated.Value(0)).current;
   useKeepAwake(playing);
@@ -198,10 +201,7 @@ export default function TeleprompterScreen() {
 
   useEffect(() => {
     const id = scrollY.addListener(({ value }) => {
-      const sv: any = scrollRef.current;
-      if (!sv) return;
-      if (typeof sv.scrollTo === 'function') sv.scrollTo({ x: 0, y: value, animated: false });
-      else sv.getScrollResponder?.()?.scrollTo?.({ x: 0, y: value, animated: false });
+      curY.current = value;
       progress.setValue(travel > 0 ? value / travel : 0);
     });
     return () => scrollY.removeListener(id);
@@ -212,7 +212,7 @@ export default function TeleprompterScreen() {
     const remaining = Math.max(0, travel - fromY);
     const ms = durationSec > 0 ? (remaining / Math.max(1, travel)) * durationSec * 1000 : 0;
     if (ms <= 0) { setPlaying(false); return; }
-    anim.current = Animated.timing(scrollY, { toValue: travel, duration: ms, easing: Easing.linear, useNativeDriver: false });
+    anim.current = Animated.timing(scrollY, { toValue: travel, duration: ms, easing: Easing.linear, useNativeDriver: true });
     anim.current.start(({ finished }) => { if (finished) setPlaying(false); });
     setPlaying(true);
   };
@@ -228,7 +228,7 @@ export default function TeleprompterScreen() {
     if (countdown == null) return;
     if (countdown === 0) {
       setCountdown(null);
-      startFrom((scrollY as any).__getValue?.() ?? 0);
+      startFrom(curY.current);
       if (armedRef.current) { armedRef.current = false; void beginCapture(); }
       return;
     }
@@ -237,13 +237,30 @@ export default function TeleprompterScreen() {
   }, [countdown]);
 
   const pause = () => { anim.current?.stop(); setPlaying(false); };
-  const reset = () => { anim.current?.stop(); setPlaying(false); scrollY.setValue(0); };
+
+  const playingRef = useRef(false); playingRef.current = playing;
+  const travelRef = useRef(0); travelRef.current = travel;
+  const dragStart = useRef(0);
+  const pan = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 4,
+    onPanResponderGrant: () => { dragStart.current = curY.current; },
+    onPanResponderMove: (_, g) => {
+      if (playingRef.current) return;
+      const next = Math.max(0, Math.min(travelRef.current, dragStart.current - g.dy));
+      curY.current = next; scrollY.setValue(next);
+    },
+    onPanResponderRelease: (_, g) => {
+      if (Math.abs(g.dy) < 6 && Math.abs(g.dx) < 6) { playingRef.current ? pause() : play(); }
+    },
+  }), []);
+  const reset = () => { anim.current?.stop(); setPlaying(false); curY.current = 0; scrollY.setValue(0); };
   const nudge = (d: number) => {
     const next = Math.max(0.5, Math.min(1.8, Math.round((speedMul + d) * 10) / 10));
     setSpeedMul(next);
   };
   // Re-time the animation when speed changes mid-play.
-  useEffect(() => { if (playing) startFrom((scrollY as any).__getValue?.() ?? 0); }, [speedMul]);
+  useEffect(() => { if (playing) startFrom(curY.current); }, [speedMul]);
 
   const beginCapture = async () => {
     if (!camRef.current || recording) return;
@@ -380,19 +397,14 @@ export default function TeleprompterScreen() {
 
       {/* Text layer */}
       <View style={{ flex: 1 }} onLayout={(e: LayoutChangeEvent) => setViewH(e.nativeEvent.layout.height)}>
-        <TouchableOpacity activeOpacity={1} style={{ flex: 1 }} onPress={() => (playing ? pause() : play())}>
-          <ScrollView
-            ref={scrollRef}
-            pointerEvents={playing ? 'none' : 'auto'}
-            showsVerticalScrollIndicator={false}
-            onScrollEndDrag={(e) => scrollY.setValue(e.nativeEvent.contentOffset.y)}
-            onMomentumScrollEnd={(e) => scrollY.setValue(e.nativeEvent.contentOffset.y)}
-            contentContainerStyle={{ paddingTop: viewH * readFrac, paddingBottom: viewH * (1 - readFrac), paddingHorizontal: prefs.width === 'narrow' ? Math.max(24, winW * 0.12) : 24 }}
-            onContentSizeChange={(_, h) => setContentH(h)}
+        <View style={{ flex: 1, overflow: 'hidden' }} {...pan.panHandlers}>
+          <Animated.View
+            style={{ paddingTop: viewH * readFrac, paddingBottom: viewH * (1 - readFrac), paddingHorizontal: prefs.width === 'narrow' ? Math.max(24, winW * 0.12) : 24, transform: [{ translateY: Animated.multiply(scrollY, -1) }] }}
+            onLayout={(e: LayoutChangeEvent) => setContentH(e.nativeEvent.layout.height)}
           >
             <Text style={[S.script, { fontSize, lineHeight: fontSize * 1.42, textAlign: prefs.align }]}>{text}</Text>
-          </ScrollView>
-        </TouchableOpacity>
+          </Animated.View>
+        </View>
         {camLive && <Guides guide={prefs.guide} w={winW} h={viewH} readY={viewH * readFrac} />}
         <LinearGradient pointerEvents="none" colors={[camLive ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.9)', 'rgba(0,0,0,0)']} style={[S.fade, { top: 0, height: Math.max(0, viewH * readFrac - fontSize * 0.9) }]} />
         <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0)', camLive ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.9)']} style={[S.fade, { bottom: 0, height: Math.max(0, viewH * (1 - readFrac) - fontSize * 2.2) }]} />
