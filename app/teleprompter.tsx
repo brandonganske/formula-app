@@ -41,11 +41,11 @@ type Align = 'center' | 'left';
 interface Prefs { guide: Guide; readPos: ReadPos; align: Align; width: 'wide' | 'narrow'; fontSize: number; mirror: boolean; cardTop: number; cardH: number }
 // The script lives in a floating card (like CapCut's) that can be dragged to
 // sit right under the lens and resized. cardTop/cardH are fractions of the view.
-const DEFAULT_PREFS: Prefs = { guide: 'head', readPos: 'camera', align: 'left', width: 'wide', fontSize: 26, mirror: false, cardTop: 0.05, cardH: 0.38 };
+const DEFAULT_PREFS: Prefs = { guide: 'head', readPos: 'camera', align: 'left', width: 'wide', fontSize: 26, mirror: false, cardTop: 0, cardH: 0.42 };
 const READ_IN_CARD = 0.3; // read line sits 30% down the card
 const PREFS_KEY = 'teleprompter.prefs.v1';
 // Presets for the card's top edge (fraction of view height).
-const CARD_TOP_PRESET: Record<ReadPos, number> = { camera: 0.05, third: 0.22, center: 0.31 };
+const CARD_TOP_PRESET: Record<ReadPos, number> = { camera: 0, third: 0.2, center: 0.3 };
 
 function Guides({ guide, w, h, readY }: { guide: Guide; w: number; h: number; readY: number }) {
   if (!w || !h) return null;
@@ -190,8 +190,12 @@ export default function TeleprompterScreen() {
   const fontSize = prefs.fontSize, mirror = prefs.mirror;
   const setFontSize = (f: (n: number) => number) => setPrefs({ fontSize: f(prefs.fontSize) });
   const setMirror = (f: (m: boolean) => boolean) => setPrefs({ mirror: f(prefs.mirror) });
-  const cardTopPx = viewHRef.current * prefs.cardTop;
-  const cardHPx = Math.max(140, viewHRef.current * prefs.cardH);
+  // Usable band for the card: under the header pill, above the bottom controls.
+  const bandTop = insets.top + 64;
+  const bandBottom = Math.max(insets.bottom, 12) + 150;
+  const bandH = Math.max(200, viewHRef.current - bandTop - bandBottom);
+  const cardHPx = Math.max(140, Math.min(bandH, bandH * prefs.cardH));
+  const cardTopPx = bandTop + Math.max(0, Math.min(bandH - cardHPx, bandH * prefs.cardTop));
   const readInCardPx = cardHPx * READ_IN_CARD;
   const readFrac = viewHRef.current > 0 ? (cardTopPx + readInCardPx) / viewHRef.current : 0.2; // absolute read line, for the guides
   const { width: winW } = useWindowDimensions();
@@ -302,17 +306,25 @@ export default function TeleprompterScreen() {
 
   // Drag the ✥ handle to move the card; drag the corner grip to resize it.
   const prefsRef = useRef(prefs); prefsRef.current = prefs;
+  const geomRef = useRef({ bandTop, bandH, cardHPx, cardTopPx }); geomRef.current = { bandTop, bandH, cardHPx, cardTopPx };
+  const cardTopAnim = useRef(new Animated.Value(cardTopPx)).current;
+  useEffect(() => { cardTopAnim.setValue(cardTopPx); }, [cardTopPx]);
   const moveStart = useRef(0);
   const movePan = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
-    onPanResponderGrant: () => { moveStart.current = prefsRef.current.cardTop; haptic.select(); },
+    onPanResponderGrant: () => { moveStart.current = geomRef.current.cardTopPx; haptic.select(); },
     onPanResponderMove: (_, g) => {
-      const h = viewHRef.current || 1;
-      const top = Math.max(0, Math.min(1 - prefsRef.current.cardH, moveStart.current + g.dy / h));
-      setPrefsState((p) => ({ ...p, cardTop: top }));
+      const { bandTop, bandH, cardHPx } = geomRef.current;
+      const px = Math.max(bandTop, Math.min(bandTop + bandH - cardHPx, moveStart.current + g.dy));
+      cardTopAnim.setValue(px);
     },
-    onPanResponderRelease: () => { storage.setItem(PREFS_KEY, JSON.stringify(prefsRef.current)).catch(() => {}); },
+    onPanResponderRelease: (_, g) => {
+      const { bandTop, bandH, cardHPx } = geomRef.current;
+      const px = Math.max(bandTop, Math.min(bandTop + bandH - cardHPx, moveStart.current + g.dy));
+      const frac = (px - bandTop) / bandH;
+      setPrefsState((p) => { const n = { ...p, cardTop: frac }; storage.setItem(PREFS_KEY, JSON.stringify(n)).catch(() => {}); return n; });
+    },
     onPanResponderTerminationRequest: () => false,
   }), []);
   const sizeStart = useRef(0);
@@ -321,8 +333,8 @@ export default function TeleprompterScreen() {
     onMoveShouldSetPanResponder: () => true,
     onPanResponderGrant: () => { sizeStart.current = prefsRef.current.cardH; haptic.select(); },
     onPanResponderMove: (_, g) => {
-      const h = viewHRef.current || 1;
-      const ch = Math.max(0.18, Math.min(1 - prefsRef.current.cardTop, sizeStart.current + g.dy / h));
+      const { bandH } = geomRef.current;
+      const ch = Math.max(0.18, Math.min(1 - prefsRef.current.cardTop, sizeStart.current + g.dy / bandH));
       setPrefsState((p) => ({ ...p, cardH: ch }));
     },
     onPanResponderRelease: () => { storage.setItem(PREFS_KEY, JSON.stringify(prefsRef.current)).catch(() => {}); },
@@ -472,7 +484,7 @@ export default function TeleprompterScreen() {
       {/* Floating script card — drag ✥ to move, corner grip to resize */}
       <View style={{ flex: 1 }} onLayout={(e: LayoutChangeEvent) => setViewH(e.nativeEvent.layout.height)}>
         {camLive && <Guides guide={prefs.guide} w={winW} h={viewH} readY={viewH * readFrac} />}
-        <View pointerEvents="box-none" style={[S.card, { top: cardTopPx, height: cardHPx, left: prefs.width === 'narrow' ? Math.max(12, winW * 0.1) : 12, right: prefs.width === 'narrow' ? Math.max(12, winW * 0.1) : 12 }]}>
+        <Animated.View pointerEvents="box-none" style={[S.card, { top: cardTopAnim, height: cardHPx, left: prefs.width === 'narrow' ? Math.max(12, winW * 0.1) : 12, right: prefs.width === 'narrow' ? Math.max(12, winW * 0.1) : 12 }]}>
           <View style={{ flex: 1, overflow: 'hidden' }} {...pan.panHandlers}>
             <Animated.View
               style={{ position: 'absolute', left: 0, right: 0, top: scrollY.interpolate({ inputRange: [0, 1], outputRange: [0, -1] }), paddingTop: readInCardPx, paddingBottom: cardHPx - readInCardPx, paddingHorizontal: 18 }}
@@ -486,7 +498,7 @@ export default function TeleprompterScreen() {
           </View>
           <View style={S.cardMove} {...movePan.panHandlers}><Move size={15} color="#FFF" strokeWidth={2.2} /></View>
           <View style={S.cardSize} {...sizePan.panHandlers}><View style={S.cardSizeGrip} /></View>
-        </View>
+        </Animated.View>
         {!playing && countdown == null && !recording && (
           <View pointerEvents="none" style={[S.eyeHint, { top: cardTopPx + cardHPx + 8 }]}><Move size={11} color="rgba(255,255,255,0.7)" strokeWidth={2.2} /><Text style={S.eyeHintText}>Drag the card up near the lens · corner to resize</Text></View>
         )}
