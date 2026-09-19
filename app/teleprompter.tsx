@@ -104,8 +104,8 @@ function useKeepAwake(on: boolean) {
     if (!on) return;
     try {
       const ka = require('expo-keep-awake');
-      ka.activateKeepAwakeAsync?.('teleprompter');
-      return () => { ka.deactivateKeepAwake?.('teleprompter'); };
+      Promise.resolve(ka.activateKeepAwakeAsync?.('teleprompter')).catch(() => {});
+      return () => { try { Promise.resolve(ka.deactivateKeepAwake?.('teleprompter')).catch(() => {}); } catch {} };
     } catch { return; }
   }, [on]);
 }
@@ -116,7 +116,11 @@ export default function TeleprompterScreen() {
   const insets = useSafeAreaInsets();
   const { scriptId, text: textParam } = useLocalSearchParams<{ scriptId?: string; text?: string }>();
   const { meData } = useAuth();
-  const baseWpm = Math.max(90, Math.min(260, meData?.speech_template?.avg_wpm ?? 150));
+  // avg_wpm can arrive as null, a string, or NaN from the profile; anything
+  // non-finite must fall back, otherwise every duration below becomes NaN and
+  // the animation "finishes" instantly (text jumps off screen).
+  const rawWpm = Number(meData?.speech_template?.avg_wpm);
+  const baseWpm = Number.isFinite(rawWpm) && rawWpm > 0 ? Math.max(90, Math.min(260, rawWpm)) : 150;
 
   const { data: scripts } = useQuery<SavedScriptItem[]>({
     queryKey: ['saved-scripts'],
@@ -211,8 +215,8 @@ export default function TeleprompterScreen() {
     anim.current?.stop();
     const remaining = Math.max(0, travel - fromY);
     const ms = durationSec > 0 ? (remaining / Math.max(1, travel)) * durationSec * 1000 : 0;
-    if (ms <= 0) { setPlaying(false); return; }
-    anim.current = Animated.timing(scrollY, { toValue: travel, duration: ms, easing: Easing.linear, useNativeDriver: true });
+    if (!Number.isFinite(ms) || ms <= 0) { setPlaying(false); return; }
+    anim.current = Animated.timing(scrollY, { toValue: travel, duration: ms, easing: Easing.linear, useNativeDriver: false });
     anim.current.start(({ finished }) => { if (finished) setPlaying(false); });
     setPlaying(true);
   };
@@ -406,7 +410,7 @@ export default function TeleprompterScreen() {
       <View style={{ flex: 1 }} onLayout={(e: LayoutChangeEvent) => setViewH(e.nativeEvent.layout.height)}>
         <View style={{ flex: 1, overflow: 'hidden' }} {...pan.panHandlers}>
           <Animated.View
-            style={{ paddingTop: viewH * readFrac, paddingBottom: viewH * (1 - readFrac), paddingHorizontal: prefs.width === 'narrow' ? Math.max(24, winW * 0.12) : 24, transform: [{ translateY: Animated.multiply(scrollY, -1) }] }}
+            style={{ paddingTop: viewH * readFrac, paddingBottom: viewH * (1 - readFrac), paddingHorizontal: prefs.width === 'narrow' ? Math.max(24, winW * 0.12) : 24, transform: [{ translateY: scrollY.interpolate({ inputRange: [0, 1], outputRange: [0, -1] }) }] }}
             onLayout={(e: LayoutChangeEvent) => setContentH(e.nativeEvent.layout.height)}
           >
             <Text style={[S.script, { fontSize, lineHeight: fontSize * 1.42, textAlign: prefs.align }]}>{text}</Text>
