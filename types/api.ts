@@ -500,9 +500,35 @@ export interface ResultsResponse {
   pending: SavedScriptItem[];
 }
 
+// Shop Safe — TikTok Shop compliance check results.
+export interface ShopSafeFinding {
+  rule_code: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  quote: string;
+  timestamp_sec: number | null;
+  channel: 'speech' | 'on_screen_text' | 'visual' | 'caption';
+  why: string;
+  fix: string;
+}
+export interface ShopSafeResult {
+  id?: string;
+  kind?: 'script' | 'video';
+  grade: 'A' | 'B' | 'C' | 'D' | 'F';
+  score: number;
+  findings: ShopSafeFinding[];
+  summary: string;
+  transcript?: string | null;
+  checked_at?: string;
+}
+
 export interface SavedScriptItem {
   id: string;
   outcome?: ScriptOutcome | null;
+  shop_safe_grade?: 'A' | 'B' | 'C' | 'D' | 'F' | null;
+  shop_safe_score?: number | null;
+  shop_safe_findings?: ShopSafeFinding[] | null;
+  shop_safe_summary?: string | null;
+  shop_safe_checked_at?: string | null;
   option_label?: string | null;
   hook?: string | null;
   body?: string[] | null;

@@ -13,6 +13,8 @@ import { Skeleton } from '@/components/Skeleton';
 import SavedProductsView from '@/components/products/SavedProductsView';
 import SavedVideosView from '@/components/SavedVideosView';
 import OutcomeSheet from '@/components/OutcomeSheet';
+import ShopSafeSheet from '@/components/ShopSafeSheet';
+import { GradePill } from '@/components/ShopSafeReport';
 import { SavedProductItem, ShopDashboard } from '@/types/api';
 import * as Haptics from 'expo-haptics';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -135,6 +137,7 @@ function ScriptCard({
   const [nameInput, setNameInput] = useState('');
   const [localName, setLocalName] = useState<string | null>(null);
   const [showOutcome, setShowOutcome] = useState(false);
+  const [showSafe, setShowSafe] = useState(false);
   const outcome = item.outcome ?? null;
   const recent = Date.now() - new Date(item.created_at).getTime() < 45 * 86_400_000;
 
@@ -231,6 +234,11 @@ function ScriptCard({
                 </View>
               )}
               <Text style={SC.date}>{relDate(item.created_at)}</Text>
+              <TouchableOpacity onPress={() => setShowSafe(true)} hitSlop={6} activeOpacity={0.8}>
+                {item.shop_safe_grade
+                  ? <GradePill grade={item.shop_safe_grade} />
+                  : <View style={SC.safeCheck}><Text style={SC.safeCheckText}>Shop Safe</Text></View>}
+              </TouchableOpacity>
               {folderCount > 0 && (
                 <>
                   <View style={SC.dot} />
@@ -277,6 +285,7 @@ function ScriptCard({
         </TouchableOpacity>
       ) : null}
       {showOutcome && <OutcomeSheet scriptId={item.id} current={outcome} onClose={() => setShowOutcome(false)} />}
+      {showSafe && <ShopSafeSheet item={item} onClose={() => setShowSafe(false)} />}
     </FadeInView>
     </View>
     </GestureDetector>
@@ -325,6 +334,8 @@ const SC = StyleSheet.create({
   resultDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: D.limeDeep },
   resultText: { ...T.bold, fontSize: 12, color: D.limeDeep },
   nudge: { marginTop: 8, marginLeft: 18, alignSelf: 'flex-start' },
+  safeCheck: { borderRadius: R.full, borderWidth: 1, borderColor: D.border, paddingHorizontal: 7, paddingVertical: 2 },
+  safeCheckText: { ...T.bold, fontSize: 10.5, color: D.textMuted },
   nudgeText: { ...T.bold, fontSize: 12, color: D.coral },
   hookText: { ...T.regular, fontSize: 13, color: D.textMuted, lineHeight: 19, fontStyle: 'italic' },
 

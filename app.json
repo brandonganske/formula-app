@@ -46,7 +46,15 @@
         "./modules/tiktok-login/app.plugin.js",
         {
           "clientKey": "awe42sltxt0xs2ng",
-          "universalLinkDomains": ["iq.influenceish.com"]
+          "universalLinkDomains": [
+            "iq.influenceish.com"
+          ]
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Formula uses your photo library so you can check a video for TikTok Shop policy risks before you post it."
         }
       ]
     ],

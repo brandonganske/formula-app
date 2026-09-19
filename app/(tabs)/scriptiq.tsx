@@ -13,7 +13,7 @@ import FadeInView from '@/components/FadeInView';
 import TabFadeView from '@/components/TabFadeView';
 import { D, T, R, Shadow, Ease } from '@/constants/ds';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
-import { Link, ArrowRight, ShoppingBag, Sparkles, Check, X, Film, PenLine, Zap, Mic, Lightbulb, Search } from 'lucide-react-native';
+import { Link, ArrowRight, ShoppingBag, Sparkles, Check, X, Film, PenLine, Zap, Mic, Lightbulb, Search, ShieldCheck } from 'lucide-react-native';
 import { Image } from 'react-native';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -204,6 +204,20 @@ export default function ScriptIQScreen() {
           </Step>
         </FadeInView>
 
+        {/* Already filmed? → Shop Safe video check */}
+        {!step1Done && (
+          <FadeInView delay={120}>
+            <AnimatedPressable style={S.safeRow} haptic="light" onPress={() => router.push('/shop-safe')}>
+              <View style={S.safeIcon}><ShieldCheck size={18} color="#FFF" strokeWidth={2.4} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={S.safeTitle}>Already filmed it?</Text>
+                <Text style={S.safeSub}>Check the cut for TikTok Shop policy risks before you post.</Text>
+              </View>
+              <ArrowRight size={16} color={D.textMuted} strokeWidth={2.2} />
+            </AnimatedPressable>
+          </FadeInView>
+        )}
+
         {/* ── 2. Purpose ────────────────────────────────────────────── */}
         {step1Done && (
           <Step n={2} title="What's it for?" done={step2Done}>
@@ -355,6 +369,11 @@ const S = StyleSheet.create({
   prodCheck: { position: 'absolute', top: 12, right: 12, width: 20, height: 20, borderRadius: 10, backgroundColor: D.coral, alignItems: 'center', justifyContent: 'center' },
   searchHint: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   searchHintText: { ...T.regular, fontSize: 13, color: D.textMuted, flex: 1, lineHeight: 18 },
+
+  safeRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: D.card, borderRadius: 22, borderWidth: 1, borderColor: D.border, padding: 16, marginTop: 14 },
+  safeIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: D.limeDeep, alignItems: 'center', justifyContent: 'center' },
+  safeTitle: { ...T.bold, fontSize: 15.5, color: D.textPrimary, letterSpacing: -0.2 },
+  safeSub: { ...T.regular, fontSize: 13, color: D.textMuted, marginTop: 2, lineHeight: 18 },
 
   topicBox: { backgroundColor: D.surface, borderRadius: 16, borderWidth: 1.5, borderColor: D.border, paddingHorizontal: 14, paddingVertical: 12, minHeight: 88 },
   topicInput: { ...T.medium, fontSize: 15, color: D.textPrimary, lineHeight: 21, textAlignVertical: 'top' },

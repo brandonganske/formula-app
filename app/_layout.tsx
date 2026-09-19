@@ -42,6 +42,7 @@ function RootLayoutNav() {
       <Stack.Screen name="script/[id]" options={{ animation: 'slide_from_right', fullScreenGestureEnabled: true }} />
       {/* Design-preview route (no auth guard) — /shop-preview on web */}
       <Stack.Screen name="shop-preview" />
+      <Stack.Screen name="shop-safe" options={{ animation: 'slide_from_bottom' }} />
       {/* TikTok native-login Universal Link return target */}
       <Stack.Screen name="tiktok/native" />
       <Stack.Screen name="+not-found" />
