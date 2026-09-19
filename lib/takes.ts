@@ -41,7 +41,10 @@ export async function uploadTake(input: UploadTakeInput): Promise<{ id: string }
       headers: { 'content-type': mime },
     }, track && input.onProgress ? (p: any) => input.onProgress!(p.totalBytesExpectedToSend ? p.totalBytesSent / p.totalBytesExpectedToSend : 0) : undefined);
     const res = await task.uploadAsync();
-    if (!res || res.status < 200 || res.status >= 300) throw new Error(`Upload failed (${res?.status ?? 'network'})`);
+    if (!res || res.status < 200 || res.status >= 300) {
+      const tooBig = res && (res.status === 413 || /413|too large|EntityTooLarge/i.test(res.body ?? ''));
+      throw new Error(tooBig ? 'Take is too large to save to Formula (over ~50MB). It\'s still in your Photos.' : `Upload failed (${res?.status ?? 'network'})`);
+    }
   };
 
   await put(urls.video.signed_url, input.uri, ext === 'mov' ? 'video/quicktime' : 'video/mp4', true);

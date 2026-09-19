@@ -272,6 +272,7 @@ export default function TeleprompterScreen() {
         qc.invalidateQueries({ queryKey: ['takes'] });
       } catch (e: any) {
         console.warn('[takes] upload failed', e?.message);
+        Alert.alert('Saved to Photos only', e?.message ?? 'Couldn’t save the take to Formula.');
       }
       setReviewUri(null);
       const canShare = !!assetId && isNativeTikTokAvailable() && isTikTokAppInstalled();
@@ -354,7 +355,7 @@ export default function TeleprompterScreen() {
       <StatusBar barStyle="light-content" />
 
       {/* Camera fills the whole screen; everything else floats over it */}
-      {camLive && <cam.CameraView key={`${facing}-${mirror ? 'm' : 'n'}`} ref={camRef} style={[StyleSheet.absoluteFill, mirror && { transform: [{ scaleX: -1 }] }]} facing={facing} mode="video" mute={false} enableTorch={torch && facing === 'back'} mirror={mirror} />}
+      {camLive && <cam.CameraView key={`${facing}-${mirror ? 'm' : 'n'}`} ref={camRef} style={[StyleSheet.absoluteFill, mirror && { transform: [{ scaleX: -1 }] }]} facing={facing} mode="video" mute={false} enableTorch={torch && facing === 'back'} mirror={mirror} videoQuality="720p" />}
       {camLive && <View pointerEvents="none" style={S.scrim} />}
 
       {/* Text layer */}

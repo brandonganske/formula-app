@@ -58,7 +58,8 @@ export default function ShopSafeScreen() {
     const { ImagePicker } = native;
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) { Alert.alert('Photo access needed', 'Allow photo library access in Settings to check a video.'); return; }
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos'], quality: 1, allowsMultipleSelection: false });
+    // 720p export keeps uploads well under storage limits and is plenty for the check.
+    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos'], allowsMultipleSelection: false, videoExportPreset: ImagePicker.VideoExportPreset.H264_1280x720, videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium });
     if (res.canceled || !res.assets?.[0]) return;
     const a = res.assets[0];
     setName(a.fileName ?? 'video');
@@ -76,7 +77,10 @@ export default function ShopSafeScreen() {
         headers: { 'content-type': mime },
       }, (p: any) => setPct(p.totalBytesExpectedToSend ? p.totalBytesSent / p.totalBytesExpectedToSend : 0));
       const res = await task.uploadAsync();
-      if (!res || res.status < 200 || res.status >= 300) throw new Error(`Upload failed (${res?.status ?? 'network'})`);
+      if (!res || res.status < 200 || res.status >= 300) {
+        const tooBig = res && (res.status === 413 || /413|too large|EntityTooLarge/i.test(res.body ?? ''));
+        throw new Error(tooBig ? 'That video is too large to upload. Try a shorter cut (under ~50MB).' : `Upload failed (${res?.status ?? 'network'})`);
+      }
       setPhase('checking');
       const r = extractData<ShopSafeResult>(await api.post('/creators/compliance/check', { storage_path: up.storage_path }, { timeout: 300_000 })) as ShopSafeResult;
       setResult(r); setPhase('done');
