@@ -245,17 +245,25 @@ export default function TeleprompterScreen() {
   const playingRef = useRef(false); playingRef.current = playing;
   const travelRef = useRef(0); travelRef.current = travel;
   const dragStart = useRef(0);
+  // Finger on the screen stops the scroll instantly; dragging moves the script
+  // up or down; a tap while paused starts the countdown again. Recording is
+  // untouched by any of this — only the text moves.
+  const wasPlayingAtTouch = useRef(false);
   const pan = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 4,
-    onPanResponderGrant: () => { dragStart.current = curY.current; },
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderGrant: () => {
+      wasPlayingAtTouch.current = playingRef.current;
+      if (playingRef.current) { anim.current?.stop(); setPlaying(false); haptic.select(); }
+      dragStart.current = curY.current;
+    },
     onPanResponderMove: (_, g) => {
-      if (playingRef.current) return;
       const next = Math.max(0, Math.min(travelRef.current, dragStart.current - g.dy));
       curY.current = next; scrollY.setValue(next);
     },
     onPanResponderRelease: (_, g) => {
-      if (Math.abs(g.dy) < 6 && Math.abs(g.dx) < 6) { playingRef.current ? pause() : play(); }
+      const tap = Math.abs(g.dy) < 6 && Math.abs(g.dx) < 6;
+      if (tap && !wasPlayingAtTouch.current) play();
     },
   }), []);
   const reset = () => { anim.current?.stop(); setPlaying(false); curY.current = 0; scrollY.setValue(0); };
@@ -265,6 +273,24 @@ export default function TeleprompterScreen() {
   };
   // Re-time the animation when speed changes mid-play.
   useEffect(() => { if (playing) startFrom(curY.current); }, [speedMul]);
+
+  // Vertical speed slider: top = faster, bottom = slower. Always on screen so
+  // pace can be corrected mid-take without opening anything.
+  const SLIDER_H = 190, MUL_MIN = 0.5, MUL_MAX = 1.5;
+  const speedMulRef = useRef(1); speedMulRef.current = speedMul;
+  const sliderStart = useRef(1);
+  const sliderPan = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderGrant: () => { sliderStart.current = speedMulRef.current; },
+    onPanResponderMove: (_, g) => {
+      const next = Math.max(MUL_MIN, Math.min(MUL_MAX, sliderStart.current - (g.dy / SLIDER_H) * (MUL_MAX - MUL_MIN)));
+      const rounded = Math.round(next * 20) / 20;
+      if (rounded !== speedMulRef.current) { setSpeedMul(rounded); haptic.select(); }
+    },
+    onPanResponderTerminationRequest: () => false,
+  }), []);
+  const sliderFrac = (speedMul - MUL_MIN) / (MUL_MAX - MUL_MIN);
 
   const beginCapture = async () => {
     if (!camRef.current || recording) return;
@@ -486,6 +512,21 @@ export default function TeleprompterScreen() {
         </View>
       )}
 
+      {/* Live speed slider — left edge */}
+      <View pointerEvents="box-none" style={S.sliderWrap}>
+        <View style={S.slider} {...sliderPan.panHandlers}>
+          <Text style={S.sliderCap}>Faster</Text>
+          <View style={[S.sliderTrack, { height: SLIDER_H }]}>
+            <View style={[S.sliderFill, { height: SLIDER_H * sliderFrac }]} />
+            <View style={[S.sliderThumb, { bottom: SLIDER_H * sliderFrac - 11 }]} />
+          </View>
+          <Text style={S.sliderCap}>Slower</Text>
+          <TouchableOpacity onPress={() => { setSpeedMul(1); haptic.tap(); }} hitSlop={8} style={S.sliderVal}>
+            <Text style={S.sliderNum}>{wpm}</Text><Text style={S.sliderUnit}>wpm</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* Speed popover */}
       {showSpeed && !recording && (
         <View pointerEvents="box-none" style={[S.popWrap, { paddingBottom: Math.max(insets.bottom, 12) + 118 }]}>
@@ -521,7 +562,7 @@ export default function TeleprompterScreen() {
             <Text style={S.sideLabel}>Takes</Text>
           </TouchableOpacity>
         </View>
-        <Text style={S.bottomHint}>{camLive ? (recording ? 'Tap to stop' : 'Tap to count down, scroll and record') : (playing ? 'Tap to pause' : 'Tap to count down and scroll')}</Text>
+        <Text style={S.bottomHint}>{camLive ? (recording ? 'Tap to stop · touch the text to hold or move it' : 'Tap to count down, scroll and record') : (playing ? 'Touch the text to hold or move it' : 'Tap to count down and scroll')}</Text>
       </View>
 
       {/* Review the take before committing it to Photos */}
@@ -624,6 +665,15 @@ const S = StyleSheet.create({
 
   // Right rail
   rail: { position: 'absolute', right: 10, alignItems: 'flex-end', gap: 14 },
+  sliderWrap: { position: 'absolute', left: 8, top: 0, bottom: 0, justifyContent: 'center' },
+  slider: { alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 6, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.35)' },
+  sliderCap: { ...T.bold, fontSize: 9.5, color: 'rgba(255,255,255,0.7)', letterSpacing: 0.3 },
+  sliderTrack: { width: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.22)', justifyContent: 'flex-end', overflow: 'visible' },
+  sliderFill: { width: 6, borderRadius: 3, backgroundColor: D.coral },
+  sliderThumb: { position: 'absolute', left: -8, width: 22, height: 22, borderRadius: 11, backgroundColor: '#FFF', borderWidth: 2, borderColor: D.coral },
+  sliderVal: { alignItems: 'center', marginTop: 2 },
+  sliderNum: { ...T.bold, fontSize: 13, color: '#FFF', fontVariant: ['tabular-nums'] },
+  sliderUnit: { ...T.medium, fontSize: 8.5, color: 'rgba(255,255,255,0.55)', marginTop: -2 },
   railBtn: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   railLabel: { ...T.bold, fontSize: 12.5, color: '#FFF', textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 4 },
   railIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
