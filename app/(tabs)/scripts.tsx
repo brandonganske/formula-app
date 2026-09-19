@@ -664,8 +664,13 @@ export default function ToolkitScreen() {
     },
     staleTime: 5 * 60_000,
   });
+  const { data: takesLite } = useQuery({
+    queryKey: ['takes'],
+    queryFn: async () => extractData<{ takes: unknown[] }>(await api.get('/creators/takes'))?.takes ?? [],
+    staleTime: 60_000,
+  });
   const productCount = savedProductsLite?.length ?? 0;
-  const videoCount = shopLite?.top_videos?.length ?? 0;
+  const videoCount = (takesLite?.length ?? 0) + (shopLite?.top_videos?.length ?? 0);
   const [selectedFolderId, setSelectedFolderId]       = useState<string | null>(null);
   const [showCreateFolder, setShowCreateFolder]       = useState(false);
   const [addingScript, setAddingScript]               = useState<SavedScriptItem | null>(null);

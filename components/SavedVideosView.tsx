@@ -1,13 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import FadeInView from '@/components/FadeInView';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import { api, extractData } from '@/lib/api';
-import { ShopDashboard, ShopVideo } from '@/types/api';
+import { ShopDashboard, ShopVideo, Take } from '@/types/api';
+import TakeSheet from '@/components/TakeSheet';
 import { D, T } from '@/constants/ds';
-import { Film } from 'lucide-react-native';
+import { Film, Clapperboard } from 'lucide-react-native';
 
 const fmtNum = (n: number | null | undefined) => {
   if (n == null) return '—';
@@ -29,6 +30,13 @@ export default function SavedVideosView() {
     staleTime: 5 * 60_000,
   });
   const videos: ShopVideo[] = data?.top_videos ?? [];
+  const takesQ = useQuery<Take[]>({
+    queryKey: ['takes'],
+    queryFn: async () => extractData<{ takes: Take[] }>(await api.get('/creators/takes'))?.takes ?? [],
+    staleTime: 60_000,
+  });
+  const takes = takesQ.data ?? [];
+  const [openTake, setOpenTake] = useState<Take | null>(null);
 
   const recreate = (v: ShopVideo) => {
     if (v.url) router.push({ pathname: '/(tabs)/rewrite', params: { url: v.url } });
@@ -37,6 +45,34 @@ export default function SavedVideosView() {
 
   return (
     <ScrollView contentContainerStyle={S.scroll} showsVerticalScrollIndicator={false}>
+      {/* Takes filmed in the teleprompter — linked to their script/product */}
+      <FadeInView style={[S.card, { marginBottom: 14 }]}>
+        <View style={S.hdr}>
+          <Text style={S.label}>Your takes</Text>
+          <Text style={S.hint}>{takes.length === 0 ? 'from the teleprompter' : `${takes.length} filmed`}</Text>
+        </View>
+        {takes.length === 0 ? (
+          <View style={S.takesEmpty}>
+            <Clapperboard size={18} color={D.textDisabled} strokeWidth={1.8} />
+            <Text style={S.takesEmptyText}>Film a script in the teleprompter and your takes land here, attached to the script.</Text>
+          </View>
+        ) : (
+          <View style={S.grid}>
+            {takes.map((t) => (
+              <View key={t.id} style={S.col}>
+                <AnimatedPressable style={S.thumbWrap} haptic="light" onPress={() => setOpenTake(t)}>
+                  {t.thumb_url ? <Image source={{ uri: t.thumb_url }} style={S.thumb} resizeMode="cover" /> : <View style={[S.thumb, S.thumbPh]}><Film size={20} color={D.textDisabled} strokeWidth={1.8} /></View>}
+                  {t.duration_sec != null && <View style={S.views}><Text style={S.viewsText}>{Math.floor(t.duration_sec / 60)}:{String(t.duration_sec % 60).padStart(2, '0')}</Text></View>}
+                </AnimatedPressable>
+                <Text style={S.takeTitle} numberOfLines={1}>{t.script?.title ?? t.title ?? 'Take'}</Text>
+                {t.product_name ? <Text style={S.takeSub} numberOfLines={1}>{t.product_name}</Text> : <Text style={S.takeSub} numberOfLines={1}>{t.script_id ? 'Script' : 'Not attached'}</Text>}
+              </View>
+            ))}
+          </View>
+        )}
+      </FadeInView>
+      {openTake && <TakeSheet take={openTake} onClose={() => setOpenTake(null)} />}
+
       {isLoading ? (
         <View style={S.center}><ActivityIndicator color={D.coral} /></View>
       ) : videos.length === 0 ? (
@@ -88,6 +124,10 @@ const S = StyleSheet.create({
   viewsText: { ...T.bold, fontSize: 10.5, color: '#FFF' },
   btn: { marginTop: 8, backgroundColor: D.coral, borderRadius: 999, paddingVertical: 8, alignItems: 'center' },
   btnText: { ...T.bold, fontSize: 12, color: '#FFF' },
+  takesEmpty: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  takesEmptyText: { ...T.regular, fontSize: 13, color: D.textMuted, flex: 1, lineHeight: 18 },
+  takeTitle: { ...T.bold, fontSize: 12, color: D.textPrimary, marginTop: 6 },
+  takeSub: { ...T.regular, fontSize: 11, color: D.textMuted, marginTop: 1 },
   center: { alignItems: 'center', paddingVertical: 48, gap: 8 },
   emptyIcon: { width: 60, height: 60, borderRadius: 18, backgroundColor: D.surface, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
   emptyTitle: { ...T.bold, fontSize: 17, color: D.textPrimary },

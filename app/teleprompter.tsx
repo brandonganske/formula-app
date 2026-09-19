@@ -4,6 +4,8 @@ import Svg, { Path, Ellipse, Line, Circle } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { storage } from '@/lib/storage';
 import { isNativeTikTokAvailable, isTikTokAppInstalled, shareVideos } from '@/modules/tiktok-login';
+import { uploadTake } from '@/lib/takes';
+import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
@@ -100,6 +102,7 @@ function useKeepAwake(on: boolean) {
 
 export default function TeleprompterScreen() {
   const router = useRouter();
+  const qc = useQueryClient();
   const insets = useSafeAreaInsets();
   const { scriptId, text: textParam } = useLocalSearchParams<{ scriptId?: string; text?: string }>();
   const { meData } = useAuth();
@@ -127,6 +130,7 @@ export default function TeleprompterScreen() {
   const [recSec, setRecSec] = useState(0);
   const [reviewUri, setReviewUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveStep, setSaveStep] = useState<string>('');
   useEffect(() => {
     if (!recording) { setRecSec(0); return; }
     const t = setInterval(() => setRecSec((n) => n + 1), 1000);
@@ -242,14 +246,25 @@ export default function TeleprompterScreen() {
       let perm = await ml.requestPermissionsAsync?.(false);
       if (!perm?.granted && perm?.accessPrivileges !== 'limited') perm = await ml.requestPermissionsAsync?.(true);
       if (!perm?.granted) { Alert.alert('Photo access needed', 'Allow photo library access in Settings so takes can be saved.'); return; }
+      setSaveStep('Saving to Photos…');
       let assetId: string | null = null;
       try { const asset = await ml.createAssetAsync(uri); assetId = asset?.id ?? null; }
       catch { try { await ml.saveToLibraryAsync(uri); } catch (e2: any) { Alert.alert('Couldn’t save', e2?.message ?? 'Please try again.'); return; } }
+      // Keep it in Formula too, linked to the script/product it came from.
+      let inFormula = false;
+      try {
+        setSaveStep('Saving to Formula…');
+        await uploadTake({ uri, scriptId: item?.id ?? null, productName: item?.product_name ?? null, photosAssetId: assetId, durationSec: recSec, title: item?.option_label ?? item?.product_name ?? null, onProgress: (f) => setSaveStep(`Saving to Formula… ${Math.round(f * 100)}%`) });
+        inFormula = true;
+        qc.invalidateQueries({ queryKey: ['takes'] });
+      } catch (e: any) {
+        console.warn('[takes] upload failed', e?.message);
+      }
       setReviewUri(null);
       const canShare = !!assetId && isNativeTikTokAvailable() && isTikTokAppInstalled();
       Alert.alert(
-        'Saved to Photos',
-        canShare ? 'Your take is in your library. Post it to TikTok now?' : 'Your take is in your photo library.',
+        inFormula ? 'Saved' : 'Saved to Photos',
+        (inFormula ? `In your Photos and in Saved → Videos${item ? ', attached to this script' : ''}. ` : 'Your take is in your photo library. ') + (canShare ? 'Post it to TikTok now?' : ''),
         canShare
           ? [
               { text: 'Later', style: 'cancel' },
@@ -262,7 +277,7 @@ export default function TeleprompterScreen() {
             ]
           : undefined,
       );
-    } finally { setSaving(false); }
+    } finally { setSaving(false); setSaveStep(''); }
   };
   const retake = () => { setReviewUri(null); reset(); };
 
@@ -439,7 +454,7 @@ export default function TeleprompterScreen() {
                 <RotateCcw size={16} color="#FFF" strokeWidth={2.4} /><Text style={S.reviewBtnText}>Retake</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[S.reviewBtn, S.reviewBtnPrimary]} onPress={saveTake} activeOpacity={0.85} disabled={saving}>
-                {saving ? <ActivityIndicator size="small" color="#FFF" /> : <><Check size={16} color="#FFF" strokeWidth={2.6} /><Text style={S.reviewBtnText}>Save to Photos</Text></>}
+                {saving ? <><ActivityIndicator size="small" color="#FFF" /><Text style={S.reviewBtnText}>{saveStep || 'Saving…'}</Text></> : <><Check size={16} color="#FFF" strokeWidth={2.6} /><Text style={S.reviewBtnText}>Save take</Text></>}
               </TouchableOpacity>
             </View>
           </View>

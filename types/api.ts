@@ -521,6 +521,24 @@ export interface ShopSafeResult {
   checked_at?: string;
 }
 
+// A take filmed in the teleprompter, stored in Formula and linked to its script.
+export interface Take {
+  id: string;
+  script_id: string | null;
+  script: { id: string; title: string | null; product_name: string | null; hook: string | null } | null;
+  product_name: string | null;
+  product_external_id: string | null;
+  title: string | null;
+  duration_sec: number | null;
+  width: number | null;
+  height: number | null;
+  size_bytes: number | null;
+  photos_asset_id: string | null;
+  video_url: string | null;
+  thumb_url: string | null;
+  created_at: string;
+}
+
 export interface SavedScriptItem {
   id: string;
   outcome?: ScriptOutcome | null;
