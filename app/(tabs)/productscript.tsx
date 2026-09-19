@@ -22,6 +22,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import NoCreditsModal from '@/components/NoCreditsModal';
 import { CREDIT_COSTS, usesLabel } from '@/lib/iap/catalog';
+import { notifyScriptUsed } from '@/lib/scripts-toast';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import AfterSaveRow from '@/components/AfterSaveRow';
 import { haptic } from '@/lib/haptics';
@@ -769,7 +770,7 @@ export default function ProductScriptScreen() {
     onSuccess: (data) => {
       if (data) {
         setResult(data);
-        refreshMe();
+        refreshMe().then(() => notifyScriptUsed(CREDIT_COSTS.script));
         // Jump to the top so the freshly generated scripts are front-and-center
         // instead of populating below the fold where they get missed.
         requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: 0, animated: false }));

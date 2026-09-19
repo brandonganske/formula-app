@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppHeader from '@/components/AppHeader';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import ClipboardCatch from '@/components/ClipboardCatch';
+import ScriptsToast from '@/components/ScriptsToast';
 import { useAuth } from '@/context/AuthContext';
 import { IconSaved, IconProducts, IconTools, IconSettings, ScriptIQIcon } from '@/components/TabIcons';
 import { haptic } from '@/lib/haptics';
@@ -139,6 +140,7 @@ export default function TabLayout() {
         <Tabs.Screen name="viraltopic"    options={{ href: null }} />
       </Tabs>
       <ClipboardCatch />
+      <ScriptsToast />
     </>
   );
 }

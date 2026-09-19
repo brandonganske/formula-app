@@ -20,6 +20,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import NoCreditsModal from '@/components/NoCreditsModal';
 import { CREDIT_COSTS, usesLabel } from '@/lib/iap/catalog';
+import { notifyScriptUsed } from '@/lib/scripts-toast';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import AfterSaveRow from '@/components/AfterSaveRow';
 import { haptic } from '@/lib/haptics';
@@ -578,7 +579,7 @@ export default function OrganicScriptScreen() {
       return extractData<OrganicScriptResult>(res);
     },
     onSuccess: (data) => {
-      if (data) { setResult(data); setView('result'); refreshMe(); }
+      if (data) { setResult(data); setView('result'); refreshMe().then(() => notifyScriptUsed(CREDIT_COSTS.script)); }
     },
   });
 

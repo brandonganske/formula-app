@@ -7,6 +7,7 @@ import AnimatedPressable from '@/components/AnimatedPressable';
 import ShopSafeReport from '@/components/ShopSafeReport';
 import { api, extractData } from '@/lib/api';
 import { haptic } from '@/lib/haptics';
+import { notifyScriptUsed } from '@/lib/scripts-toast';
 import { TOOL_COST, isInsufficientCredits, isFairUse, creditLabel } from '@/lib/credits';
 import { useAuth } from '@/context/AuthContext';
 import NoCreditsModal from '@/components/NoCreditsModal';
@@ -68,7 +69,7 @@ export default function ShopSafeScreen() {
     try {
       setMode('video'); setPhase('checking'); setResult(null); setName(u);
       const r = extractData<ShopSafeResult>(await api.post('/creators/compliance/check', { video_url: u }, { timeout: 300_000 })) as ShopSafeResult;
-      setResult(r); setPhase('done'); gradeHaptic(r); void refreshMe();
+      setResult(r); setPhase('done'); gradeHaptic(r); refreshMe().then(() => { notifyScriptUsed(TOOL_COST.shopSafeVideo); });
     } catch (e: any) { fail(e, 'Couldn’t check that video'); }
   };
   useEffect(() => { if (urlParam && /^https?:\/\//i.test(urlParam)) runUrl(urlParam); }, [urlParam]);
@@ -129,7 +130,7 @@ export default function ShopSafeScreen() {
       }
       setPhase('checking');
       const r = extractData<ShopSafeResult>(await api.post('/creators/compliance/check', { storage_path: up.storage_path }, { timeout: 300_000 })) as ShopSafeResult;
-      setResult(r); setPhase('done'); gradeHaptic(r); void refreshMe();
+      setResult(r); setPhase('done'); gradeHaptic(r); refreshMe().then(() => { notifyScriptUsed(TOOL_COST.shopSafeVideo); });
     } catch (e: any) { fail(e, 'Couldn’t check that video'); }
   };
 

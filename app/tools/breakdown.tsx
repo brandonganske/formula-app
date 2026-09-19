@@ -7,6 +7,7 @@ import AnimatedPressable from '@/components/AnimatedPressable';
 import { api, extractData } from '@/lib/api';
 import { TOOL_COST, isInsufficientCredits, isFairUse, creditLabel } from '@/lib/credits';
 import { haptic } from '@/lib/haptics';
+import { notifyScriptUsed } from '@/lib/scripts-toast';
 import { useAuth } from '@/context/AuthContext';
 import NoCreditsModal from '@/components/NoCreditsModal';
 import { D, T, R, Shadow } from '@/constants/ds';
@@ -44,7 +45,7 @@ export default function BreakdownScreen() {
     if (!u.trim()) return;
     if (!canAfford(TOOL_COST.breakdown)) { haptic.warning(); setShowNoCredits(true); return; }
     Keyboard.dismiss(); setBusy(true); setRes(null);
-    try { setRes(extractData<Breakdown>(await api.post('/creators/tools/breakdown', { video_url: u.trim() }, { timeout: 300_000 })) as Breakdown); haptic.success(); void refreshMe(); }
+    try { setRes(extractData<Breakdown>(await api.post('/creators/tools/breakdown', { video_url: u.trim() }, { timeout: 300_000 })) as Breakdown); haptic.success(); refreshMe().then(() => notifyScriptUsed(TOOL_COST.breakdown)); }
     catch (e: any) { haptic.error(); if (isInsufficientCredits(e)) setShowNoCredits(true); else Alert.alert(isFairUse(e) ? 'Monthly limit reached' : 'Couldn’t break that one down', e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.'); }
     finally { setBusy(false); }
   };

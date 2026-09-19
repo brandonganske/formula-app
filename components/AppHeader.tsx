@@ -1,12 +1,12 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform, Image } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, Image, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { D, T, Shadow, Gradient } from '@/constants/ds';
 import Svg, { Rect, Circle } from 'react-native-svg';
 import { useAuth } from '@/context/AuthContext';
-import { Zap } from 'lucide-react-native';
+import { Zap, Infinity as InfinityIcon } from 'lucide-react-native';
 
 function ProfileAvatarIcon() {
   return (
@@ -24,6 +24,14 @@ export default function AppHeader() {
   const insets = useSafeAreaInsets();
 
   const lowCredits = !unlimited && credits <= 3;
+  // Bump the pill whenever the balance changes so a spend is felt, not just read.
+  const bump = useRef(new Animated.Value(1)).current;
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    bump.setValue(1.18);
+    Animated.spring(bump, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 8 }).start();
+  }, [credits, unlimited]);
 
   return (
     <View style={[S.root, { paddingTop: insets.top + 12 }]}>
@@ -38,22 +46,23 @@ export default function AppHeader() {
       {/* Right — credits (→ Settings, where the plan lives) + avatar (→ Profile) */}
       <View style={S.rightRow}>
         {isAuthenticated && (
+          <Animated.View style={{ transform: [{ scale: bump }] }}>
           <TouchableOpacity
-            style={[S.creditsPill, lowCredits && S.creditsPillLow]}
+            style={[S.creditsPill, lowCredits && S.creditsPillLow, unlimited && S.creditsPillUnlimited]}
             onPress={() => router.push('/(tabs)/profile')}
             activeOpacity={0.8}
             hitSlop={8}
+            accessibilityLabel={unlimited ? 'Unlimited scripts' : `${credits} scripts left`}
           >
-            <Zap
-              size={12}
-              color={lowCredits ? D.coral : D.limeDeep}
-              strokeWidth={2.5}
-              fill={lowCredits ? D.coral : D.limeDeep}
-            />
-            <Text style={[S.creditsText, lowCredits && S.creditsTextLow]}>
-              {unlimited ? '∞' : credits}
+            {unlimited
+              ? <InfinityIcon size={13} color="#FFF" strokeWidth={2.6} />
+              : <Zap size={12} color={lowCredits ? D.coral : D.limeDeep} strokeWidth={2.5} fill={lowCredits ? D.coral : D.limeDeep} />}
+            <Text style={[S.creditsText, lowCredits && S.creditsTextLow, unlimited && S.creditsTextUnlimited]}>
+              {unlimited ? 'Unlimited' : credits}
+              {!unlimited && <Text style={[S.creditsUnit, lowCredits && S.creditsTextLow]}> {credits === 1 ? 'script' : 'scripts'}</Text>}
             </Text>
           </TouchableOpacity>
+          </Animated.View>
         )}
 
         <TouchableOpacity
@@ -132,6 +141,9 @@ const S = StyleSheet.create({
   creditsTextLow: {
     color: D.coral,
   },
+  creditsUnit: { ...T.medium, fontSize: 12, color: D.limeDeep, letterSpacing: 0 },
+  creditsPillUnlimited: { backgroundColor: D.ink, borderColor: D.ink },
+  creditsTextUnlimited: { color: '#FFF' },
 
   profileBtnOuter: {
     borderRadius: 21,

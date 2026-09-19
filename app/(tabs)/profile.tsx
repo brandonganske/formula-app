@@ -29,6 +29,14 @@ import {
 
 // ─── Settings row ─────────────────────────────────────────────────────────────
 
+// "$2.99" / 5 → "$0.60". Falls back to the raw string when the price isn't parseable.
+function perScript(price: string, n: number): string {
+  const num = parseFloat(price.replace(/[^0-9.]/g, ''));
+  if (!Number.isFinite(num) || n <= 0) return price;
+  const sym = price.trim().match(/^[^0-9]*/)?.[0] ?? '$';
+  return `${sym}${(num / n).toFixed(2)}`;
+}
+
 function SettingsRow({
   icon, label, sub, onPress, danger, externalLink, last, rightElement,
 }: {
@@ -406,6 +414,7 @@ export default function SettingsScreen() {
                             <Text style={[S.packCredits, pack.popular && { color: D.coral }]}>{pack.credits}</Text>
                             <Text style={S.packLabel}>scripts</Text>
                             <Text style={[S.packPrice, pack.popular && { color: D.coral }]}>{price}</Text>
+                            <Text style={S.packEach}>{perScript(price, pack.credits)} each</Text>
                           </>
                         )}
                     </AnimatedPressable>
@@ -777,6 +786,7 @@ const S = StyleSheet.create({
   packCredits: { ...T.bold, fontSize: 22, color: D.textPrimary, letterSpacing: -0.5, marginTop: 14 },
   packLabel: { ...T.medium, fontSize: 11, color: D.textMuted },
   packPrice: { ...T.bold, fontSize: 15, color: D.textPrimary, marginTop: 6 },
+  packEach: { ...T.regular, fontSize: 10.5, color: D.textMuted, marginTop: 1 },
 
   costLine: { ...T.regular, fontSize: 12, color: D.textMuted, textAlign: 'center', lineHeight: 17, marginTop: 14 },
   footRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 12 },
