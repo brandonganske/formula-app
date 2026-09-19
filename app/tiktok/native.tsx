@@ -30,9 +30,7 @@ export default function TikTokNativeReturn() {
       }
       const full = qs.toString() ? `${RETURN_BASE}?${qs.toString()}` : RETURN_BASE;
       const consumed = handleReturnURL(full);
-      console.log('[tiktok-native] return screen handed URL to SDK, consumed:', consumed);
     } catch (e: any) {
-      console.log('[tiktok-native] return screen error:', e?.message);
     }
     // Return to the sign-in screen WITHOUT remounting it — go back so its state
     // (a link-required sheet, or the loading/error it set while we were on top)

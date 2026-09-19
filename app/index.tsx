@@ -296,19 +296,10 @@ export default function AuthScreen() {
     if (isNativeTikTokAvailable()) {
       setTiktokLoading(true);
       try {
-        console.log('[tiktok-native] starting native auth');
         const res = await tiktokNativeAuth(TIKTOK_NATIVE_SCOPES, TIKTOK_UNIVERSAL_LINK);
-        console.log('[tiktok-native] auth result:', JSON.stringify({
-          isSuccess: res.isSuccess,
-          hasCode: res.isSuccess ? !!res.code : undefined,
-          hasVerifier: res.isSuccess ? !!res.codeVerifier : undefined,
-          errorCode: !res.isSuccess ? res.errorCode : undefined,
-          errorMsg: !res.isSuccess ? res.errorMsg : undefined,
-        }));
         if (res.isSuccess) {
           tiktokExchanged.current = true;
           const out = await loginWithTikTokNative(res.code, res.codeVerifier);
-          console.log('[tiktok-native] exchange result:', JSON.stringify({ error: out.error, link: !!out.link }));
           if (out.link) {
             setLinkInfo({ handle: out.link.handle, ticket: out.link.ticket });
           } else if (out.error) {
@@ -321,7 +312,6 @@ export default function AuthScreen() {
         setTiktokLoading(false);
         return;
       } catch (e: any) {
-        console.log('[tiktok-native] threw, falling back to web:', e?.message);
         // Native module threw unexpectedly — fall back to the web flow below.
         setTiktokLoading(false);
       }
