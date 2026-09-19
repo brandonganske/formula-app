@@ -47,6 +47,7 @@ function RootLayoutNav() {
       <Stack.Screen name="tools/sample-pitch" options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="tools/objections" options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="tools/coach" options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="tools/breakdown" options={{ animation: 'slide_from_bottom' }} />
       {/* TikTok native-login Universal Link return target */}
       <Stack.Screen name="tiktok/native" />
       <Stack.Screen name="+not-found" />

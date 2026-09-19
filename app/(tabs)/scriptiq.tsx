@@ -193,6 +193,11 @@ export default function ScriptIQScreen() {
                 </AnimatedPressable>
               )}
             </View>
+            {source === 'link' && (
+              <AnimatedPressable style={S.breakdownLink} haptic="light" onPress={() => router.push({ pathname: '/tools/breakdown', params: { url: url.trim() } })}>
+                <Text style={S.breakdownText}>Just want to know why it works? Break it down first →</Text>
+              </AnimatedPressable>
+            )}
             <View style={S.orRow}><View style={S.orLine} /><Text style={S.orText}>or</Text><View style={S.orLine} /></View>
             <Choice
               icon={<PenLine size={18} color={source === 'scratch' ? '#FFF' : D.textMuted} strokeWidth={2} />}
@@ -341,6 +346,8 @@ const S = StyleSheet.create({
   urlRowOff: { opacity: 0.45 },
   urlInput: { ...T.medium, flex: 1, fontSize: 15, color: D.textPrimary },
 
+  breakdownLink: { marginTop: 10, alignSelf: 'flex-start' },
+  breakdownText: { ...T.bold, fontSize: 12.5, color: D.coral },
   orRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 12 },
   orLine: { flex: 1, height: 1, backgroundColor: D.divider },
   orText: { ...T.medium, fontSize: 12, color: D.textDisabled, textTransform: 'uppercase', letterSpacing: 0.6 },
