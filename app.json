@@ -56,6 +56,22 @@
         {
           "photosPermission": "Formula uses your photo library so you can check a video for TikTok Shop policy risks before you post it."
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Formula uses the camera so you can film while reading your script.",
+          "microphonePermission": "Formula uses the microphone to record your takes.",
+          "recordAudioAndroid": true
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Formula saves your takes to your photo library.",
+          "savePhotosPermission": "Formula saves your takes to your photo library.",
+          "isAccessMediaLocationEnabled": false
+        }
       ]
     ],
     "experiments": {

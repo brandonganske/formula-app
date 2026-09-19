@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Easing, StatusBar, LayoutChangeEvent } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Easing, StatusBar, LayoutChangeEvent, TextInput, Alert, Keyboard } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { api, extractData } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { D, T, R } from '@/constants/ds';
-import { X, Play, Pause, RotateCcw, Minus, Plus, FlipHorizontal, Type, Film, ChevronRight } from 'lucide-react-native';
+import { X, Play, Pause, RotateCcw, Minus, Plus, FlipHorizontal, Type, Film, ChevronRight, Camera as CameraIcon, CameraOff, SwitchCamera, ClipboardPaste } from 'lucide-react-native';
 import type { SavedScriptItem, SavedScriptsResponse } from '@/types/api';
 import AnimatedPressable from '@/components/AnimatedPressable';
 
@@ -16,6 +16,15 @@ import AnimatedPressable from '@/components/AnimatedPressable';
 
 const WORD = /\S+/g;
 const countWords = (t: string) => (t.match(WORD) ?? []).length;
+
+// expo-camera / expo-media-library are native; load lazily so builds without
+// them still get the plain black prompter.
+function loadCamera(): { CameraView: any; Camera: any } | null {
+  try { const m = require('expo-camera'); return { CameraView: m.CameraView, Camera: m.Camera ?? m }; } catch { return null; }
+}
+function loadMediaLibrary(): any | null {
+  try { return require('expo-media-library'); } catch { return null; }
+}
 
 function useKeepAwake(on: boolean) {
   useEffect(() => {
@@ -46,12 +55,33 @@ export default function TeleprompterScreen() {
   });
 
   const [pickedId, setPickedId] = useState<string | null>(scriptId ?? null);
+  const [pasted, setPasted] = useState('');
+  const [draft, setDraft] = useState('');
+  const cam = useMemo(() => loadCamera(), []);
+  const [camOn, setCamOn] = useState(!!cam);
+  const [camReady, setCamReady] = useState(false);
+  const [facing, setFacing] = useState<'front' | 'back'>('front');
+  const [recording, setRecording] = useState(false);
+  const camRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!cam || !camOn) return;
+    (async () => {
+      try {
+        const c = await cam.Camera.requestCameraPermissionsAsync?.();
+        const m = await cam.Camera.requestMicrophonePermissionsAsync?.();
+        setCamReady(!!c?.granted && !!m?.granted);
+        if (!c?.granted) setCamOn(false);
+      } catch { setCamOn(false); }
+    })();
+  }, [cam, camOn]);
   const item = useMemo(() => scripts?.find((s) => s.id === pickedId) ?? null, [scripts, pickedId]);
   const text = useMemo(() => {
+    if (pasted) return pasted;
     if (textParam) return textParam;
     if (!item) return '';
     return item.full_script?.trim() || [item.hook, ...(item.body ?? []), item.cta].filter(Boolean).join('\n\n');
-  }, [item, textParam]);
+  }, [item, textParam, pasted]);
 
   // ── Playback ─────────────────────────────────────────────────────────────
   const [playing, setPlaying] = useState(false);
@@ -110,6 +140,28 @@ export default function TeleprompterScreen() {
   // Re-time the animation when speed changes mid-play.
   useEffect(() => { if (playing) startFrom((scrollY as any).__getValue?.() ?? 0); }, [speedMul]);
 
+  const startRecording = async () => {
+    if (!camRef.current || recording) return;
+    try {
+      setRecording(true);
+      if (!playing && countdown == null) play();
+      const rec = await camRef.current.recordAsync({ maxDuration: 300 });
+      setRecording(false);
+      if (rec?.uri) {
+        const ml = loadMediaLibrary();
+        if (ml) {
+          const perm = await ml.requestPermissionsAsync?.(true);
+          if (perm?.granted) { await ml.saveToLibraryAsync(rec.uri); Alert.alert('Saved to Photos', 'Your take is in your photo library.'); return; }
+        }
+        Alert.alert('Take recorded', 'Allow photo access in Settings to save takes to your library.');
+      }
+    } catch (e: any) {
+      setRecording(false);
+      Alert.alert('Couldn’t record', e?.message ?? 'Please try again.');
+    }
+  };
+  const stopRecording = () => { try { camRef.current?.stopRecording?.(); } catch {} pause(); };
+
   const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
 
   // ── Picker (no script chosen) ────────────────────────────────────────────
@@ -122,8 +174,24 @@ export default function TeleprompterScreen() {
           <View style={{ flex: 1 }}><Text style={S.title}>Teleprompter</Text><Text style={S.sub}>Scrolls at your speed — {baseWpm} wpm.</Text></View>
           <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={S.close}><X size={18} color="#FFF" strokeWidth={2.2} /></TouchableOpacity>
         </View>
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-          <Text style={S.pickLabel}>PICK A SCRIPT</Text>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <Text style={S.pickLabel}>PASTE A SCRIPT</Text>
+          <View style={S.pasteBox}>
+            <TextInput
+              style={S.pasteInput}
+              value={draft}
+              onChangeText={setDraft}
+              placeholder="Paste or type anything you want to read…"
+              placeholderTextColor="rgba(255,255,255,0.35)"
+              multiline
+              textAlignVertical="top"
+            />
+            <AnimatedPressable style={[S.pasteBtn, !draft.trim() && { opacity: 0.4 }]} haptic="light" disabled={!draft.trim()} onPress={() => { Keyboard.dismiss(); setPasted(draft.trim()); }}>
+              <ClipboardPaste size={14} color="#FFF" strokeWidth={2.4} />
+              <Text style={S.pasteBtnText}>Read this</Text>
+            </AnimatedPressable>
+          </View>
+          <Text style={[S.pickLabel, { marginTop: 22 }]}>OR PICK A SAVED SCRIPT</Text>
           {(scripts ?? []).length === 0 && <Text style={S.pickEmpty}>No saved scripts yet. Write one in ScriptIQ and save it.</Text>}
           {(scripts ?? []).map((s) => (
             <AnimatedPressable key={s.id} style={S.pickRow} haptic="light" onPress={() => setPickedId(s.id)}>
@@ -145,17 +213,29 @@ export default function TeleprompterScreen() {
       <StatusBar barStyle="light-content" />
       {/* Top bar */}
       <View style={[S.bar, { paddingTop: insets.top + 6 }]}>
-        <TouchableOpacity onPress={() => { pause(); router.back(); }} hitSlop={12} style={S.barBtn}><X size={18} color="#FFF" strokeWidth={2.2} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => { pause(); if (recording) stopRecording(); if (scriptId || textParam) router.back(); else { setPasted(''); setPickedId(null); reset(); } }} hitSlop={12} style={S.barBtn}><X size={18} color="#FFF" strokeWidth={2.2} /></TouchableOpacity>
         <View style={{ flex: 1, alignItems: 'center' }}>
           <Text style={S.barTitle} numberOfLines={1}>{item?.option_label ?? item?.product_name ?? 'Script'}</Text>
           <Text style={S.barMeta}>{words} words · {fmt(durationSec)} at {wpm} wpm</Text>
         </View>
+        {cam && (
+          <TouchableOpacity onPress={() => setCamOn((v) => !v)} hitSlop={12} style={[S.barBtn, camOn && S.barBtnOn]}>
+            {camOn ? <CameraIcon size={16} color="#FFF" strokeWidth={2.2} /> : <CameraOff size={16} color="#FFF" strokeWidth={2.2} />}
+          </TouchableOpacity>
+        )}
+        {cam && camOn && (
+          <TouchableOpacity onPress={() => setFacing((f) => (f === 'front' ? 'back' : 'front'))} hitSlop={12} style={S.barBtn}><SwitchCamera size={16} color="#FFF" strokeWidth={2.2} /></TouchableOpacity>
+        )}
         <TouchableOpacity onPress={() => setMirror((m) => !m)} hitSlop={12} style={[S.barBtn, mirror && S.barBtnOn]}><FlipHorizontal size={16} color="#FFF" strokeWidth={2.2} /></TouchableOpacity>
       </View>
       <View style={S.progressTrack}><Animated.View style={[S.progressFill, { width: progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]} /></View>
 
-      {/* Text */}
+      {/* Text (over the camera when it's on) */}
       <View style={{ flex: 1 }} onLayout={(e: LayoutChangeEvent) => setViewH(e.nativeEvent.layout.height)}>
+        {cam && camOn && camReady && (
+          <cam.CameraView ref={camRef} style={StyleSheet.absoluteFill} facing={facing} mode="video" mute={false} />
+        )}
+        {cam && camOn && camReady && <View pointerEvents="none" style={S.scrim} />}
         <TouchableOpacity activeOpacity={1} style={{ flex: 1 }} onPress={() => (playing ? pause() : play())}>
           <ScrollView
             ref={scrollRef}
@@ -185,9 +265,16 @@ export default function TeleprompterScreen() {
           <View style={S.ctlVal}><Text style={S.ctlValText}>{wpm}</Text><Text style={S.ctlValSub}>wpm</Text></View>
           <TouchableOpacity style={S.ctlBtn} onPress={() => nudge(0.1)} hitSlop={8}><Plus size={16} color="#FFF" strokeWidth={2.4} /></TouchableOpacity>
         </View>
-        <TouchableOpacity style={S.playBtn} onPress={() => (playing ? pause() : play())} activeOpacity={0.85}>
-          {playing ? <Pause size={26} color={D.ink} strokeWidth={2.4} fill={D.ink} /> : <Play size={26} color={D.ink} strokeWidth={2.4} fill={D.ink} />}
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          {cam && camOn && camReady && (
+            <TouchableOpacity style={[S.recBtn, recording && S.recBtnOn]} onPress={() => (recording ? stopRecording() : startRecording())} activeOpacity={0.85}>
+              <View style={[S.recDot, recording && S.recDotOn]} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={S.playBtn} onPress={() => (playing ? pause() : play())} activeOpacity={0.85}>
+            {playing ? <Pause size={26} color={D.ink} strokeWidth={2.4} fill={D.ink} /> : <Play size={26} color={D.ink} strokeWidth={2.4} fill={D.ink} />}
+          </TouchableOpacity>
+        </View>
         <View style={S.ctlGroup}>
           <TouchableOpacity style={S.ctlBtn} onPress={() => setFontSize((f) => Math.max(22, f - 4))} hitSlop={8}><Type size={14} color="#FFF" strokeWidth={2.4} /></TouchableOpacity>
           <TouchableOpacity style={S.ctlBtn} onPress={reset} hitSlop={8}><RotateCcw size={16} color="#FFF" strokeWidth={2.4} /></TouchableOpacity>
@@ -230,5 +317,14 @@ const S = StyleSheet.create({
   ctlVal: { alignItems: 'center', minWidth: 46 },
   ctlValText: { ...T.bold, fontSize: 16, color: '#FFF', letterSpacing: -0.3 },
   ctlValSub: { ...T.medium, fontSize: 10, color: 'rgba(255,255,255,0.5)' },
+  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.42)' },
+  recBtn: { width: 56, height: 56, borderRadius: 28, borderWidth: 3, borderColor: '#FFF', alignItems: 'center', justifyContent: 'center' },
+  recBtnOn: { borderColor: D.coral },
+  recDot: { width: 40, height: 40, borderRadius: 20, backgroundColor: D.coral },
+  recDotOn: { width: 22, height: 22, borderRadius: 5 },
+  pasteBox: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 18, padding: 14 },
+  pasteInput: { ...T.medium, fontSize: 15, color: '#FFF', lineHeight: 22, minHeight: 96 },
+  pasteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: D.coral, borderRadius: R.full, paddingVertical: 11, marginTop: 10 },
+  pasteBtnText: { ...T.bold, fontSize: 14, color: '#FFF' },
   playBtn: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center' },
 });
