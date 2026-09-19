@@ -41,8 +41,8 @@ type Align = 'center' | 'left';
 interface Prefs { guide: Guide; readPos: ReadPos; align: Align; width: 'wide' | 'narrow'; fontSize: number; mirror: boolean; cardTop: number; cardH: number }
 // The script lives in a floating card (like CapCut's) that can be dragged to
 // sit right under the lens and resized. cardTop/cardH are fractions of the view.
-const DEFAULT_PREFS: Prefs = { guide: 'head', readPos: 'camera', align: 'left', width: 'wide', fontSize: 26, mirror: false, cardTop: 0, cardH: 0.42 };
-const READ_IN_CARD = 0.3; // read line sits 30% down the card
+const DEFAULT_PREFS: Prefs = { guide: 'head', readPos: 'camera', align: 'left', width: 'wide', fontSize: 22, mirror: false, cardTop: 0, cardH: 0.42 };
+const READ_IN_CARD = 0.34; // read line sits a third of the way down the card
 const PREFS_KEY = 'teleprompter.prefs.v1';
 // Presets for the card's top edge (fraction of view height).
 const CARD_TOP_PRESET: Record<ReadPos, number> = { camera: 0, third: 0.2, center: 0.3 };
@@ -187,7 +187,7 @@ export default function TeleprompterScreen() {
   useEffect(() => { storage.getItem(PREFS_KEY).then((v) => { if (v) { try { setPrefsState({ ...DEFAULT_PREFS, ...JSON.parse(v) }); } catch {} } }); }, []);
   const setPrefs = (patch: Partial<Prefs>) => setPrefsState((p) => { const n = { ...p, ...patch }; storage.setItem(PREFS_KEY, JSON.stringify(n)).catch(() => {}); return n; });
   const viewHRef = useRef(0);
-  const fontSize = prefs.fontSize, mirror = prefs.mirror;
+  const fontSize = Math.max(18, Math.min(30, prefs.fontSize)), mirror = prefs.mirror;
   const setFontSize = (f: (n: number) => number) => setPrefs({ fontSize: f(prefs.fontSize) });
   const setMirror = (f: (m: boolean) => boolean) => setPrefs({ mirror: f(prefs.mirror) });
   // Usable band for the card: under the header pill, above the bottom controls.
@@ -275,9 +275,13 @@ export default function TeleprompterScreen() {
     },
     onPanResponderRelease: (_, g) => {
       const tap = Math.abs(g.dy) < 6 && Math.abs(g.dx) < 6;
-      if (tap && !wasPlayingAtTouch.current) play();
+      if (wasPlayingAtTouch.current) { startFromRef.current(curY.current); return; } // resume from wherever the finger left it
+      if (tap) play();
     },
+    onPanResponderTerminate: () => { if (wasPlayingAtTouch.current) startFromRef.current(curY.current); },
   }), []);
+  const startFromRef = useRef<(y: number) => void>(() => {});
+  startFromRef.current = startFrom;
   const reset = () => { anim.current?.stop(); setPlaying(false); curY.current = 0; scrollY.setValue(0); };
   const nudge = (d: number) => {
     const next = Math.max(0.5, Math.min(1.8, Math.round((speedMul + d) * 10) / 10));
@@ -288,7 +292,7 @@ export default function TeleprompterScreen() {
 
   // Vertical speed slider: top = faster, bottom = slower. Always on screen so
   // pace can be corrected mid-take without opening anything.
-  const SLIDER_H = 190, MUL_MIN = 0.5, MUL_MAX = 1.5;
+  const SLIDER_H = 150, MUL_MIN = 0.5, MUL_MAX = 1.5;
   const speedMulRef = useRef(1); speedMulRef.current = speedMul;
   const sliderStart = useRef(1);
   const sliderPan = useMemo(() => PanResponder.create({
@@ -483,24 +487,24 @@ export default function TeleprompterScreen() {
 
       {/* Floating script card — drag ✥ to move, corner grip to resize */}
       <View style={{ flex: 1 }} onLayout={(e: LayoutChangeEvent) => setViewH(e.nativeEvent.layout.height)}>
-        {camLive && <Guides guide={prefs.guide} w={winW} h={viewH} readY={viewH * readFrac} />}
-        <Animated.View pointerEvents="box-none" style={[S.card, { top: cardTopAnim, height: cardHPx, left: prefs.width === 'narrow' ? Math.max(12, winW * 0.1) : 12, right: prefs.width === 'narrow' ? Math.max(12, winW * 0.1) : 12 }]}>
+        {camLive && <Guides guide={prefs.guide} w={winW} h={viewH} readY={-100} />}
+        <Animated.View pointerEvents="box-none" style={[S.card, { top: cardTopAnim, height: cardHPx, left: 64, right: 12 }]}>
           <View style={{ flex: 1, overflow: 'hidden' }} {...pan.panHandlers}>
             <Animated.View
-              style={{ position: 'absolute', left: 0, right: 0, top: scrollY.interpolate({ inputRange: [0, 1], outputRange: [0, -1] }), paddingTop: readInCardPx, paddingBottom: cardHPx - readInCardPx, paddingHorizontal: 18 }}
+              style={{ position: 'absolute', left: 0, right: 0, top: scrollY.interpolate({ inputRange: [0, 1], outputRange: [0, -1] }), paddingTop: readInCardPx, paddingBottom: cardHPx - readInCardPx, paddingHorizontal: 16 }}
               onLayout={(e: LayoutChangeEvent) => setContentH(e.nativeEvent.layout.height)}
             >
               <Text style={[S.script, { fontSize, lineHeight: fontSize * 1.42, textAlign: prefs.align }]}>{text}</Text>
             </Animated.View>
             <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0)']} style={[S.fade, { top: 0, height: Math.max(0, readInCardPx - fontSize * 0.9) }]} />
             <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.6)']} style={[S.fade, { bottom: 0, height: Math.max(0, cardHPx - readInCardPx - fontSize * 2.2) }]} />
-            <View pointerEvents="none" style={[S.readLine, { top: readInCardPx - 1 }]} />
+            <View pointerEvents="none" style={[S.readLine, { top: readInCardPx - 1, left: 8, right: 8, opacity: 0.55 }]} />
           </View>
           <View style={S.cardMove} {...movePan.panHandlers}><Move size={15} color="#FFF" strokeWidth={2.2} /></View>
           <View style={S.cardSize} {...sizePan.panHandlers}><View style={S.cardSizeGrip} /></View>
         </Animated.View>
         {!playing && countdown == null && !recording && (
-          <View pointerEvents="none" style={[S.eyeHint, { top: cardTopPx + cardHPx + 8 }]}><Move size={11} color="rgba(255,255,255,0.7)" strokeWidth={2.2} /><Text style={S.eyeHintText}>Drag the card up near the lens · corner to resize</Text></View>
+          <View pointerEvents="none" style={[S.eyeHint, { top: cardTopPx + cardHPx + 8 }]}><Move size={11} color="rgba(255,255,255,0.7)" strokeWidth={2.2} /><Text style={S.eyeHintText}>Drag ✥ to move the card · corner to resize</Text></View>
         )}
         {countdown != null && (
           <View pointerEvents="none" style={S.countWrap}><Text style={S.count}>{countdown === 0 ? 'Go' : countdown}</Text></View>
@@ -550,7 +554,7 @@ export default function TeleprompterScreen() {
             </RailBtn>
           )}
           {railOpen && <RailBtn label={`${wpm} wpm`} active={showSpeed} onPress={() => setShowSpeed((v) => !v)}><Gauge size={18} color="#FFF" strokeWidth={2.2} /></RailBtn>}
-          {railOpen && <RailBtn label="Text size" onPress={() => setFontSize((f) => (f >= 38 ? 20 : f + 4))}><Type size={18} color="#FFF" strokeWidth={2.2} /></RailBtn>}
+          {railOpen && <RailBtn label="Text size" onPress={() => setFontSize((f) => (f >= 30 ? 18 : f + 4))}><Type size={18} color="#FFF" strokeWidth={2.2} /></RailBtn>}
           {railOpen && <RailBtn label={prefs.readPos === 'camera' ? 'Eyes: lens' : prefs.readPos === 'third' ? 'Eyes: third' : 'Eyes: center'} onPress={() => { const next: ReadPos = prefs.readPos === 'camera' ? 'third' : prefs.readPos === 'third' ? 'center' : 'camera'; setPrefs({ readPos: next, cardTop: Math.min(CARD_TOP_PRESET[next], 1 - prefs.cardH) }); }}><Eye size={18} color="#FFF" strokeWidth={2.2} /></RailBtn>}
           {railOpen && camLive && (
             <RailBtn label="Flash" active={torch && facing === 'back'} dim={facing !== 'back'} onPress={toggleTorch}>
@@ -718,8 +722,8 @@ const S = StyleSheet.create({
 
   // Right rail
   rail: { position: 'absolute', right: 10, alignItems: 'flex-end', gap: 14 },
-  sliderWrap: { position: 'absolute', left: 8, top: 0, bottom: 0, justifyContent: 'center' },
-  slider: { alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 6, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.35)' },
+  sliderWrap: { position: 'absolute', left: 8, top: 0, bottom: 0, justifyContent: 'center', width: 44 },
+  slider: { alignItems: 'center', gap: 5, paddingVertical: 8, paddingHorizontal: 4, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   sliderCap: { ...T.bold, fontSize: 9.5, color: 'rgba(255,255,255,0.7)', letterSpacing: 0.3 },
   sliderTrack: { width: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.22)', justifyContent: 'flex-end', overflow: 'visible' },
   sliderFill: { width: 6, borderRadius: 3, backgroundColor: D.coral },
@@ -758,10 +762,10 @@ const S = StyleSheet.create({
   bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' },
   smallBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   readLine: { position: 'absolute', left: 12, right: 12, height: 2, backgroundColor: D.coral, opacity: 0.85, borderRadius: 1 },
-  card: { position: 'absolute', backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', overflow: 'visible' },
-  cardMove: { position: 'absolute', left: 10, bottom: 8, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(0,0,0,0.55)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center' },
-  cardSize: { position: 'absolute', right: 6, bottom: 6, width: 34, height: 34, alignItems: 'flex-end', justifyContent: 'flex-end', padding: 6 },
-  cardSizeGrip: { width: 14, height: 14, borderRightWidth: 3, borderBottomWidth: 3, borderColor: 'rgba(255,255,255,0.7)', borderBottomRightRadius: 5 },
+  card: { position: 'absolute', backgroundColor: 'rgba(12,12,14,0.62)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', overflow: 'visible' },
+  cardMove: { position: 'absolute', left: -14, top: '50%', marginTop: -16, width: 30, height: 32, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.7)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)', alignItems: 'center', justifyContent: 'center' },
+  cardSize: { position: 'absolute', right: 4, bottom: 4, width: 30, height: 30, alignItems: 'flex-end', justifyContent: 'flex-end', padding: 6 },
+  cardSizeGrip: { width: 12, height: 12, borderRightWidth: 2.5, borderBottomWidth: 2.5, borderColor: 'rgba(255,255,255,0.6)', borderBottomRightRadius: 4 },
   fade: { position: 'absolute', left: 0, right: 0 },
   eyeHint: { position: 'absolute', alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: R.full, paddingHorizontal: 10, paddingVertical: 5 },
   eyeHintText: { ...T.medium, fontSize: 11.5, color: 'rgba(255,255,255,0.8)' },
