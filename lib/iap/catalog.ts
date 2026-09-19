@@ -6,7 +6,7 @@
 // RevenueCat webhook — nothing here grants anything. Prices shown here are
 // fallbacks; RevenueCat provides the localized price string at runtime.
 
-// 'unlimited' is the only plan sold; creator/pro/studio are grandfathered.
+// 'unlimited' is the only plan. creator/pro/studio never shipped (deleted in ASC).
 export type PlanTier = 'free' | 'creator' | 'pro' | 'studio' | 'unlimited';
 
 export interface SubPlan {
