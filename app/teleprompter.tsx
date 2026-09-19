@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Easing, StatusBar, LayoutChangeEvent, TextInput, Alert, Keyboard, Modal, Pressable, useWindowDimensions, ActivityIndicator, PanResponder } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Easing, StatusBar, LayoutChangeEvent, TextInput, Alert, Keyboard, Modal, Pressable, useWindowDimensions, ActivityIndicator, PanResponder, KeyboardAvoidingView, Platform } from 'react-native';
 import Svg, { Path, Ellipse, Line, Circle } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { storage } from '@/lib/storage';
@@ -346,8 +346,14 @@ export default function TeleprompterScreen() {
           <View style={{ flex: 1 }}><Text style={S.title}>Teleprompter</Text><Text style={S.sub}>Scrolls at your speed — {baseWpm} wpm.</Text></View>
           <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={S.close}><X size={18} color="#FFF" strokeWidth={2.2} /></TouchableOpacity>
         </View>
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <Text style={S.pickLabel}>PASTE A SCRIPT</Text>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={insets.top + 8}>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" automaticallyAdjustKeyboardInsets>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={S.pickLabel}>PASTE A SCRIPT</Text>
+            {draft.trim().length > 0 && (
+              <TouchableOpacity onPress={() => Keyboard.dismiss()} hitSlop={10}><Text style={[S.pickLabel, { color: '#FFF' }]}>DONE</Text></TouchableOpacity>
+            )}
+          </View>
           <View style={S.pasteBox}>
             <TextInput
               style={S.pasteInput}
@@ -375,6 +381,7 @@ export default function TeleprompterScreen() {
             </AnimatedPressable>
           ))}
         </ScrollView>
+        </KeyboardAvoidingView>
       </View>
     );
   }
