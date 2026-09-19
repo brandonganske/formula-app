@@ -5,6 +5,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FadeInView from '@/components/FadeInView';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import { api, extractData } from '@/lib/api';
+import { TOOL_COST, isInsufficientCredits, creditLabel } from '@/lib/credits';
+import { haptic } from '@/lib/haptics';
+import { useAuth } from '@/context/AuthContext';
+import NoCreditsModal from '@/components/NoCreditsModal';
 import { D, T, R, Shadow } from '@/constants/ds';
 import { X, Link, TrendingUp, Zap, ShoppingBag, Sparkles, ChevronDown, Film } from 'lucide-react-native';
 import type { WhyOriginalWorks } from '@/types/api';
@@ -34,11 +38,14 @@ export default function BreakdownScreen() {
   useEffect(() => { if (!busy) return; setStep(0); const t = setInterval(() => setStep((s) => Math.min(STEPS.length - 1, s + 1)), 9000); return () => clearInterval(t); }, [busy]);
   useEffect(() => { if (urlParam && !res && !busy) run(urlParam); }, [urlParam]);
 
+  const { credits, refreshMe } = useAuth();
+  const [showNoCredits, setShowNoCredits] = useState(false);
   const run = async (u: string) => {
     if (!u.trim()) return;
+    if (credits < TOOL_COST.breakdown) { haptic.warning(); setShowNoCredits(true); return; }
     Keyboard.dismiss(); setBusy(true); setRes(null);
-    try { setRes(extractData<Breakdown>(await api.post('/creators/tools/breakdown', { video_url: u.trim() }, { timeout: 300_000 })) as Breakdown); }
-    catch (e: any) { Alert.alert('Couldn’t break that one down', e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.'); }
+    try { setRes(extractData<Breakdown>(await api.post('/creators/tools/breakdown', { video_url: u.trim() }, { timeout: 300_000 })) as Breakdown); haptic.success(); void refreshMe(); }
+    catch (e: any) { haptic.error(); if (isInsufficientCredits(e)) setShowNoCredits(true); else Alert.alert('Couldn’t break that one down', e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.'); }
     finally { setBusy(false); }
   };
 
@@ -58,7 +65,7 @@ export default function BreakdownScreen() {
               <TextInput style={S.urlInput} value={url} onChangeText={setUrl} placeholder="https://www.tiktok.com/@creator/video/…" placeholderTextColor={D.textDisabled} autoCapitalize="none" autoCorrect={false} keyboardType="url" returnKeyType="go" onSubmitEditing={() => run(url)} />
             </View>
             <AnimatedPressable style={[S.cta, !url.trim() && { opacity: 0.45 }]} haptic="medium" onPress={() => run(url)} disabled={!url.trim()}>
-              <Sparkles size={16} color="#FFF" strokeWidth={2.4} /><Text style={S.ctaText}>Break it down</Text>
+              <Sparkles size={16} color="#FFF" strokeWidth={2.4} /><Text style={S.ctaText}>Break it down</Text><Text style={S.ctaCost}>{creditLabel(TOOL_COST.breakdown)}</Text>
             </AnimatedPressable>
             <Text style={S.hint}>Any TikTok, Reel or Short. We watch it, explain the hook, structure and format, then hand you the formula to write with.</Text>
           </FadeInView>
@@ -132,6 +139,7 @@ export default function BreakdownScreen() {
         )}
         <View style={{ height: 40 }} />
       </ScrollView>
+      <NoCreditsModal visible={showNoCredits} onClose={() => setShowNoCredits(false)} />
     </View>
   );
 }
@@ -149,6 +157,7 @@ const S = StyleSheet.create({
   urlRow: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: D.surface, borderRadius: R.full, borderWidth: 1.5, borderColor: D.border, paddingHorizontal: 16, height: 54 },
   urlInput: { ...T.medium, flex: 1, fontSize: 15, color: D.textPrimary },
   cta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: D.coral, borderRadius: R.full, paddingVertical: 15, marginTop: 16, ...Shadow.coral },
+  ctaCost: { ...T.bold, fontSize: 11, color: 'rgba(255,255,255,0.8)', backgroundColor: 'rgba(0,0,0,0.18)', borderRadius: R.full, paddingHorizontal: 8, paddingVertical: 3, overflow: 'hidden', marginLeft: 2 },
   ctaText: { ...T.bold, fontSize: 15.5, color: '#FFF' },
   hint: { ...T.regular, fontSize: 12.5, color: D.textDisabled, textAlign: 'center', marginTop: 12, lineHeight: 17 },
   busyTitle: { ...T.bold, fontSize: 18, color: D.textPrimary, marginTop: 14, letterSpacing: -0.3 },

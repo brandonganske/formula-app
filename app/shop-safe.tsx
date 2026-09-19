@@ -7,6 +7,9 @@ import AnimatedPressable from '@/components/AnimatedPressable';
 import ShopSafeReport from '@/components/ShopSafeReport';
 import { api, extractData } from '@/lib/api';
 import { haptic } from '@/lib/haptics';
+import { TOOL_COST, isInsufficientCredits, creditLabel } from '@/lib/credits';
+import { useAuth } from '@/context/AuthContext';
+import NoCreditsModal from '@/components/NoCreditsModal';
 import { useQuery } from '@tanstack/react-query';
 import type { SavedScriptItem, SavedScriptsResponse } from '@/types/api';
 import { D, T, R, Shadow } from '@/constants/ds';
@@ -20,6 +23,15 @@ type Phase = 'idle' | 'uploading' | 'checking' | 'done';
 export default function ShopSafeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { credits, refreshMe } = useAuth();
+  const [showNoCredits, setShowNoCredits] = useState(false);
+  // Every check costs credits: gate locally first, then trust the server's 402.
+  const canAfford = (cost: number) => { if (credits < cost) { haptic.warning(); setShowNoCredits(true); return false; } return true; };
+  const fail = (e: any, title: string) => {
+    haptic.error(); setPhase('idle');
+    if (isInsufficientCredits(e)) { setShowNoCredits(true); return; }
+    Alert.alert(title, e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.');
+  };
   const [phase, setPhase] = useState<Phase>('idle');
   const [pct, setPct] = useState(0);
   const [result, setResult] = useState<ShopSafeResult | null>(null);
@@ -51,28 +63,24 @@ export default function ShopSafeScreen() {
 
   // Links shared in from TikTok (or pasted): check the posted video by URL.
   const runUrl = async (u: string) => {
+    if (!canAfford(TOOL_COST.shopSafeVideo)) return;
     try {
       setMode('video'); setPhase('checking'); setResult(null); setName(u);
       const r = extractData<ShopSafeResult>(await api.post('/creators/compliance/check', { video_url: u }, { timeout: 300_000 })) as ShopSafeResult;
-      setResult(r); setPhase('done'); gradeHaptic(r);
-    } catch (e: any) {
-      haptic.error(); setPhase('idle');
-      Alert.alert('Couldn’t check that video', e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.');
-    }
+      setResult(r); setPhase('done'); gradeHaptic(r); void refreshMe();
+    } catch (e: any) { fail(e, 'Couldn’t check that video'); }
   };
   useEffect(() => { if (urlParam && /^https?:\/\//i.test(urlParam)) runUrl(urlParam); }, [urlParam]);
 
   const runScript = async () => {
     if (!script.trim()) return;
     Keyboard.dismiss();
+    if (!canAfford(TOOL_COST.shopSafeScript)) return;
     try {
       setPhase('checking'); setResult(null);
       const r = extractData<ShopSafeResult>(await api.post('/creators/compliance/check', { script: script.trim() }, { timeout: 120_000 })) as ShopSafeResult;
-      setResult(r); setPhase('done'); gradeHaptic(r);
-    } catch (e: any) {
-      haptic.error(); setPhase('idle');
-      Alert.alert('Couldn’t check that script', e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.');
-    }
+      setResult(r); setPhase('done'); gradeHaptic(r); void refreshMe();
+    } catch (e: any) { fail(e, 'Couldn’t check that script'); }
   };
 
   // The picker and uploader are native modules added after the first dev
@@ -89,6 +97,7 @@ export default function ShopSafeScreen() {
   };
 
   const pick = async () => {
+    if (!canAfford(TOOL_COST.shopSafeVideo)) return;
     const native = loadNative();
     if (!native) { Alert.alert('Update needed', 'Video checks need the latest build of the app. Update from TestFlight and try again.'); return; }
     const { ImagePicker } = native;
@@ -119,11 +128,8 @@ export default function ShopSafeScreen() {
       }
       setPhase('checking');
       const r = extractData<ShopSafeResult>(await api.post('/creators/compliance/check', { storage_path: up.storage_path }, { timeout: 300_000 })) as ShopSafeResult;
-      setResult(r); setPhase('done'); gradeHaptic(r);
-    } catch (e: any) {
-      haptic.error(); setPhase('idle');
-      Alert.alert('Couldn’t check that video', e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.');
-    }
+      setResult(r); setPhase('done'); gradeHaptic(r); void refreshMe();
+    } catch (e: any) { fail(e, 'Couldn’t check that video'); }
   };
 
   return (
@@ -145,14 +151,14 @@ export default function ShopSafeScreen() {
             <View style={{ gap: 8, marginTop: 18 }}>
               <AnimatedPressable style={S.choice} haptic="light" onPress={() => setMode('video')}>
                 <View style={S.choiceIcon}><Film size={18} color={D.ink} strokeWidth={2.2} /></View>
-                <View style={{ flex: 1 }}><Text style={S.choiceTitle}>Check a video</Text><Text style={S.choiceSub}>Upload a cut before posting</Text></View>
+                <View style={{ flex: 1 }}><Text style={S.choiceTitle}>Check a video</Text><Text style={S.choiceSub}>Upload a cut before posting · {creditLabel(TOOL_COST.shopSafeVideo)}</Text></View>
               </AnimatedPressable>
               <AnimatedPressable style={S.choice} haptic="light" onPress={() => setMode('script')}>
                 <View style={S.choiceIcon}><FileText size={18} color={D.ink} strokeWidth={2.2} /></View>
-                <View style={{ flex: 1 }}><Text style={S.choiceTitle}>Check a script</Text><Text style={S.choiceSub}>Paste anything before you film</Text></View>
+                <View style={{ flex: 1 }}><Text style={S.choiceTitle}>Check a script</Text><Text style={S.choiceSub}>Paste anything before you film · {creditLabel(TOOL_COST.shopSafeScript)}</Text></View>
               </AnimatedPressable>
             </View>
-            <Text style={S.hint}>Every script you save is checked automatically — look for the grade on Saved.</Text>
+            <Text style={S.hint}>Every script you save is checked automatically at no cost — look for the grade on Saved.</Text>
           </FadeInView>
         )}
 
@@ -174,7 +180,7 @@ export default function ShopSafeScreen() {
             </View>
             <AnimatedPressable style={[S.cta, !script.trim() && { opacity: 0.45 }]} haptic="medium" onPress={runScript} disabled={!script.trim()}>
               <ShieldCheck size={16} color="#FFF" strokeWidth={2.4} />
-              <Text style={S.ctaText}>Check this script</Text>
+              <Text style={S.ctaText}>Check this script</Text><Text style={S.ctaCost}>{creditLabel(TOOL_COST.shopSafeScript)}</Text>
             </AnimatedPressable>
           </FadeInView>
         )}
@@ -186,7 +192,7 @@ export default function ShopSafeScreen() {
             <Text style={S.dropSub}>We'll watch the cut, read the on-screen text, and flag anything TikTok Shop tends to reject — with what to say instead, in your voice.</Text>
             <AnimatedPressable style={S.cta} haptic="medium" onPress={pick}>
               <Upload size={16} color="#FFF" strokeWidth={2.4} />
-              <Text style={S.ctaText}>Choose a video</Text>
+              <Text style={S.ctaText}>Choose a video</Text><Text style={S.ctaCost}>{creditLabel(TOOL_COST.shopSafeVideo)}</Text>
             </AnimatedPressable>
             <Text style={S.hint}>Uploads are private and deleted after the check.</Text>
           </FadeInView>
@@ -218,6 +224,7 @@ export default function ShopSafeScreen() {
         )}
         <View style={{ height: 40 }} />
       </ScrollView>
+      <NoCreditsModal visible={showNoCredits} onClose={() => setShowNoCredits(false)} />
     </View>
   );
 }
@@ -236,6 +243,7 @@ const S = StyleSheet.create({
   dropSub: { ...T.regular, fontSize: 14, color: D.textMuted, lineHeight: 20, textAlign: 'center', marginTop: 6 },
   cta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: D.coral, borderRadius: R.full, paddingVertical: 15, marginTop: 18, ...Shadow.coral },
   ctaText: { ...T.bold, fontSize: 15.5, color: '#FFF' },
+  ctaCost: { ...T.bold, fontSize: 11, color: 'rgba(255,255,255,0.8)', backgroundColor: 'rgba(0,0,0,0.18)', borderRadius: R.full, paddingHorizontal: 8, paddingVertical: 3, overflow: 'hidden', marginLeft: 2 },
   hint: { ...T.regular, fontSize: 12, color: D.textDisabled, textAlign: 'center', marginTop: 10 },
   choice: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: D.surface, borderRadius: 16, borderWidth: 1, borderColor: D.border, padding: 12 },
   choiceIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: D.inkHairline, alignItems: 'center', justifyContent: 'center' },

@@ -6,6 +6,10 @@ import { useQuery } from '@tanstack/react-query';
 import FadeInView from '@/components/FadeInView';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import { api, extractData } from '@/lib/api';
+import { TOOL_COST, isInsufficientCredits, creditLabel } from '@/lib/credits';
+import { haptic } from '@/lib/haptics';
+import { useAuth } from '@/context/AuthContext';
+import NoCreditsModal from '@/components/NoCreditsModal';
 import { D, T, R } from '@/constants/ds';
 import { X, Mic, Film, Gauge, Volume2, Eye, MessageCircle, RefreshCw } from 'lucide-react-native';
 import type { Take } from '@/types/api';
@@ -47,10 +51,13 @@ export default function CoachScreen() {
     staleTime: 60_000,
   });
 
+  const { credits, refreshMe } = useAuth();
+  const [showNoCredits, setShowNoCredits] = useState(false);
   const run = async (id: string) => {
+    if (credits < TOOL_COST.coach) { haptic.warning(); setShowNoCredits(true); setPicked(null); return; }
     setBusy(true); setRes(null);
-    try { setRes(extractData<CoachResult>(await api.post('/creators/tools/coach', { take_id: id }, { timeout: 300_000 })) as CoachResult); }
-    catch (e: any) { Alert.alert('Couldn’t coach that take', e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.'); setPicked(null); }
+    try { setRes(extractData<CoachResult>(await api.post('/creators/tools/coach', { take_id: id }, { timeout: 300_000 })) as CoachResult); haptic.success(); void refreshMe(); }
+    catch (e: any) { haptic.error(); setPicked(null); if (isInsufficientCredits(e)) setShowNoCredits(true); else Alert.alert('Couldn’t coach that take', e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.'); }
     finally { setBusy(false); }
   };
   useEffect(() => { if (picked && !res && !busy) run(picked); }, [picked]);
@@ -69,7 +76,7 @@ export default function CoachScreen() {
       <ScrollView contentContainerStyle={S.scroll} showsVerticalScrollIndicator={false}>
         {!picked && (
           <FadeInView style={S.card}>
-            <Text style={S.label}>PICK A TAKE</Text>
+            <Text style={S.label}>PICK A TAKE · {creditLabel(TOOL_COST.coach).toUpperCase()}</Text>
             {(takes ?? []).length === 0 && <Text style={S.empty}>No takes yet. Film one in the teleprompter and it'll show up here.</Text>}
             <View style={S.grid}>
               {(takes ?? []).map((t) => (
@@ -138,6 +145,7 @@ export default function CoachScreen() {
         )}
         <View style={{ height: 40 }} />
       </ScrollView>
+      <NoCreditsModal visible={showNoCredits} onClose={() => setShowNoCredits(false)} />
     </View>
   );
 }
