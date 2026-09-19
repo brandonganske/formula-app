@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Keyboard } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Keyboard, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQuery } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
 import FadeInView from '@/components/FadeInView';
 import AnimatedPressable from '@/components/AnimatedPressable';
-import ProductPickField from '@/components/ProductPickField';
 import { api, extractData } from '@/lib/api';
+import { fromSaved, coverOf } from '@/lib/product-handoff';
 import { D, T, R, Shadow } from '@/constants/ds';
-import { X, Mail, Copy, Check, Sparkles } from 'lucide-react-native';
+import { X, Mail, Copy, Check, Search, ShoppingBag, Sparkles } from 'lucide-react-native';
+import type { ProductSearchResult, ProductSearchResponse, SavedProductItem } from '@/types/api';
 
-interface Pitch { dm: string; email: string; talking_points: string[]; angle: string; used_stats: { followers: number | null; videos: number | null; gmv_30d: number | null } }
+interface Pitch { fit_reasons: string[]; fit_score: number; dm: string; email: string; talking_points: string[]; angle: string; used_stats: { followers: number | null; videos: number | null; gmv_30d: number | null } }
 
 function CopyBlock({ label, text }: { label: string; text: string }) {
   const [ok, setOk] = useState(false);
@@ -28,52 +30,108 @@ function CopyBlock({ label, text }: { label: string; text: string }) {
   );
 }
 
+function ProductRow({ p, onPress }: { p: ProductSearchResult; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={S.item} onPress={onPress} activeOpacity={0.8}>
+      {coverOf(p) ? <Image source={{ uri: coverOf(p)! }} style={S.thumb} /> : <View style={[S.thumb, S.thumbPh]}><ShoppingBag size={14} color={D.textDisabled} strokeWidth={1.8} /></View>}
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={S.itemTitle} numberOfLines={2}>{p.title}</Text>
+        <Text style={S.itemSub}>{[p.commission_rate != null ? `${Math.round(p.commission_rate)}% commission` : null, p.price != null ? `$${p.price}` : null, p.category].filter(Boolean).join(' · ')}</Text>
+      </View>
+      <View style={S.use}><Text style={S.useText}>Pitch</Text></View>
+    </TouchableOpacity>
+  );
+}
+
+// Pick a product from your shelf or TikTok Shop → why you're a fit → the pitch.
 export default function SamplePitchScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [product, setProduct] = useState('');
-  const [brand, setBrand] = useState('');
-  const [notes, setNotes] = useState('');
+  const [q, setQ] = useState('');
+  const [query, setQuery] = useState('');
+  const deb = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [picked, setPicked] = useState<ProductSearchResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [pitch, setPitch] = useState<Pitch | null>(null);
 
-  const run = async () => {
-    if (!product.trim()) return;
-    Keyboard.dismiss(); setBusy(true);
+  const savedQ = useQuery({
+    queryKey: ['saved-products-lite'],
+    queryFn: async () => extractData<{ products?: SavedProductItem[] }>(await api.get('/creators/saved-products'))?.products ?? [],
+    staleTime: 60_000,
+  });
+  const saved = (savedQ.data ?? []).map(fromSaved);
+  const search = useQuery<ProductSearchResponse>({
+    queryKey: ['product-search-pitch', query],
+    queryFn: async () => {
+      const body: Record<string, unknown> = { sort: 'trending', page: 1, pagesize: 20 };
+      if (query.trim()) body.query = query.trim();
+      return extractData<ProductSearchResponse>(await api.post('/creators/product-search', body)) as ProductSearchResponse;
+    },
+    staleTime: 120_000,
+  });
+
+  const run = async (p: ProductSearchResult) => {
+    Keyboard.dismiss(); setPicked(p); setBusy(true); setPitch(null);
     try {
-      const r = extractData<Pitch>(await api.post('/creators/tools/sample-pitch', { product: product.trim(), brand: brand.trim() || undefined, notes: notes.trim() || undefined }, { timeout: 60_000 }));
+      const r = extractData<Pitch>(await api.post('/creators/tools/sample-pitch', { product: p.title, category: p.category ?? undefined, price: p.price ?? undefined, commission_rate: p.commission_rate ?? undefined }, { timeout: 60_000 }));
       setPitch(r as Pitch);
-    } catch (e: any) { Alert.alert('Couldn’t write it', e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.'); }
+    } catch (e: any) { Alert.alert('Couldn’t write it', e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.'); setPicked(null); }
     finally { setBusy(false); }
   };
 
   const stats = pitch?.used_stats;
+  const fitColor = (n: number) => (n >= 75 ? D.limeDeep : n >= 50 ? '#F5A623' : D.coral);
+
   return (
     <View style={[S.root, { paddingTop: insets.top + 8 }]}>
       <View style={S.hdr}>
         <View style={S.hdrIcon}><Mail size={18} color="#FFF" strokeWidth={2.4} /></View>
-        <View style={{ flex: 1 }}><Text style={S.title}>Sample pitch</Text><Text style={S.sub}>The message that gets you the free product.</Text></View>
+        <View style={{ flex: 1 }}><Text style={S.title}>Sample pitch</Text><Text style={S.sub}>Pick a product. We'll say why you're the fit.</Text></View>
         <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={S.close}><X size={18} color={D.textMuted} strokeWidth={2.2} /></TouchableOpacity>
       </View>
       <ScrollView contentContainerStyle={S.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        {!pitch && (
-          <FadeInView style={S.card}>
-            <Text style={S.label}>WHICH PRODUCT?</Text>
-            <ProductPickField value={product} onChange={setProduct} />
-            <Text style={[S.label, { marginTop: 16 }]}>BRAND OR SELLER (OPTIONAL)</Text>
-            <View style={S.box}><TextInput style={S.input} value={brand} onChangeText={setBrand} placeholder="e.g. Root Labs" placeholderTextColor={D.textDisabled} /></View>
-            <Text style={[S.label, { marginTop: 16 }]}>ANYTHING TO MENTION? (OPTIONAL)</Text>
-            <View style={[S.box, { height: 84, paddingVertical: 12 }]}><TextInput style={[S.input, { textAlignVertical: 'top' }]} value={notes} onChangeText={setNotes} placeholder="I've used it for a month… I'm going live Friday…" placeholderTextColor={D.textDisabled} multiline /></View>
-            <AnimatedPressable style={[S.cta, !product.trim() && { opacity: 0.45 }]} haptic="medium" onPress={run} disabled={busy || !product.trim()}>
-              {busy ? <ActivityIndicator size="small" color="#FFF" /> : <><Sparkles size={16} color="#FFF" strokeWidth={2.4} /><Text style={S.ctaText}>Write my pitch</Text></>}
-            </AnimatedPressable>
-            <Text style={S.hint}>Built from your real numbers — followers, videos, and sales when they're on record.</Text>
+        {!picked && (
+          <FadeInView>
+            <View style={S.searchBox}>
+              <Search size={15} color={D.textDisabled} strokeWidth={2.2} />
+              <TextInput style={S.searchInput} value={q} onChangeText={(t) => { setQ(t); if (deb.current) clearTimeout(deb.current); deb.current = setTimeout(() => setQuery(t), 450); }} placeholder="Search TikTok Shop…" placeholderTextColor={D.textDisabled} autoCapitalize="none" />
+              {search.isFetching && <ActivityIndicator size="small" color={D.coral} />}
+            </View>
+            {!q && saved.length > 0 && (
+              <View style={S.card}>
+                <Text style={S.label}>YOUR SAVED PRODUCTS</Text>
+                {saved.map((p, i) => <ProductRow key={'s' + p.external_id} p={p} onPress={() => run(p)} />)}
+              </View>
+            )}
+            <View style={S.card}>
+              <Text style={S.label}>{q ? 'RESULTS' : 'TRENDING ON TIKTOK SHOP'}</Text>
+              {(search.data?.products ?? []).map((p) => <ProductRow key={p.external_id} p={p} onPress={() => run(p)} />)}
+              {search.data && (search.data.products ?? []).length === 0 && !search.isFetching && <Text style={S.empty}>No products found.</Text>}
+            </View>
           </FadeInView>
         )}
-        {pitch && (
+
+        {picked && busy && (
+          <FadeInView style={[S.card, { alignItems: 'center', paddingVertical: 32 }]}>
+            <ActivityIndicator color={D.coral} size="large" />
+            <Text style={S.busyTitle}>Checking the fit…</Text>
+            <Text style={S.busySub} numberOfLines={2}>{picked.title}</Text>
+          </FadeInView>
+        )}
+
+        {picked && pitch && (
           <FadeInView>
             <View style={S.card}>
-              <Text style={S.label}>YOUR ANGLE</Text>
+              <View style={S.pickedRow}>
+                {coverOf(picked) ? <Image source={{ uri: coverOf(picked)! }} style={S.thumb} /> : <View style={[S.thumb, S.thumbPh]}><ShoppingBag size={14} color={D.textDisabled} strokeWidth={1.8} /></View>}
+                <Text style={S.pickedTitle} numberOfLines={2}>{picked.title}</Text>
+                <View style={[S.fitPill, { backgroundColor: fitColor(pitch.fit_score) }]}><Text style={S.fitPillText}>{Math.round(pitch.fit_score)}</Text><Text style={S.fitPillSub}>fit</Text></View>
+              </View>
+              <Text style={[S.label, { marginTop: 16 }]}>WHY YOU'RE A FIT</Text>
+              {pitch.fit_reasons.map((r, i) => (
+                <View key={i} style={S.reason}><View style={S.reasonDot}><Sparkles size={11} color={D.limeDeep} strokeWidth={2.4} /></View><Text style={S.reasonText}>{r}</Text></View>
+              ))}
+              <Text style={[S.label, { marginTop: 14 }]}>YOUR ANGLE</Text>
               <Text style={S.angle}>{pitch.angle}</Text>
               {stats && (stats.followers != null || stats.gmv_30d != null) && (
                 <Text style={S.stats}>Using: {[stats.followers != null ? `${stats.followers.toLocaleString()} followers` : null, stats.videos != null ? `${stats.videos} videos` : null, stats.gmv_30d != null ? `$${Math.round(stats.gmv_30d).toLocaleString()} 30-day sales` : null].filter(Boolean).join(' · ')}</Text>
@@ -85,8 +143,8 @@ export default function SamplePitchScreen() {
               <Text style={S.blockLabel}>TALKING POINTS</Text>
               {pitch.talking_points.map((t, i) => <Text key={i} style={S.point}>• {t}</Text>)}
             </View>
-            <AnimatedPressable style={[S.cta, S.ctaGhost]} haptic="light" onPress={() => setPitch(null)}>
-              <Text style={[S.ctaText, { color: D.textPrimary }]}>Write another</Text>
+            <AnimatedPressable style={S.ghost} haptic="light" onPress={() => { setPitch(null); setPicked(null); }}>
+              <Text style={S.ghostText}>Pick another product</Text>
             </AnimatedPressable>
           </FadeInView>
         )}
@@ -104,16 +162,30 @@ const S = StyleSheet.create({
   sub: { ...T.regular, fontSize: 13, color: D.textMuted, marginTop: 1 },
   close: { width: 36, height: 36, borderRadius: 18, backgroundColor: D.card, borderWidth: 1, borderColor: D.border, alignItems: 'center', justifyContent: 'center' },
   scroll: { paddingHorizontal: 16, paddingTop: 4 },
-  card: { backgroundColor: D.card, borderRadius: 22, borderWidth: 1, borderColor: D.border, padding: 20, marginBottom: 12 },
-  label: { ...T.bold, fontSize: 11, color: D.textMuted, letterSpacing: 0.6, marginBottom: 8 },
-  box: { backgroundColor: D.surface, borderRadius: 16, borderWidth: 1.5, borderColor: D.border, paddingHorizontal: 16, height: 52, justifyContent: 'center' },
-  input: { ...T.medium, fontSize: 15, color: D.textPrimary },
-  cta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: D.coral, borderRadius: R.full, paddingVertical: 15, marginTop: 20, ...Shadow.coral },
-  ctaGhost: { backgroundColor: D.card, borderWidth: 1, borderColor: D.border, shadowOpacity: 0, elevation: 0, marginTop: 4 },
-  ctaText: { ...T.bold, fontSize: 15.5, color: '#FFF' },
-  hint: { ...T.regular, fontSize: 12, color: D.textDisabled, textAlign: 'center', marginTop: 10, lineHeight: 17 },
-  angle: { ...T.bold, fontSize: 17, color: D.textPrimary, letterSpacing: -0.3, lineHeight: 23 },
-  stats: { ...T.medium, fontSize: 12, color: D.limeDeep, marginTop: 8 },
+  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: D.card, borderRadius: R.full, borderWidth: 1.5, borderColor: D.border, paddingHorizontal: 16, height: 50, marginBottom: 12 },
+  searchInput: { ...T.medium, flex: 1, fontSize: 15, color: D.textPrimary },
+  card: { backgroundColor: D.card, borderRadius: 22, borderWidth: 1, borderColor: D.border, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 6, marginBottom: 12 },
+  label: { ...T.bold, fontSize: 11, color: D.textMuted, letterSpacing: 0.6, marginBottom: 6 },
+  item: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: D.divider },
+  thumb: { width: 52, height: 52, borderRadius: 13, backgroundColor: D.inkHairline },
+  thumbPh: { alignItems: 'center', justifyContent: 'center' },
+  itemTitle: { ...T.medium, fontSize: 14, color: D.textPrimary, lineHeight: 19 },
+  itemSub: { ...T.regular, fontSize: 12, color: D.textMuted, marginTop: 2 },
+  use: { backgroundColor: D.coral, borderRadius: R.full, paddingHorizontal: 12, paddingVertical: 6 },
+  useText: { ...T.bold, fontSize: 12, color: '#FFF' },
+  empty: { ...T.regular, fontSize: 13.5, color: D.textMuted, textAlign: 'center', paddingVertical: 16 },
+  busyTitle: { ...T.bold, fontSize: 18, color: D.textPrimary, marginTop: 14, letterSpacing: -0.3 },
+  busySub: { ...T.regular, fontSize: 13.5, color: D.textMuted, textAlign: 'center', marginTop: 4, paddingHorizontal: 12, paddingBottom: 10 },
+  pickedRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  pickedTitle: { ...T.bold, fontSize: 15, color: D.textPrimary, flex: 1, lineHeight: 20 },
+  fitPill: { alignItems: 'center', borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6, minWidth: 48 },
+  fitPillText: { ...T.bold, fontSize: 18, color: '#FFF', letterSpacing: -0.5 },
+  fitPillSub: { ...T.bold, fontSize: 9.5, color: 'rgba(255,255,255,0.8)', letterSpacing: 0.6, marginTop: -2 },
+  reason: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 8 },
+  reasonDot: { width: 22, height: 22, borderRadius: 11, backgroundColor: D.limeSubtle, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  reasonText: { ...T.medium, fontSize: 14.5, color: D.textPrimary, lineHeight: 21, flex: 1 },
+  angle: { ...T.bold, fontSize: 16, color: D.textPrimary, letterSpacing: -0.3, lineHeight: 22 },
+  stats: { ...T.medium, fontSize: 12, color: D.limeDeep, marginTop: 8, marginBottom: 10 },
   block: { backgroundColor: D.card, borderRadius: 22, borderWidth: 1, borderColor: D.border, padding: 18, marginBottom: 12 },
   blockHdr: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   blockLabel: { ...T.bold, fontSize: 11, color: D.textMuted, letterSpacing: 0.6 },
@@ -121,4 +193,6 @@ const S = StyleSheet.create({
   copy: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: D.surface, borderRadius: R.full, borderWidth: 1, borderColor: D.border, paddingHorizontal: 10, paddingVertical: 5 },
   copyText: { ...T.bold, fontSize: 12, color: D.textMuted },
   point: { ...T.regular, fontSize: 14.5, color: D.textSecondary, lineHeight: 21, marginTop: 6 },
+  ghost: { alignItems: 'center', paddingVertical: 14 },
+  ghostText: { ...T.bold, fontSize: 14, color: D.textMuted },
 });

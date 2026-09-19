@@ -354,7 +354,7 @@ export default function TeleprompterScreen() {
       <StatusBar barStyle="light-content" />
 
       {/* Camera fills the whole screen; everything else floats over it */}
-      {camLive && <cam.CameraView key={facing} ref={camRef} style={StyleSheet.absoluteFill} facing={facing} mode="video" mute={false} enableTorch={torch && facing === 'back'} mirror={mirror} />}
+      {camLive && <cam.CameraView key={`${facing}-${mirror ? 'm' : 'n'}`} ref={camRef} style={[StyleSheet.absoluteFill, mirror && { transform: [{ scaleX: -1 }] }]} facing={facing} mode="video" mute={false} enableTorch={torch && facing === 'back'} mirror={mirror} />}
       {camLive && <View pointerEvents="none" style={S.scrim} />}
 
       {/* Text layer */}
