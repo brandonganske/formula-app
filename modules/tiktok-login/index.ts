@@ -17,8 +17,13 @@ export type TikTokAuthResult =
       errorMsg: string;
     };
 
+export type TikTokShareResult =
+  | { isSuccess: true; shareState: number }
+  | { isSuccess: false; errorCode: number; shareState?: number; errorMsg: string };
+
 interface TikTokLoginNativeModule extends NativeModule {
   isTikTokAppInstalled(): boolean;
+  shareVideos(localIdentifiers: string[], redirectURI: string): Promise<TikTokShareResult>;
   authenticate(scopes: string[], redirectURI: string): Promise<TikTokAuthResult>;
   handleReturnURL(url: string): boolean;
 }
@@ -71,4 +76,14 @@ export async function authenticate(
 ): Promise<TikTokAuthResult> {
   if (!nativeModule) throw new Error('Native TikTok module unavailable');
   return nativeModule.authenticate(scopes, redirectURI);
+}
+
+/**
+ * Share Kit: open TikTok's editor with videos from the photo library
+ * (`localIdentifiers` = PHAsset ids, e.g. expo-media-library asset.id).
+ * Throws when the native module isn't linked.
+ */
+export async function shareVideos(localIdentifiers: string[], redirectURI: string): Promise<TikTokShareResult> {
+  if (!nativeModule) throw new Error('Native TikTok module unavailable');
+  return nativeModule.shareVideos(localIdentifiers, redirectURI);
 }

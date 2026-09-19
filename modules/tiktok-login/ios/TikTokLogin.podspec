@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
   s.name           = 'TikTokLogin'
   s.version        = '1.0.0'
-  s.summary        = 'Native TikTok Login Kit (OpenSDK v2) app-to-app auth for Formula.'
+  s.summary        = 'Native TikTok Login Kit + Share Kit (OpenSDK v2) for Formula.'
   s.description    = 'Expo module wrapping TikTokOpenAuthSDK for native app-to-app TikTok login with a web-view fallback.'
   s.author         = 'Influenceish'
   s.homepage       = 'https://thecreatorformula.com'
@@ -12,6 +12,7 @@ Pod::Spec.new do |s|
   s.dependency 'ExpoModulesCore'
   s.dependency 'TikTokOpenSDKCore'
   s.dependency 'TikTokOpenAuthSDK'
+  s.dependency 'TikTokOpenShareSDK'
 
   # Swift/Objective-C compatibility
   s.pod_target_xcconfig = {

@@ -1,6 +1,7 @@
 import ExpoModulesCore
 import TikTokOpenSDKCore
 import TikTokOpenAuthSDK
+import TikTokOpenShareSDK
 
 /**
  * Native TikTok Login Kit (OpenSDK v2) app-to-app authorization.
@@ -20,6 +21,7 @@ public class TikTokLoginModule: Module {
   // We must keep our own strong reference alive until TikTok calls back, or the
   // request is deallocated and the return URL can never be routed to it.
   private var pendingRequest: TikTokAuthRequest?
+  private var pendingShare: TikTokShareRequest?
 
   public func definition() -> ModuleDefinition {
     Name("TikTokLogin")
@@ -38,6 +40,33 @@ public class TikTokLoginModule: Module {
     Function("handleReturnURL") { (url: String) -> Bool in
       guard let u = URL(string: url) else { return false }
       return TikTokURLHandler.handleOpenURL(u)
+    }
+
+    // Share Kit: hand videos (Photos local identifiers) to the TikTok app,
+    // which opens its own editor so the creator adds caption, sound and the
+    // product tag there. Resolves once TikTok returns to us.
+    AsyncFunction("shareVideos") { (localIdentifiers: [String], redirectURI: String, promise: Promise) in
+      DispatchQueue.main.async { [weak self] in
+        let request = TikTokShareRequest(localIdentifiers: localIdentifiers, mediaType: .video, redirectURI: redirectURI)
+        self?.pendingShare = request
+        request.send { [weak self] response in
+          self?.pendingShare = nil
+          guard let res = response as? TikTokShareResponse else {
+            promise.resolve(["isSuccess": false, "errorCode": -1, "errorMsg": "Unexpected response from TikTok."] as [String: Any])
+            return
+          }
+          if res.errorCode == .noError {
+            promise.resolve(["isSuccess": true, "shareState": res.shareState.rawValue] as [String: Any])
+          } else {
+            promise.resolve([
+              "isSuccess": false,
+              "errorCode": res.errorCode.rawValue,
+              "shareState": res.shareState.rawValue,
+              "errorMsg": res.errorDescription ?? "Sharing to TikTok was cancelled or failed.",
+            ] as [String: Any])
+          }
+        }
+      }
     }
 
     AsyncFunction("authenticate") { (scopes: [String], redirectURI: String, promise: Promise) in

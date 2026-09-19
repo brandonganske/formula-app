@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Easing,
 import Svg, { Path, Ellipse, Line, Circle } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { storage } from '@/lib/storage';
+import { isNativeTikTokAvailable, isTikTokAppInstalled, shareVideos } from '@/modules/tiktok-login';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
@@ -210,7 +211,26 @@ export default function TeleprompterScreen() {
         const ml = loadMediaLibrary();
         if (ml) {
           const perm = await ml.requestPermissionsAsync?.(true);
-          if (perm?.granted) { await ml.saveToLibraryAsync(rec.uri); Alert.alert('Saved to Photos', 'Your take is in your photo library.'); return; }
+          if (perm?.granted) {
+            const asset = await ml.createAssetAsync(rec.uri);
+            const canShare = isNativeTikTokAvailable() && isTikTokAppInstalled() && !!asset?.id;
+            Alert.alert(
+              'Saved to Photos',
+              canShare ? 'Your take is in your library. Post it to TikTok now?' : 'Your take is in your photo library.',
+              canShare
+                ? [
+                    { text: 'Later', style: 'cancel' },
+                    { text: 'Post to TikTok', onPress: async () => {
+                        try {
+                          const r = await shareVideos([asset.id], 'https://iq.influenceish.com/tiktok/native');
+                          if (!r.isSuccess) Alert.alert('Not posted', r.errorMsg);
+                        } catch (e: any) { Alert.alert('Not posted', e?.message ?? 'Please try again.'); }
+                      } },
+                  ]
+                : undefined,
+            );
+            return;
+          }
         }
         Alert.alert('Take recorded', 'Allow photo access in Settings to save takes to your library.');
       }
