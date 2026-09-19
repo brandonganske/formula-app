@@ -82,7 +82,7 @@
             "NSExtensionActivationSupportsWebPageWithMaxCount": 1,
             "NSExtensionActivationSupportsText": true
           },
-          "iosShareExtensionName": "Formula",
+          "iosShareExtensionName": "Formula Share",
           "androidIntentFilters": [
             "text/*"
           ]
