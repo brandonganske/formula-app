@@ -1,12 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Easing, StatusBar, LayoutChangeEvent, TextInput, Alert, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Easing, StatusBar, LayoutChangeEvent, TextInput, Alert, Keyboard, Modal, Pressable, useWindowDimensions } from 'react-native';
+import Svg, { Path, Ellipse, Line, Circle } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
+import { storage } from '@/lib/storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { api, extractData } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { D, T, R } from '@/constants/ds';
-import { X, Play, Pause, RotateCcw, Minus, Plus, FlipHorizontal, Type, Film, ChevronRight, Camera as CameraIcon, CameraOff, SwitchCamera, ClipboardPaste } from 'lucide-react-native';
+import { X, Play, Pause, RotateCcw, Minus, Plus, FlipHorizontal, Type, Film, ChevronRight, Camera as CameraIcon, CameraOff, SwitchCamera, ClipboardPaste, Settings2, Eye, Check } from 'lucide-react-native';
 import type { SavedScriptItem, SavedScriptsResponse } from '@/types/api';
 import AnimatedPressable from '@/components/AnimatedPressable';
 
@@ -24,6 +27,55 @@ function loadCamera(): { CameraView: any; Camera: any } | null {
 }
 function loadMediaLibrary(): any | null {
   try { return require('expo-media-library'); } catch { return null; }
+}
+
+// ── Framing guides ───────────────────────────────────────────────────────────
+// Drawn over the camera so the creator lands in the same spot every take.
+type Guide = 'none' | 'head' | 'face' | 'thirds';
+type ReadPos = 'camera' | 'third' | 'center';
+type Align = 'center' | 'left';
+interface Prefs { guide: Guide; readPos: ReadPos; align: Align; width: 'wide' | 'narrow'; fontSize: number; mirror: boolean }
+const DEFAULT_PREFS: Prefs = { guide: 'head', readPos: 'camera', align: 'center', width: 'narrow', fontSize: 34, mirror: false };
+const PREFS_KEY = 'teleprompter.prefs.v1';
+const READ_FRAC: Record<ReadPos, number> = { camera: 0.16, third: 0.35, center: 0.5 };
+
+function Guides({ guide, w, h, readY }: { guide: Guide; w: number; h: number; readY: number }) {
+  if (!w || !h) return null;
+  const stroke = 'rgba(255,255,255,0.55)';
+  const dash = '6 6';
+  // Head & shoulders: head ellipse in the upper-middle, shoulders curve below.
+  const cx = w / 2, headR = Math.min(w, h) * 0.17, headCy = h * 0.36;
+  const shoulderY = headCy + headR * 1.55;
+  const shoulders = `M ${cx - headR * 2.6} ${h * 0.98} C ${cx - headR * 2.6} ${shoulderY + headR * 0.6}, ${cx - headR * 1.2} ${shoulderY}, ${cx} ${shoulderY} C ${cx + headR * 1.2} ${shoulderY}, ${cx + headR * 2.6} ${shoulderY + headR * 0.6}, ${cx + headR * 2.6} ${h * 0.98}`;
+  return (
+    <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width={w} height={h}>
+      {guide === 'head' && (
+        <>
+          <Ellipse cx={cx} cy={headCy} rx={headR * 0.82} ry={headR} stroke={stroke} strokeWidth={1.5} strokeDasharray={dash} fill="none" />
+          <Path d={shoulders} stroke={stroke} strokeWidth={1.5} strokeDasharray={dash} fill="none" />
+          <Line x1={cx - headR * 0.45} y1={headCy - headR * 0.12} x2={cx + headR * 0.45} y2={headCy - headR * 0.12} stroke={stroke} strokeWidth={1} strokeDasharray="3 4" />
+        </>
+      )}
+      {guide === 'face' && (
+        <>
+          <Ellipse cx={cx} cy={h * 0.42} rx={w * 0.26} ry={h * 0.2} stroke={stroke} strokeWidth={1.5} strokeDasharray={dash} fill="none" />
+          <Line x1={cx - w * 0.14} y1={h * 0.39} x2={cx + w * 0.14} y2={h * 0.39} stroke={stroke} strokeWidth={1} strokeDasharray="3 4" />
+        </>
+      )}
+      {guide === 'thirds' && (
+        <>
+          <Line x1={w / 3} y1={0} x2={w / 3} y2={h} stroke={stroke} strokeWidth={1} />
+          <Line x1={(2 * w) / 3} y1={0} x2={(2 * w) / 3} y2={h} stroke={stroke} strokeWidth={1} />
+          <Line x1={0} y1={h / 3} x2={w} y2={h / 3} stroke={stroke} strokeWidth={1} />
+          <Line x1={0} y1={(2 * h) / 3} x2={w} y2={(2 * h) / 3} stroke={stroke} strokeWidth={1} />
+          <Circle cx={w / 3} cy={h / 3} r={4} fill={stroke} />
+          <Circle cx={(2 * w) / 3} cy={h / 3} r={4} fill={stroke} />
+        </>
+      )}
+      {/* Eye marker: where to look so the read line feels like eye contact */}
+      <Circle cx={w - 22} cy={readY} r={5} fill={D.coral} />
+    </Svg>
+  );
 }
 
 function useKeepAwake(on: boolean) {
@@ -87,8 +139,15 @@ export default function TeleprompterScreen() {
   const [playing, setPlaying] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [speedMul, setSpeedMul] = useState(1);
-  const [fontSize, setFontSize] = useState(34);
-  const [mirror, setMirror] = useState(false);
+  const [prefs, setPrefsState] = useState<Prefs>(DEFAULT_PREFS);
+  const [showSettings, setShowSettings] = useState(false);
+  useEffect(() => { storage.getItem(PREFS_KEY).then((v) => { if (v) { try { setPrefsState({ ...DEFAULT_PREFS, ...JSON.parse(v) }); } catch {} } }); }, []);
+  const setPrefs = (patch: Partial<Prefs>) => setPrefsState((p) => { const n = { ...p, ...patch }; storage.setItem(PREFS_KEY, JSON.stringify(n)).catch(() => {}); return n; });
+  const fontSize = prefs.fontSize, mirror = prefs.mirror;
+  const setFontSize = (f: (n: number) => number) => setPrefs({ fontSize: f(prefs.fontSize) });
+  const setMirror = (f: (m: boolean) => boolean) => setPrefs({ mirror: f(prefs.mirror) });
+  const readFrac = READ_FRAC[prefs.readPos];
+  const { width: winW } = useWindowDimensions();
   const [contentH, setContentH] = useState(0);
   const [viewH, setViewH] = useState(0);
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -100,7 +159,7 @@ export default function TeleprompterScreen() {
   const words = countWords(text);
   const wpm = Math.round(baseWpm * speedMul);
   const durationSec = words > 0 ? (words / wpm) * 60 : 0;
-  const travel = Math.max(0, contentH - viewH * 0.35); // stop when the last line reaches the read line
+  const travel = Math.max(0, contentH - viewH * readFrac); // stop when the last line reaches the read line
 
   useEffect(() => {
     const id = scrollY.addListener(({ value }) => {
@@ -108,7 +167,7 @@ export default function TeleprompterScreen() {
       progress.setValue(travel > 0 ? value / travel : 0);
     });
     return () => scrollY.removeListener(id);
-  }, [travel]);
+  }, [travel, readFrac]);
 
   const startFrom = (fromY: number) => {
     anim.current?.stop();
@@ -227,7 +286,39 @@ export default function TeleprompterScreen() {
           <TouchableOpacity onPress={() => setFacing((f) => (f === 'front' ? 'back' : 'front'))} hitSlop={12} style={S.barBtn}><SwitchCamera size={16} color="#FFF" strokeWidth={2.2} /></TouchableOpacity>
         )}
         <TouchableOpacity onPress={() => setMirror((m) => !m)} hitSlop={12} style={[S.barBtn, mirror && S.barBtnOn]}><FlipHorizontal size={16} color="#FFF" strokeWidth={2.2} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => { pause(); setShowSettings(true); }} hitSlop={12} style={S.barBtn}><Settings2 size={16} color="#FFF" strokeWidth={2.2} /></TouchableOpacity>
       </View>
+
+      {/* Settings sheet */}
+      <Modal visible={showSettings} transparent animationType="fade" onRequestClose={() => setShowSettings(false)}>
+        <Pressable style={S.sheetBackdrop} onPress={() => setShowSettings(false)}>
+          <Pressable style={S.sheet} onPress={() => {}}>
+            <View style={S.sheetHdr}><Text style={S.sheetTitle}>Framing & text</Text><TouchableOpacity onPress={() => setShowSettings(false)} hitSlop={12}><X size={18} color="rgba(255,255,255,0.7)" strokeWidth={2.2} /></TouchableOpacity></View>
+            {([
+              { label: 'Guide', key: 'guide' as const, opts: [['none', 'None'], ['head', 'Head & shoulders'], ['face', 'Face'], ['thirds', 'Thirds']] },
+              { label: 'Read line', key: 'readPos' as const, opts: [['camera', 'Near camera'], ['third', 'Third'], ['center', 'Center']] },
+              { label: 'Text', key: 'align' as const, opts: [['center', 'Centered'], ['left', 'Left']] },
+              { label: 'Width', key: 'width' as const, opts: [['narrow', 'Narrow'], ['wide', 'Wide']] },
+            ]).map((row) => (
+              <View key={row.key} style={S.optRow}>
+                <Text style={S.optLabel}>{row.label}</Text>
+                <View style={S.optChips}>
+                  {row.opts.map(([v, l]) => {
+                    const on = (prefs as any)[row.key] === v;
+                    return (
+                      <TouchableOpacity key={v} style={[S.optChip, on && S.optChipOn]} onPress={() => setPrefs({ [row.key]: v } as any)} activeOpacity={0.8}>
+                        {on && <Check size={11} color="#FFF" strokeWidth={3} />}
+                        <Text style={[S.optChipText, on && S.optChipTextOn]}>{l}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
+            <Text style={S.sheetNote}>Near camera keeps your eyes on the lens. Head & shoulders keeps you in the same frame every take.</Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
       <View style={S.progressTrack}><Animated.View style={[S.progressFill, { width: progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]} /></View>
 
       {/* Text (over the camera when it's on) */}
@@ -243,16 +334,23 @@ export default function TeleprompterScreen() {
             showsVerticalScrollIndicator={false}
             onScrollEndDrag={(e) => scrollY.setValue(e.nativeEvent.contentOffset.y)}
             onMomentumScrollEnd={(e) => scrollY.setValue(e.nativeEvent.contentOffset.y)}
-            contentContainerStyle={{ paddingTop: viewH * 0.35, paddingBottom: viewH * 0.65, paddingHorizontal: 24 }}
+            contentContainerStyle={{ paddingTop: viewH * readFrac, paddingBottom: viewH * (1 - readFrac), paddingHorizontal: prefs.width === 'narrow' ? Math.max(24, winW * 0.12) : 24 }}
             style={mirror ? { transform: [{ scaleX: -1 }] } : undefined}
             onContentSizeChange={(_, h) => setContentH(h)}
           >
-            <Text style={[S.script, { fontSize, lineHeight: fontSize * 1.42 }]}>{text}</Text>
+            <Text style={[S.script, { fontSize, lineHeight: fontSize * 1.42, textAlign: prefs.align }]}>{text}</Text>
           </ScrollView>
         </TouchableOpacity>
+        {/* Framing guides over the camera */}
+        {cam && camOn && camReady && <Guides guide={prefs.guide} w={winW} h={viewH} readY={viewH * readFrac} />}
+        {/* Focus fades — only the lines around the read line stay bright */}
+        <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0.85)', 'rgba(0,0,0,0)']} style={[S.fade, { top: 0, height: Math.max(0, viewH * readFrac - fontSize * 0.9) }]} />
+        <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.85)']} style={[S.fade, { bottom: 0, height: Math.max(0, viewH * (1 - readFrac) - fontSize * 2.2) }]} />
         {/* Read line */}
-        <View pointerEvents="none" style={[S.readLine, { top: viewH * 0.35 - 1 }]} />
-        <View pointerEvents="none" style={[S.fadeTop]} />
+        <View pointerEvents="none" style={[S.readLine, { top: viewH * readFrac - 1 }]} />
+        {prefs.readPos === 'camera' && !playing && countdown == null && (
+          <View pointerEvents="none" style={[S.eyeHint, { top: viewH * readFrac + 10 }]}><Eye size={12} color="rgba(255,255,255,0.7)" strokeWidth={2.2} /><Text style={S.eyeHintText}>Eyes here — closest to the lens</Text></View>
+        )}
         {countdown != null && (
           <View pointerEvents="none" style={S.countWrap}><Text style={S.count}>{countdown === 0 ? 'Go' : countdown}</Text></View>
         )}
@@ -307,7 +405,21 @@ const S = StyleSheet.create({
   progressFill: { height: 2, backgroundColor: D.coral },
   script: { ...T.bold, color: '#FFF', letterSpacing: -0.3 },
   readLine: { position: 'absolute', left: 12, right: 12, height: 2, backgroundColor: D.coral, opacity: 0.85, borderRadius: 1 },
-  fadeTop: { position: 'absolute', left: 0, right: 0, top: 0, height: 0 },
+  fade: { position: 'absolute', left: 0, right: 0 },
+  eyeHint: { position: 'absolute', alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: R.full, paddingHorizontal: 10, paddingVertical: 5 },
+  eyeHintText: { ...T.medium, fontSize: 11.5, color: 'rgba(255,255,255,0.8)' },
+  sheetBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: '#141414', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 22, paddingBottom: 40 },
+  sheetHdr: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  sheetTitle: { ...T.bold, fontSize: 18, color: '#FFF', letterSpacing: -0.3 },
+  optRow: { marginBottom: 14 },
+  optLabel: { ...T.bold, fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: 0.7, textTransform: 'uppercase', marginBottom: 8 },
+  optChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  optChip: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: R.full, borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', paddingHorizontal: 12, paddingVertical: 8 },
+  optChipOn: { backgroundColor: D.coral, borderColor: D.coral },
+  optChipText: { ...T.bold, fontSize: 13, color: 'rgba(255,255,255,0.8)' },
+  optChipTextOn: { color: '#FFF' },
+  sheetNote: { ...T.regular, fontSize: 12.5, color: 'rgba(255,255,255,0.5)', lineHeight: 18, marginTop: 4 },
   countWrap: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.55)' },
   count: { ...T.bold, fontSize: 96, color: '#FFF', letterSpacing: -3 },
 
