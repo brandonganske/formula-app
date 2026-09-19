@@ -244,6 +244,9 @@ function ScriptCard({
         </View>
         {!renaming && (
           <View style={SC.stripRight}>
+            <TouchableOpacity style={[SC.iconBtn, SC.iconBtnInk]} onPress={() => router.push({ pathname: '/teleprompter', params: { scriptId: item.id } })} hitSlop={6} activeOpacity={0.7}>
+              <Film size={14} color="#FFF" strokeWidth={2.2} />
+            </TouchableOpacity>
             <TouchableOpacity style={SC.iconBtn} onPress={startRename} hitSlop={6} activeOpacity={0.7}>
               <Pencil size={13} color={D.textMuted} strokeWidth={2} />
             </TouchableOpacity>
@@ -298,6 +301,7 @@ const SC = StyleSheet.create({
   chipCoralText: { color: D.coral },
   iconBtn: { width: 30, height: 30, borderRadius: 10, backgroundColor: D.surface, borderWidth: 1, borderColor: D.border, alignItems: 'center', justifyContent: 'center' },
   iconBtnCoral: { backgroundColor: D.coralSubtle, borderColor: D.coral + '22' },
+  iconBtnInk: { backgroundColor: D.ink, borderColor: D.ink },
 
   divider: { height: 1, backgroundColor: D.divider, marginVertical: 12 },
   scriptText: { ...T.regular, fontSize: 13, color: D.textSecondary, lineHeight: 22, marginBottom: 4 },

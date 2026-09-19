@@ -5,7 +5,7 @@ import FadeInView from '@/components/FadeInView';
 import TabFadeView from '@/components/TabFadeView';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import { D, T, R, Shadow } from '@/constants/ds';
-import { ShieldCheck, Film, FileText, ArrowRight, Sparkles } from 'lucide-react-native';
+import { ShieldCheck, Film, FileText, ArrowRight, Sparkles, Clapperboard } from 'lucide-react-native';
 
 // Tools — utilities that sit beside the script engine. Shop Safe is the first;
 // the list grows as tools ship. The creator profile lives behind the avatar.
@@ -53,9 +53,31 @@ export default function ToolsScreen() {
           <Text style={S.heroNote}>Every script you save is checked automatically — look for the grade on Saved.</Text>
         </FadeInView>
 
-        <FadeInView delay={110} style={S.soon}>
+        {/* Teleprompter */}
+        <FadeInView delay={90} style={[S.hero, { marginTop: 14 }]}>
+          <View style={S.heroTop}>
+            <View style={[S.heroIcon, { backgroundColor: D.ink }]}><Clapperboard size={20} color="#FFF" strokeWidth={2.2} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={S.heroTitle}>Teleprompter</Text>
+              <Text style={S.heroSub}>Scrolls at your talking speed</Text>
+            </View>
+          </View>
+          <Text style={S.heroBody}>
+            Any saved script, full screen, scrolling at the pace you actually talk. Tap to pause, nudge the speed, mirror it for a camera rig.
+          </Text>
+          <AnimatedPressable style={[S.action, { marginTop: 14 }]} haptic="light" onPress={() => router.push('/teleprompter')}>
+            <View style={S.actionIcon}><Film size={16} color={D.ink} strokeWidth={2.2} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={S.actionTitle}>Film a script</Text>
+              <Text style={S.actionSub}>Pick from Saved</Text>
+            </View>
+            <ArrowRight size={16} color={D.textMuted} strokeWidth={2.2} />
+          </AnimatedPressable>
+        </FadeInView>
+
+        <FadeInView delay={130} style={S.soon}>
           <Sparkles size={14} color={D.textMuted} strokeWidth={2.2} />
-          <Text style={S.soonText}>More tools on the way — teleprompter, shot list, picked-for-you products.</Text>
+          <Text style={S.soonText}>More tools on the way — shot list, hook lab, picked-for-you products.</Text>
         </FadeInView>
         <View style={{ height: 40 }} />
       </ScrollView>

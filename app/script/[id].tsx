@@ -163,6 +163,9 @@ export default function ScriptDetailScreen() {
             <View style={S.editorCard}>
               <View style={S.editorHead}>
                 <Text style={S.editorLabel}>SCRIPT</Text>
+                <TouchableOpacity style={[S.copyBtn, { backgroundColor: D.ink, borderColor: D.ink }]} onPress={() => router.push({ pathname: '/teleprompter', params: { scriptId: item.id } })} activeOpacity={0.75}>
+                  <Film size={13} color="#FFF" strokeWidth={2.2} /><Text style={[S.copyText, { color: '#FFF' }]}>Film</Text>
+                </TouchableOpacity>
                 <TouchableOpacity style={S.copyBtn} onPress={handleCopy} activeOpacity={0.75}>
                   {copied
                     ? <><Check size={13} color={D.success} strokeWidth={2.5} /><Text style={[S.copyText, { color: D.success }]}>Copied</Text></>
