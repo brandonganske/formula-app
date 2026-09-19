@@ -54,7 +54,7 @@ export default function CoachScreen() {
   const { credits, refreshMe } = useAuth();
   const [showNoCredits, setShowNoCredits] = useState(false);
   const run = async (id: string) => {
-    if (credits < TOOL_COST.coach) { haptic.warning(); setShowNoCredits(true); setPicked(null); return; }
+    if (TOOL_COST.coach > 0 && credits < TOOL_COST.coach) { haptic.warning(); setShowNoCredits(true); setPicked(null); return; }
     setBusy(true); setRes(null);
     try { setRes(extractData<CoachResult>(await api.post('/creators/tools/coach', { take_id: id }, { timeout: 300_000 })) as CoachResult); haptic.success(); void refreshMe(); }
     catch (e: any) { haptic.error(); setPicked(null); if (isInsufficientCredits(e)) setShowNoCredits(true); else Alert.alert('Couldn’t coach that take', e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.'); }
@@ -76,7 +76,7 @@ export default function CoachScreen() {
       <ScrollView contentContainerStyle={S.scroll} showsVerticalScrollIndicator={false}>
         {!picked && (
           <FadeInView style={S.card}>
-            <Text style={S.label}>PICK A TAKE · {creditLabel(TOOL_COST.coach).toUpperCase()}</Text>
+            <Text style={S.label}>PICK A TAKE</Text>
             {(takes ?? []).length === 0 && <Text style={S.empty}>No takes yet. Film one in the teleprompter and it'll show up here.</Text>}
             <View style={S.grid}>
               {(takes ?? []).map((t) => (

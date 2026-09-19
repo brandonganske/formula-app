@@ -26,7 +26,7 @@ export default function ShopSafeScreen() {
   const { credits, refreshMe } = useAuth();
   const [showNoCredits, setShowNoCredits] = useState(false);
   // Every check costs credits: gate locally first, then trust the server's 402.
-  const canAfford = (cost: number) => { if (credits < cost) { haptic.warning(); setShowNoCredits(true); return false; } return true; };
+  const canAfford = (cost: number) => { if (cost > 0 && credits < cost) { haptic.warning(); setShowNoCredits(true); return false; } return true; };
   const fail = (e: any, title: string) => {
     haptic.error(); setPhase('idle');
     if (isInsufficientCredits(e)) { setShowNoCredits(true); return; }
@@ -158,7 +158,7 @@ export default function ShopSafeScreen() {
                 <View style={{ flex: 1 }}><Text style={S.choiceTitle}>Check a script</Text><Text style={S.choiceSub}>Paste anything before you film · {creditLabel(TOOL_COST.shopSafeScript)}</Text></View>
               </AnimatedPressable>
             </View>
-            <Text style={S.hint}>Every script you save is checked automatically at no cost — look for the grade on Saved.</Text>
+            <Text style={S.hint}>Script checks are free. Every script you save is checked automatically — look for the grade on Saved.</Text>
           </FadeInView>
         )}
 
