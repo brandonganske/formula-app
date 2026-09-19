@@ -216,30 +216,35 @@ export default function TeleprompterScreen() {
       setRecording(false);
       if (rec?.uri) {
         const ml = loadMediaLibrary();
-        if (ml) {
-          const perm = await ml.requestPermissionsAsync?.(true);
-          if (perm?.granted) {
-            const asset = await ml.createAssetAsync(rec.uri);
-            const canShare = isNativeTikTokAvailable() && isTikTokAppInstalled() && !!asset?.id;
-            Alert.alert(
-              'Saved to Photos',
-              canShare ? 'Your take is in your library. Post it to TikTok now?' : 'Your take is in your photo library.',
-              canShare
-                ? [
-                    { text: 'Later', style: 'cancel' },
-                    { text: 'Post to TikTok', onPress: async () => {
-                        try {
-                          const r = await shareVideos([asset.id], 'https://iq.influenceish.com/tiktok/native');
-                          if (!r.isSuccess) Alert.alert('Not posted', r.errorMsg);
-                        } catch (e: any) { Alert.alert('Not posted', e?.message ?? 'Please try again.'); }
-                      } },
-                  ]
-                : undefined,
-            );
-            return;
-          }
+        if (!ml) { Alert.alert('Take recorded', 'Update the app from TestFlight to save takes to Photos.'); return; }
+        // Full access lets us get the asset id back (needed to hand the take to
+        // TikTok). Add-only access can still save, just without the hand-off.
+        let perm = await ml.requestPermissionsAsync?.(false);
+        if (!perm?.granted && perm?.accessPrivileges !== 'limited') perm = await ml.requestPermissionsAsync?.(true);
+        if (!perm?.granted) { Alert.alert('Photo access needed', 'Allow photo library access in Settings so takes can be saved.'); return; }
+        let assetId: string | null = null;
+        try {
+          const asset = await ml.createAssetAsync(rec.uri);
+          assetId = asset?.id ?? null;
+        } catch {
+          try { await ml.saveToLibraryAsync(rec.uri); } catch (e2: any) { Alert.alert('Couldn’t save', e2?.message ?? 'Please try again.'); return; }
         }
-        Alert.alert('Take recorded', 'Allow photo access in Settings to save takes to your library.');
+        const canShare = !!assetId && isNativeTikTokAvailable() && isTikTokAppInstalled();
+        Alert.alert(
+          'Saved to Photos',
+          canShare ? 'Your take is in your library. Post it to TikTok now?' : 'Your take is in your photo library.',
+          canShare
+            ? [
+                { text: 'Later', style: 'cancel' },
+                { text: 'Post to TikTok', onPress: async () => {
+                    try {
+                      const r = await shareVideos([assetId!], 'https://iq.influenceish.com/tiktok/native');
+                      if (!r.isSuccess) Alert.alert('Not posted', r.errorMsg);
+                    } catch (e: any) { Alert.alert('Not posted', e?.message ?? 'Please try again.'); }
+                  } },
+              ]
+            : undefined,
+        );
       }
     } catch (e: any) {
       setRecording(false);
