@@ -19,13 +19,15 @@ export default function ObjectionsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [product, setProduct] = useState('');
+  const [category, setCategory] = useState<string | null>(null);
+  const [price, setPrice] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [res, setRes] = useState<Result | null>(null);
 
   const run = async () => {
     if (!product.trim()) return;
     Keyboard.dismiss(); setBusy(true);
-    try { setRes(extractData<Result>(await api.post('/creators/tools/objections', { product: product.trim() }, { timeout: 90_000 })) as Result); }
+    try { setRes(extractData<Result>(await api.post('/creators/tools/objections', { product: product.trim(), category: category ?? undefined, price: price ?? undefined }, { timeout: 90_000 })) as Result); }
     catch (e: any) { Alert.alert('Couldn’t generate', e?.response?.data?.error?.message ?? e?.message ?? 'Please try again.'); }
     finally { setBusy(false); }
   };
@@ -43,7 +45,7 @@ export default function ObjectionsScreen() {
         {!res && (
           <FadeInView style={S.card}>
             <Text style={S.label}>WHICH PRODUCT?</Text>
-            <ProductPickField value={product} onChange={setProduct} />
+            <ProductPickField value={product} onChange={(v) => { setProduct(v); setCategory(null); setPrice(null); }} onPick={(p) => { setCategory(p.category ?? null); setPrice(p.price ?? null); }} />
             <AnimatedPressable style={[S.cta, !product.trim() && { opacity: 0.45 }]} haptic="medium" onPress={run} disabled={busy || !product.trim()}>
               {busy ? <ActivityIndicator size="small" color="#FFF" /> : <><Sparkles size={16} color="#FFF" strokeWidth={2.4} /><Text style={S.ctaText}>Find the objections</Text></>}
             </AnimatedPressable>
