@@ -124,7 +124,9 @@ export default function TeleprompterScreen() {
   // non-finite must fall back, otherwise every duration below becomes NaN and
   // the animation "finishes" instantly (text jumps off screen).
   const rawWpm = Number(meData?.speech_template?.avg_wpm);
-  const baseWpm = Number.isFinite(rawWpm) && rawWpm > 0 ? Math.max(90, Math.min(260, rawWpm)) : 150;
+  // Measured wpm comes from edited videos (pauses cut out), so reading pace is
+  // ~70% of it, and never above what a prompter can realistically be read at.
+  const baseWpm = Number.isFinite(rawWpm) && rawWpm > 0 ? Math.max(80, Math.min(170, Math.round(rawWpm * 0.7))) : 120;
 
   const { data: scripts } = useQuery<SavedScriptItem[]>({
     queryKey: ['saved-scripts'],
@@ -200,6 +202,7 @@ export default function TeleprompterScreen() {
   const readFrac = viewHRef.current > 0 ? (cardTopPx + readInCardPx) / viewHRef.current : 0.2; // absolute read line, for the guides
   const { width: winW } = useWindowDimensions();
   const [contentH, setContentH] = useState(0);
+  const [textH, setTextH] = useState(0);
   const [viewH, setViewH] = useState(0); viewHRef.current = viewH;
   // The script is a plain translated view, not a ScrollView: we drive the
   // offset ourselves so playback doesn't depend on the platform honouring
@@ -226,7 +229,10 @@ export default function TeleprompterScreen() {
   const startFrom = (fromY: number) => {
     anim.current?.stop();
     const remaining = Math.max(0, travel - fromY);
-    const ms = durationSec > 0 ? (remaining / Math.max(1, travel)) * durationSec * 1000 : 0;
+    // px per second = text height / time to read the text; the padding below
+    // the last line scrolls at that same speed rather than stretching it.
+    const pxPerSec = durationSec > 0 && textH > 0 ? textH / durationSec : 0;
+    const ms = pxPerSec > 0 ? (remaining / pxPerSec) * 1000 : 0;
     if (!Number.isFinite(ms) || ms <= 0) { setPlaying(false); return; }
     anim.current = Animated.timing(scrollY, { toValue: travel, duration: ms, easing: Easing.linear, useNativeDriver: false });
     anim.current.start(({ finished }) => { if (finished) setPlaying(false); });
@@ -292,7 +298,7 @@ export default function TeleprompterScreen() {
 
   // Vertical speed slider: top = faster, bottom = slower. Always on screen so
   // pace can be corrected mid-take without opening anything.
-  const SLIDER_H = 150, MUL_MIN = 0.5, MUL_MAX = 1.5;
+  const SLIDER_H = 150, MUL_MIN = 0.35, MUL_MAX = 1.5;
   const speedMulRef = useRef(1); speedMulRef.current = speedMul;
   const sliderStart = useRef(1);
   const sliderPan = useMemo(() => PanResponder.create({
@@ -498,7 +504,7 @@ export default function TeleprompterScreen() {
               style={{ position: 'absolute', left: 0, right: 0, top: scrollY.interpolate({ inputRange: [0, 1], outputRange: [0, -1] }), paddingTop: readInCardPx, paddingBottom: cardHPx - readInCardPx, paddingHorizontal: 16 }}
               onLayout={(e: LayoutChangeEvent) => setContentH(e.nativeEvent.layout.height)}
             >
-              <Text style={[S.script, { fontSize, lineHeight: fontSize * 1.42, textAlign: prefs.align }]}>{text}</Text>
+              <Text onLayout={(e: LayoutChangeEvent) => setTextH(e.nativeEvent.layout.height)} style={[S.script, { fontSize, lineHeight: fontSize * 1.42, textAlign: prefs.align }]}>{text}</Text>
             </Animated.View>
             <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0)']} style={[S.fade, { top: 0, height: Math.max(0, readInCardPx - fontSize * 0.9) }]} />
             <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.6)']} style={[S.fade, { bottom: 0, height: Math.max(0, cardHPx - readInCardPx - fontSize * 2.2) }]} />
