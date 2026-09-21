@@ -424,6 +424,13 @@ export default function SettingsScreen() {
             </>
           )}
 
+          <Text style={S.legal}>
+            Unlimited renews monthly at the price shown until canceled in your App Store settings.{' '}
+            <Text style={S.legalLink} onPress={() => Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}>Terms of Use</Text>
+            {'  ·  '}
+            <Text style={S.legalLink} onPress={() => Linking.openURL('https://www.influenceish.com/privacy-policy')}>Privacy Policy</Text>
+          </Text>
+
           <Text style={S.costLine}>
             {unlimited
               ? 'Scripts, checks, breakdowns and coaching are all included. Fair use applies to video analysis.'
@@ -788,6 +795,8 @@ const S = StyleSheet.create({
   packPrice: { ...T.bold, fontSize: 15, color: D.textPrimary, marginTop: 6 },
   packEach: { ...T.regular, fontSize: 10.5, color: D.textMuted, marginTop: 1 },
 
+  legal: { ...T.regular, fontSize: 11.5, color: D.textMuted, textAlign: 'center', lineHeight: 16, marginTop: 14 },
+  legalLink: { ...T.bold, fontSize: 11.5, color: D.coral },
   costLine: { ...T.regular, fontSize: 12, color: D.textMuted, textAlign: 'center', lineHeight: 17, marginTop: 14 },
   footRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 12 },
   footLink: { ...T.medium, fontSize: 13, color: D.coral },
