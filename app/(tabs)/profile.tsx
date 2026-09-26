@@ -16,7 +16,7 @@ import { D, T, R, Shadow, SectionLabelStyle } from '@/constants/ds';
 import {
   LogOut, ExternalLink, Shield, ChevronRight, Zap, AtSign, X, Bell, Mail,
   HelpCircle, FileText, KeyRound, Check, Phone, CreditCard, Trash2,
-  User, Calendar, MapPin, MessageSquare, MessageCircle, Compass,
+  User, Calendar, MapPin, MessageSquare, MessageCircle, Compass, Instagram,
 } from 'lucide-react-native';
 import { api } from '@/lib/api';
 import { haptic } from '@/lib/haptics';
@@ -218,6 +218,48 @@ export default function SettingsScreen() {
     } finally {
       setConnectingTikTok(false);
     }
+  };
+
+  // ── Instagram link (attaches to this profile only — never a sign-in) ────
+  const [linkingInstagram, setLinkingInstagram] = useState(false);
+  const handleLinkInstagram = async () => {
+    const redirect = 'formula://instagram-connect';
+    try {
+      const url = `https://iq.influenceish.com/api/v1/instagram/login?app_redirect=${encodeURIComponent(redirect)}`;
+      const result = await WebBrowser.openAuthSessionAsync(url, redirect);
+      if (result.type !== 'success' || !result.url) return;
+      const err = result.url.match(/[?&]ig_error=([^&#]+)/);
+      if (err) { Alert.alert('Instagram not linked', decodeURIComponent(err[1].replace(/\+/g, ' '))); return; }
+      const match = result.url.match(/[?&]ig_ticket=([^&#]+)/);
+      const ticket = match ? decodeURIComponent(match[1]) : null;
+      if (!ticket) { Alert.alert('Instagram not linked', 'Instagram didn’t return a valid response. Please try again.'); return; }
+      setLinkingInstagram(true);
+      const res = await api.post('/creators/instagram/connect', { ticket });
+      await refreshMe();
+      haptic.success();
+      const username = res?.data?.data?.username ?? res?.data?.username;
+      Alert.alert('Instagram linked', username ? `@${username} is now linked to your Formula profile.` : 'Your Instagram is now linked to your Formula profile.');
+    } catch (err: any) {
+      const body = err?.response?.data ?? {};
+      const msg = (typeof body?.error === 'string' ? body.error : body?.error?.message) || body?.message || err?.message;
+      Alert.alert(
+        err?.response?.status === 409 ? 'Already linked' : 'Instagram not linked',
+        typeof msg === 'string' ? msg : 'Could not link Instagram. Please try again.',
+      );
+    } finally {
+      setLinkingInstagram(false);
+    }
+  };
+  const handleUnlinkInstagram = () => {
+    Alert.alert('Unlink Instagram?', `@${p.instagram_username} will be removed from your Formula profile.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Unlink', style: 'destructive', onPress: async () => {
+          try { await api.delete('/creators/instagram'); await refreshMe(); }
+          catch (err: any) { Alert.alert('Error', err?.message ?? 'Could not unlink Instagram.'); }
+        },
+      },
+    ]);
   };
 
   const handleChangePassword = async () => {
@@ -541,6 +583,22 @@ export default function SettingsScreen() {
                 onPress={openHandleModal}
               />
             </>
+          )}
+          {p.instagram_username ? (
+            <SettingsRow
+              icon={<Instagram size={19} color={D.textPrimary} strokeWidth={1.8} />}
+              label="Instagram"
+              sub={`@${p.instagram_username}`}
+              rightElement={<Check size={16} color={D.limeDeep} strokeWidth={2.5} />}
+              onPress={handleUnlinkInstagram}
+            />
+          ) : (
+            <SettingsRow
+              icon={<Instagram size={19} color={D.textPrimary} strokeWidth={1.8} />}
+              label="Link Instagram"
+              sub={linkingInstagram ? 'Linking…' : 'Creator or Business account'}
+              onPress={linkingInstagram ? undefined : handleLinkInstagram}
+            />
           )}
           {hasEmail && (
             <SettingsRow
