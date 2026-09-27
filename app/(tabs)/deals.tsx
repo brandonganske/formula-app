@@ -363,6 +363,11 @@ function DealCard({ d }: { d: ProgramsHome['deals'][number] }) {
         <View style={[S.stat, { backgroundColor: D.ink }]}><Text style={[S.statLabel, { color: 'rgba(255,255,255,0.55)' }]}>COMING</Text><Text style={[S.statVal, { color: D.lime }]}>{money(d.owed)}</Text></View>
       </View>
       {d.type !== 'retainer' && <Text style={[S.muted, { marginTop: 8 }]}>{d.delivered}{d.type === 'package' && d.videoTarget ? ` of ${d.videoTarget}` : ''} videos counted</Text>}
+      {d.agreement?.needsSignature ? (
+        <TouchableOpacity style={S.note} onPress={() => { haptic.tap(); if (d.agreement?.signUrl) Linking.openURL(d.agreement.signUrl); }} activeOpacity={0.8}>
+          <Text style={[S.muted, { color: D.textSecondary, marginTop: 0 }]}>{d.lockedAmount ? `${money(d.lockedAmount)} is locked until you sign the agreement.` : 'Payment is locked until you sign the agreement.'}{d.agreement?.signUrl ? ' Tap to sign on the web.' : ' Check your email to sign.'}</Text>
+        </TouchableOpacity>
+      ) : null}
     </Card>
   );
 }

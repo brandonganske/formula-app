@@ -23,7 +23,7 @@ export type ProgramsHome = {
     viaCode?: { sales: number; orders: number; commission: number } | null;
   }[];
   offers: { memberId: string; status: 'invited' | 'pending'; name: string; description: string | null; terms: string | null; brand: string; logo: string | null; summary: string; platforms: ('tiktok' | 'meta')[]; durationDays: number | null }[];
-  deals: { id: string; brand: string; type: 'package' | 'per_video' | 'retainer'; status: string; totalAmount: number | null; perVideoRate: number | null; videoTarget: number | null; delivered: number; earned: number; paid: number; owed: number; dueDate: string | null }[];
+  deals: { id: string; brand: string; type: 'package' | 'per_video' | 'retainer'; status: string; totalAmount: number | null; perVideoRate: number | null; videoTarget: number | null; delivered: number; earned: number; paid: number; owed: number; dueDate: string | null; lockedAmount?: number | null; agreement?: { id: string; status: string; needsSignature: boolean; signUrl?: string | null } | null }[];
   payouts: { amount: number; method: string; status: 'paid' | 'pending'; destination: string | null; at: string; label: string }[];
   challenges: { id: string; title: string; description: string | null; type: 'gmv' | 'videos' | 'orders'; goal: number; reward: string; endsOn: string; brand: string | null; joined: boolean; progress: number; completed: boolean; rewardClaimed: boolean }[];
   submitBrands: { id: string; name: string }[];
