@@ -24,6 +24,7 @@ api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
   if (config.headers) {
     if (token) config.headers['Authorization'] = `Bearer ${token}`;
     config.headers['x-app-source'] = 'mobile_app';
+    config.headers['X-Formula-Platform'] = 'app'; // HQ shows last active platform (app | web)
   }
   return config;
 });
