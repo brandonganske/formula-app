@@ -50,6 +50,7 @@ type Action =
   | { action: 'join_challenge'; challengeId: string }
   | { action: 'join'; slug: string }
   | { action: 'stripe-link'; returnUrl: string; refreshUrl: string }
+  | { action: 'payouts-page'; returnUrl: string }
   | { action: 'paypal-connect'; returnUrl: string }
   | { action: 'paypal-disconnect' }
   | { action: 'agreement-pdf'; agreementId: string }

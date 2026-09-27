@@ -84,9 +84,14 @@ export default function PayoutsScreen() {
     if (dirty || !pr?.legalName) { const ok = await save(); if (!ok) return; }
     setStripeBusy(true);
     try {
-      const r = await programsAction({ action: 'stripe-link', returnUrl: RETURN_URL, refreshUrl: RETURN_URL });
-      if (!r.url) throw new Error('Stripe didn’t return a link');
-      await WebBrowser.openBrowserAsync(r.url, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET, dismissButtonStyle: 'close', controlsColor: D.coral, toolbarColor: '#FFFFFF' });
+      // Formula-branded page on HQ with Stripe's onboarding form embedded; it
+      // returns to formula://payouts-return when Stripe reports the account
+      // ready. Stripe's hosted link stays as the fallback.
+      let url: string | undefined;
+      try { url = (await programsAction({ action: 'payouts-page', returnUrl: PAYPAL_RETURN_URL })).url; } catch { url = undefined; }
+      if (!url) url = (await programsAction({ action: 'stripe-link', returnUrl: RETURN_URL, refreshUrl: RETURN_URL })).url;
+      if (!url) throw new Error('Stripe didn’t return a link');
+      await WebBrowser.openBrowserAsync(url, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET, dismissButtonStyle: 'close', controlsColor: D.coral, toolbarColor: '#FFFFFF' });
       await checkStripe();
     } catch (e) { Alert.alert('Couldn’t open Stripe', errMsg(e)); }
     finally { setStripeBusy(false); }
