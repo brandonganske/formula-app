@@ -14,14 +14,14 @@ import { buildInsights, archetype, playbook, explainHook, distList, type Insight
 import { RunData, AnalyzeResponse, CreatorMeData, CreatorProfile, SpeechTemplate, PacingTemplate, ProductInsights, VideoStyleProfile, ShopDashboard, ResultsResponse } from '@/types/api';
 import { D, T, R, Shadow, Ease, Gradient, SectionLabelStyle } from '@/constants/ds';
 import FadeInView from '@/components/FadeInView';
+import TikTokMark from '@/components/TikTokMark';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import { Skeleton } from '@/components/Skeleton';
 import {
   Brain, Mic, Film, Activity,
   CheckCircle, RefreshCw, AlertCircle,
   Clapperboard, ShoppingBag, Copy, Check, Zap, Store, ArrowRight, ChevronDown,
-  Clock, Scissors, Heart, Camera, Share2, Lightbulb, TrendingUp, AlertTriangle,
-} from 'lucide-react-native';
+  Clock, Scissors, Heart, Camera, Share2, Lightbulb, TrendingUp, AlertTriangle, Instagram } from 'lucide-react-native';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -1223,6 +1223,9 @@ const brainS = StyleSheet.create({
   heroNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   heroName: { fontSize: 18, fontWeight: '700', color: '#FFF', letterSpacing: -0.4, flexShrink: 1 },
   heroMeta: { fontSize: 13, fontWeight: '500', color: 'rgba(255,255,255,0.9)', marginTop: 3, letterSpacing: -0.1 },
+  heroLinks: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 7 },
+  heroIgRow: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
+  heroIgText: { fontSize: 12, fontWeight: '600', color: '#FFF', letterSpacing: -0.1 },
 
   // Your performance — real sales + top 3 videos
   perfCard: {
@@ -1912,6 +1915,23 @@ export default function BrainScreen() {
             <Text style={brainS.heroMeta} numberOfLines={1}>
               {profile.display_name ? `@${profile.handle} · ` : ''}{fmtNum(profile.follower_count)} followers · {fmtNum(profile.video_count)} videos
             </Text>
+            {/* Linked accounts: TikTok (verified via TikTok login) and Instagram. */}
+            <View style={brainS.heroLinks}>
+              <TouchableOpacity style={brainS.heroIgRow} onPress={() => router.push('/(tabs)/profile')} activeOpacity={0.8}>
+                <TikTokMark size={11} color="#FFF" />
+                <Text style={brainS.heroIgText} numberOfLines={1}>{profile.tiktok_open_id ? 'TikTok linked' : 'Link TikTok'}</Text>
+                {profile.tiktok_open_id ? <Check size={11} color={D.lime} strokeWidth={3} /> : null}
+              </TouchableOpacity>
+              <TouchableOpacity style={brainS.heroIgRow} onPress={() => router.push('/(tabs)/profile')} activeOpacity={0.8}>
+                <Instagram size={12} color="#FFF" strokeWidth={2.2} />
+                <Text style={brainS.heroIgText} numberOfLines={1}>
+                  {(profile.instagram_user_id || profile.instagram_username)
+                    ? `${profile.instagram_username ? `@${profile.instagram_username}` : 'Instagram linked'}${profile.instagram_followers != null ? ` · ${fmtNum(profile.instagram_followers)}` : ''}`
+                    : 'Link Instagram'}
+                </Text>
+                {(profile.instagram_user_id || profile.instagram_username) ? <Check size={11} color={D.lime} strokeWidth={3} /> : null}
+              </TouchableOpacity>
+            </View>
           </View>
         </FadeInView>
 

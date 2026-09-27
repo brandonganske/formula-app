@@ -8,7 +8,7 @@ import FadeInView from '@/components/FadeInView';
 import TabFadeView from '@/components/TabFadeView';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import { D, T, R } from '@/constants/ds';
-import { ShieldCheck, Clapperboard, Mail, MessageSquareWarning, Mic, TrendingUp, Info, X, ArrowRight, Compass, User } from 'lucide-react-native';
+import { ShieldCheck, Clapperboard, Mail, MessageSquareWarning, Mic, TrendingUp, Info, X, ArrowRight, Compass, User, ShoppingBag } from 'lucide-react-native';
 
 // Tools — a grid of same-size tiles. Tap a tile to open the tool; tap ⓘ for
 // what it does and when to use it.
@@ -82,6 +82,20 @@ export default function ToolsScreen() {
             </AnimatedPressable>
           </FadeInView>
         )}
+
+        {/* Products: the TikTok Shop shelf. Search, learn a product, write for it. */}
+        <FadeInView delay={30} style={S.tourWrap}>
+          <AnimatedPressable style={S.tour} haptic="light" onPress={() => router.push('/(tabs)/products' as any)}>
+            <LinearGradient colors={[D.coral, '#FF5E8A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={S.tourIcon}>
+              <ShoppingBag size={18} color="#FFF" strokeWidth={2.2} />
+            </LinearGradient>
+            <View style={{ flex: 1 }}>
+              <Text style={S.tourTitle}>Products</Text>
+              <Text style={S.tourSub}>Search TikTok Shop, learn a product, write for it.</Text>
+            </View>
+            <ArrowRight size={16} color={D.textMuted} strokeWidth={2.2} />
+          </AnimatedPressable>
+        </FadeInView>
 
         <View style={S.grid}>
           {TOOLS.map((t, i) => (

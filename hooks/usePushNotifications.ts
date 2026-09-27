@@ -5,6 +5,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { api } from '@/lib/api';
+import { useQueryClient } from '@tanstack/react-query';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -57,19 +58,32 @@ async function registerAndStoreToken() {
 
 export function usePushNotifications(isAuthenticated: boolean) {
   const router = useRouter();
+  const qc = useQueryClient();
   const responseSub = useRef<Notifications.Subscription | null>(null);
+  const receiveSub = useRef<Notifications.Subscription | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) return;
 
     registerAndStoreToken();
 
-    responseSub.current = Notifications.addNotificationResponseReceivedListener(() => {
-      router.navigate('/(tabs)');
+    // Tap on a push: follow its deep link (data.deepLink, a Formula route such
+    // as /(tabs)/deals?seg=invites), else open the notifications list.
+    responseSub.current = Notifications.addNotificationResponseReceivedListener((r) => {
+      const data = (r.notification.request.content.data ?? {}) as { deepLink?: string };
+      const to = typeof data.deepLink === 'string' && data.deepLink.startsWith('/') ? data.deepLink : '/notifications';
+      qc.invalidateQueries({ queryKey: ['notifications'] });
+      router.navigate(to as any);
+    });
+    // Push while the app is open: refresh the bell badge.
+    receiveSub.current = Notifications.addNotificationReceivedListener(() => {
+      qc.invalidateQueries({ queryKey: ['notifications'] });
     });
 
     return () => {
       responseSub.current?.remove();
+      receiveSub.current?.remove();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 }

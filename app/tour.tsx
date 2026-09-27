@@ -4,7 +4,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import AnimatedPressable from '@/components/AnimatedPressable';
-import { IconSaved, IconProducts, IconTools, ScriptIQIcon } from '@/components/TabIcons';
+import { IconSaved, IconProducts, IconTools, IconDeals, ScriptIQIcon } from '@/components/TabIcons';
 import { storage } from '@/lib/storage';
 import { TOUR_SEEN_KEY } from '@/lib/tour';
 import { haptic } from '@/lib/haptics';
@@ -15,6 +15,7 @@ import { User, Clapperboard, Share2, ArrowRight, ArrowLeft, Check } from 'lucide
 const TileTools = () => <IconTools color="#FFF" size={44} />;
 const TileProducts = () => <IconProducts color="#FFF" size={44} />;
 const TileSaved = () => <IconSaved color="#FFF" size={44} />;
+const TileDeals = () => <IconDeals color="#FFF" size={44} />;
 const TileScripting = () => <ScriptIQIcon size={46} />;
 
 interface Page {
@@ -29,7 +30,7 @@ interface Page {
   cta?: string;
 }
 
-// The seven things a creator needs to know. Every page ends in the screen it
+// The eight things a creator needs to know. Every page ends in the screen it
 // describes, so the tour doubles as a launcher.
 const PAGES: Page[] = [
   {
@@ -45,10 +46,16 @@ const PAGES: Page[] = [
     Icon: TileScripting, colors: ['#FF7A45', D.coral], route: '/(tabs)/scriptiq', cta: 'Open Scripting',
   },
   {
-    key: 'products', eyebrow: 'TAB · PRODUCTS', title: 'Find what pays, then write for it.',
+    key: 'products', eyebrow: 'TOOLS · PRODUCTS', title: 'Find what pays, then write for it.',
     body: 'Top-commission products by category, real TikTok Shop data, and a one-tap "Write a script for this" on every product you open.',
     bullets: ['Search TikTok Shop or browse by category', 'Save products into folders', 'Pitch a brand for a free sample straight from the product'],
     Icon: TileProducts, colors: [D.coral, '#FF5E8A'], route: '/(tabs)/products', cta: 'Browse products',
+  },
+  {
+    key: 'deals', eyebrow: 'TAB · DEALS', title: 'Brand deals, offers and payouts.',
+    body: 'Brands that work with Influenceish invite you here: commission programs, paid offers, retainers and challenges. Accept, deliver, get paid.',
+    bullets: ['Accept program invites and deal offers in one tap', 'Submit posts and track what each one earned', 'Set up bank or PayPal payouts in Settings'],
+    Icon: TileDeals, colors: ['#FF7A45', D.coral], route: '/(tabs)/deals', cta: 'See my deals',
   },
   {
     key: 'saved', eyebrow: 'TAB · SAVED', title: 'Your library: scripts, products, videos.',
@@ -57,8 +64,8 @@ const PAGES: Page[] = [
     Icon: TileSaved, colors: ['#3A86FF', '#5B6CFF'], route: '/(tabs)/scripts', cta: 'Open Saved',
   },
   {
-    key: 'tools', eyebrow: 'TAB · TOOLS', title: 'Six tools, all tuned to you.',
-    body: 'Shop Safe, Teleprompter, Video breakdown, Rehearsal coach, Objection killer and Sample pitch. Each one reads your profile before it works.',
+    key: 'tools', eyebrow: 'TAB · TOOLS', title: 'Seven tools, all tuned to you.',
+    body: 'Products, Shop Safe, Teleprompter, Video breakdown, Rehearsal coach, Objection killer and Sample pitch. Each one reads your profile before it works.',
     bullets: ['Shop Safe catches the lines that get videos flagged', 'Coach grades delivery against your own baseline', 'Tap ⓘ on any tool for how it works'],
     Icon: TileTools, colors: [D.limeDeep, '#4CC22A'], route: '/(tabs)/tools', cta: 'See the tools',
   },

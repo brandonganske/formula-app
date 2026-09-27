@@ -6,7 +6,10 @@ import {
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { D, T, R, Shadow, Ease } from '@/constants/ds';
-import { Check, ArrowRight, ArrowLeft, MapPin, Phone } from 'lucide-react-native';
+import { Check, ArrowRight, ArrowLeft, MapPin, Phone, Instagram } from 'lucide-react-native';
+import TikTokMark from '@/components/TikTokMark';
+import { useInstagramLink } from '@/lib/instagram-link';
+import { useTikTokLink } from '@/lib/tiktok-link';
 import Svg, { Rect, Defs, RadialGradient, Stop } from 'react-native-svg';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import { OnboardingPatch } from '@/types/api';
@@ -44,7 +47,7 @@ function FormulaMark({ size = 18 }: { size?: number }) {
 // ─── Step model ───────────────────────────────────────────────────────────────
 
 interface Option { label: string; value: string; sub?: string }
-type StepKind = 'welcome' | 'options' | 'name' | 'country' | 'contact';
+type StepKind = 'welcome' | 'options' | 'name' | 'country' | 'socials' | 'contact';
 type Step = {
   id: string;
   kind: StepKind;
@@ -135,6 +138,10 @@ function Avatar({ uri, fallback }: { uri?: string | null; fallback: string }) {
 export default function OnboardingScreen() {
   const router = useRouter();
   const { profile, patchMe, refreshMe } = useAuth();
+  const ig = useInstagramLink();
+  const tt = useTikTokLink();
+  const igLinked = !!profile?.instagram_username;
+  const tiktokLinked = !!profile?.tiktok_open_id;
 
   const tiktokName = (profile?.display_name ?? '').trim();
   const handle = (profile?.handle ?? '').trim();
@@ -175,6 +182,11 @@ export default function OnboardingScreen() {
         id: 'country', kind: 'country', field: 'region',
         title: 'Where are you based?',
         subtitle: 'Filters trending content to your market.',
+      },
+      {
+        id: 'socials', kind: 'socials',
+        title: 'Link your accounts.',
+        subtitle: 'A linked TikTok verifies you for brand deals and payouts. Instagram lets brands book you on both. Optional — you can do it later in Settings.',
       },
       {
         id: 'contact', kind: 'contact',
@@ -247,13 +259,13 @@ export default function OnboardingScreen() {
   };
 
   const canContinue =
-    step.kind === 'welcome' || step.kind === 'contact' ? true
+    step.kind === 'welcome' || step.kind === 'contact' || step.kind === 'socials' ? true
     : step.kind === 'country' ? !!(answers.region && answers.region.trim())
     : step.kind === 'name' ? !!(answers.display_name && answers.display_name.trim())
     : !!answers[step.field as keyof OnboardingPatch];
 
   const progressWidth = progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
-  const ctaText = isWelcome ? 'Get started' : isLast ? 'Finish setup' : 'Continue';
+  const ctaText = isWelcome ? 'Get started' : isLast ? 'Finish setup' : step.kind === 'socials' && !igLinked && !tiktokLinked ? 'Skip for now' : 'Continue';
 
   return (
     <KeyboardAvoidingView
@@ -345,6 +357,35 @@ export default function OnboardingScreen() {
                       </AnimatedPressable>
                     );
                   })}
+                </View>
+              )}
+
+              {step.kind === 'socials' && (
+                <View style={S.consentCard}>
+                  <View style={S.consentRow}>
+                    <View style={S.socialIcon}><TikTokMark size={18} color={D.textPrimary} /></View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={S.consentName}>TikTok</Text>
+                      <Text style={S.consentSub}>{tiktokLinked ? `@${profile?.handle} · verified` : tt.linking ? 'Linking…' : 'Verifies you for deals and payouts'}</Text>
+                    </View>
+                    {tiktokLinked ? <Check size={18} color={D.limeDeep} strokeWidth={2.6} /> : (
+                      <AnimatedPressable style={S.linkBtn} haptic="light" onPress={tt.linking ? undefined : tt.link}>
+                        <Text style={S.linkBtnText}>Link</Text>
+                      </AnimatedPressable>
+                    )}
+                  </View>
+                  <View style={[S.consentRow, S.consentDivider]}>
+                    <View style={S.socialIcon}><Instagram size={18} color={D.textPrimary} strokeWidth={1.9} /></View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={S.consentName}>Instagram</Text>
+                      <Text style={S.consentSub}>{igLinked ? `@${profile?.instagram_username} · linked` : ig.linking ? 'Linking…' : 'Creator or Business account'}</Text>
+                    </View>
+                    {igLinked ? <Check size={18} color={D.limeDeep} strokeWidth={2.6} /> : (
+                      <AnimatedPressable style={S.linkBtn} haptic="light" onPress={ig.linking ? undefined : ig.link}>
+                        <Text style={S.linkBtnText}>Link</Text>
+                      </AnimatedPressable>
+                    )}
+                  </View>
                 </View>
               )}
 
@@ -537,6 +578,9 @@ const S = StyleSheet.create({
   consentRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14 },
   consentDivider: { borderTopWidth: 1, borderTopColor: D.borderSubtle },
   consentName: { ...T.medium, fontSize: 15, color: D.textPrimary },
+  socialIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: D.surface, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  linkBtn: { backgroundColor: D.ink, borderRadius: R.full, paddingHorizontal: 16, paddingVertical: 9 },
+  linkBtnText: { ...T.bold, fontSize: 13.5, color: '#FFF' },
   consentSub: { ...T.regular, fontSize: 12.5, color: D.textSecondary, marginTop: 2, lineHeight: 17 },
 
   errorBox: {

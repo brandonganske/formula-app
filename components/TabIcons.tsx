@@ -1,6 +1,6 @@
 import React from 'react';
 import Svg, { Path, Rect } from 'react-native-svg';
-import { Settings as SettingsGlyph } from 'lucide-react-native';
+import { Settings as SettingsGlyph, Handshake } from 'lucide-react-native';
 
 // The bottom-bar glyphs, shared so the app tour (and anything else that
 // points at a tab) draws exactly what the creator sees in the bar.
@@ -33,6 +33,10 @@ export function IconTools({ color, size = 24 }: { color: string; size?: number }
       <Rect x={13.5} y={13.5} width={7} height={7} rx={2} />
     </Svg>
   );
+}
+
+export function IconDeals({ color, size = 24 }: { color: string; size?: number }) {
+  return <Handshake size={size} color={color} strokeWidth={1.9} />;
 }
 
 export function IconSettings({ color, size = 24 }: { color: string; size?: number }) {

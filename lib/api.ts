@@ -113,8 +113,10 @@ api.interceptors.response.use(
       return api(original);
     }
 
-    // Humanise the AI-overload message so the user sees something actionable
-    if (isAiOverloadMessage(error) || RETRY_STATUSES.has(status ?? 0)) {
+    // Humanise the AI-overload message so the user sees something actionable.
+    // Not for the HQ programs/payouts proxy: its 5xx carry a real reason.
+    const isProgramsCall = String(original?.url ?? '').includes('/creators/me/programs');
+    if (!isProgramsCall && (isAiOverloadMessage(error) || RETRY_STATUSES.has(status ?? 0))) {
       const wrapped = new Error(
         'The AI is temporarily overloaded — please try again in a moment.',
       );

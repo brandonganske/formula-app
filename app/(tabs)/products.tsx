@@ -11,7 +11,8 @@ import { api, extractData } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { ProductSearchResult, ProductSearchResponse, ProductSearchSort, ProductEngineResult, SavedProductItem } from '@/types/api';
 import { D, T, R, Gradient } from '@/constants/ds';
-import { Search, X, ChevronRight, AlertCircle } from 'lucide-react-native';
+import { Search, X, ChevronRight, ChevronLeft, AlertCircle } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import NoCreditsModal from '@/components/NoCreditsModal';
 import { Skeleton } from '@/components/Skeleton';
 import {
@@ -35,6 +36,7 @@ const DS = StyleSheet.create({
 // ── Main screen ────────────────────────────────────────────────────────────
 
 export default function ProductsScreen() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { profile, credits, refreshMe } = useAuth();
   const creatorId = profile?.id ?? null;
@@ -232,7 +234,12 @@ export default function ProductsScreen() {
       >
         {/* Title row */}
         <View style={S.titleRow}>
-          <Text style={S.pageTitle}>Products</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <TouchableOpacity onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/tools'))} hitSlop={10} style={{ marginLeft: -6 }} activeOpacity={0.7}>
+              <ChevronLeft size={26} color={D.textPrimary} strokeWidth={2.2} />
+            </TouchableOpacity>
+            <Text style={S.pageTitle}>Products</Text>
+          </View>
           <TouchableOpacity style={S.regionBtn} activeOpacity={0.75}>
             <GlobeIcon />
             <Text style={S.regionTxt}>US</Text>

@@ -6,7 +6,9 @@ import { useRouter } from 'expo-router';
 import { D, T, Shadow, Gradient } from '@/constants/ds';
 import Svg, { Rect, Circle } from 'react-native-svg';
 import { useAuth } from '@/context/AuthContext';
-import { Zap, Infinity as InfinityIcon } from 'lucide-react-native';
+import { Zap, Infinity as InfinityIcon, Bell } from 'lucide-react-native';
+import { useQuery } from '@tanstack/react-query';
+import { getNotifications } from '@/lib/notifications';
 
 function ProfileAvatarIcon() {
   return (
@@ -24,6 +26,9 @@ export default function AppHeader() {
   const insets = useSafeAreaInsets();
 
   const lowCredits = !unlimited && credits <= 3;
+  // Unread badge; polled while the app is open, refreshed by the screen itself.
+  const notifQ = useQuery({ queryKey: ['notifications'], queryFn: () => getNotifications(), enabled: isAuthenticated, staleTime: 60_000, refetchInterval: 60_000, retry: false });
+  const unread = notifQ.data?.unread ?? 0;
   // Bump the pill whenever the balance changes so a spend is felt, not just read.
   const bump = useRef(new Animated.Value(1)).current;
   const first = useRef(true);
@@ -63,6 +68,13 @@ export default function AppHeader() {
             </Text>
           </TouchableOpacity>
           </Animated.View>
+        )}
+
+        {isAuthenticated && (
+          <TouchableOpacity style={S.bell} onPress={() => router.push('/notifications' as any)} activeOpacity={0.8} hitSlop={8} accessibilityLabel={unread ? `${unread} unread notifications` : 'Notifications'}>
+            <Bell size={18} color={D.ink} strokeWidth={2.2} />
+            {unread > 0 && <View style={S.bellBadge}><Text style={S.bellBadgeText}>{unread > 9 ? '9+' : unread}</Text></View>}
+          </TouchableOpacity>
         )}
 
         <TouchableOpacity
@@ -116,6 +128,9 @@ const S = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
+  bell: { width: 36, height: 36, borderRadius: 18, backgroundColor: D.card, borderWidth: 1, borderColor: D.border, alignItems: 'center', justifyContent: 'center' },
+  bellBadge: { position: 'absolute', top: -3, right: -3, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, backgroundColor: D.coral, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: D.bg },
+  bellBadgeText: { ...T.bold, fontSize: 10, color: '#FFF' },
 
   creditsPill: {
     flexDirection: 'row',

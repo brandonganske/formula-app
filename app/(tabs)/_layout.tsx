@@ -9,7 +9,7 @@ import AnimatedPressable from '@/components/AnimatedPressable';
 import ClipboardCatch from '@/components/ClipboardCatch';
 import ScriptsToast from '@/components/ScriptsToast';
 import { useAuth } from '@/context/AuthContext';
-import { IconSaved, IconProducts, IconTools, IconSettings, ScriptIQIcon } from '@/components/TabIcons';
+import { IconSaved, IconDeals, IconTools, IconSettings, ScriptIQIcon } from '@/components/TabIcons';
 import { haptic } from '@/lib/haptics';
 
 const INACTIVE = 'rgba(26,20,38,0.34)';
@@ -55,14 +55,15 @@ function TabItem({ Icon, label, focused }: { Icon: IconComp; label: string; focu
 
 // ─── Custom tab bar ───────────────────────────────────────────────────────────
 
-// Order: Tools | Products | [FAB ScriptIQ] | Saved | Settings
+// Order: Tools | Deals | [FAB ScriptIQ] | Saved | Settings
+// Products lives inside Tools now (hidden route, still navigable).
 // `index` is the creator profile — reached only from the top-bar avatar, not
 // a tab. `profile` is settings.
-const VISIBLE = ['tools', 'products', 'scriptiq', 'scripts', 'profile'];
+const VISIBLE = ['tools', 'deals', 'scriptiq', 'scripts', 'profile'];
 
 const TAB_MAP: Record<string, { Icon: IconComp; label: string }> = {
   tools:    { Icon: IconTools,    label: 'Tools' },
-  products: { Icon: IconProducts, label: 'Products' },
+  deals:    { Icon: IconDeals,    label: 'Deals' },
   scripts:  { Icon: IconSaved,    label: 'Saved' },
   profile:  { Icon: IconSettings, label: 'Settings' },
 };
@@ -130,7 +131,8 @@ export default function TabLayout() {
         <Tabs.Screen name="index"    options={{ title: 'Profile' }} />
         <Tabs.Screen name="scripts"  options={{ title: 'Saved' }} />
         <Tabs.Screen name="scriptiq" options={{ title: 'ScriptIQ' }} />
-        <Tabs.Screen name="products" options={{ title: 'Products' }} />
+        <Tabs.Screen name="deals"    options={{ title: 'Deals' }} />
+        <Tabs.Screen name="products"      options={{ href: null }} />
         <Tabs.Screen name="profile"  options={{ title: 'Settings' }} />
         <Tabs.Screen name="shop"          options={{ href: null }} />
         <Tabs.Screen name="rewrite"       options={{ href: null }} />

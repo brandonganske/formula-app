@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, Linking,
   Modal, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Switch, Alert, Keyboard,
@@ -16,9 +16,13 @@ import { D, T, R, Shadow, SectionLabelStyle } from '@/constants/ds';
 import {
   LogOut, ExternalLink, Shield, ChevronRight, Zap, AtSign, X, Bell, Mail,
   HelpCircle, FileText, KeyRound, Check, Phone, CreditCard, Trash2,
-  User, Calendar, MapPin, MessageSquare, MessageCircle, Compass, Instagram,
+  User, Calendar, MapPin, MessageSquare, MessageCircle, Compass, Instagram, Wallet, Landmark, Handshake,
 } from 'lucide-react-native';
+import { useQuery } from '@tanstack/react-query';
+import { getProgramsHome, type ProgramsHome } from '@/lib/programs';
 import { api } from '@/lib/api';
+import { useInstagramLink } from '@/lib/instagram-link';
+import { useTikTokLink } from '@/lib/tiktok-link';
 import { haptic } from '@/lib/haptics';
 import { usePurchases } from '@/context/PurchasesContext';
 import { planLabel, UNLIMITED_PLAN, CREDIT_PACKS, CREDIT_COSTS, FREE_MONTHLY_CREDITS, scriptsLabel } from '@/lib/iap/catalog';
@@ -193,69 +197,21 @@ export default function SettingsScreen() {
     );
   };
 
-  // ── TikTok connect (email accounts only) ────────────────────────────────
-  const [connectingTikTok, setConnectingTikTok] = useState(false);
-  const handleConnectTikTok = async () => {
-    const redirect = 'formula://tiktok-connect';
-    try {
-      const url = `https://iq.influenceish.com/api/v1/tiktok/login?mode=connect&app_redirect=${encodeURIComponent(redirect)}`;
-      const result = await WebBrowser.openAuthSessionAsync(url, redirect);
-      if (result.type !== 'success' || !result.url) return;
-      const match = result.url.match(/[?&]ticket=([^&#]+)/);
-      const ticket = match ? decodeURIComponent(match[1]) : null;
-      if (!ticket) { Alert.alert('Connection failed', 'TikTok didn’t return a valid ticket. Please try again.'); return; }
-      setConnectingTikTok(true);
-      await api.post('/creators/tiktok/connect', { ticket });
-      await refreshMe();
-      Alert.alert('TikTok connected', 'One-tap sign-in and auto ingest are now enabled.');
-    } catch (err: any) {
-      const body = err?.response?.data ?? {};
-      const msg = (typeof body?.error === 'string' ? body.error : body?.error?.message) || body?.message || err?.message;
-      Alert.alert(
-        err?.response?.status === 409 ? 'Already connected' : 'Connection failed',
-        typeof msg === 'string' ? msg : 'Could not connect TikTok. Please try again.',
-      );
-    } finally {
-      setConnectingTikTok(false);
-    }
-  };
+  // ── TikTok connect (email / Apple accounts) ─────────────────────────────
+  const { linking: connectingTikTok, link: handleConnectTikTok } = useTikTokLink({
+    onLinked: () => Alert.alert('TikTok connected', 'One-tap sign-in, auto refresh and brand payouts are now enabled.'),
+  });
 
   // ── Instagram link (attaches to this profile only — never a sign-in) ────
-  const [linkingInstagram, setLinkingInstagram] = useState(false);
-  const handleLinkInstagram = async () => {
-    const redirect = 'formula://instagram-connect';
-    try {
-      const url = `https://iq.influenceish.com/api/v1/instagram/login?app_redirect=${encodeURIComponent(redirect)}`;
-      const result = await WebBrowser.openAuthSessionAsync(url, redirect);
-      if (result.type !== 'success' || !result.url) return;
-      const err = result.url.match(/[?&]ig_error=([^&#]+)/);
-      if (err) { Alert.alert('Instagram not linked', decodeURIComponent(err[1].replace(/\+/g, ' '))); return; }
-      const match = result.url.match(/[?&]ig_ticket=([^&#]+)/);
-      const ticket = match ? decodeURIComponent(match[1]) : null;
-      if (!ticket) { Alert.alert('Instagram not linked', 'Instagram didn’t return a valid response. Please try again.'); return; }
-      setLinkingInstagram(true);
-      const res = await api.post('/creators/instagram/connect', { ticket });
-      await refreshMe();
-      haptic.success();
-      const username = res?.data?.data?.username ?? res?.data?.username;
-      Alert.alert('Instagram linked', username ? `@${username} is now linked to your Formula profile.` : 'Your Instagram is now linked to your Formula profile.');
-    } catch (err: any) {
-      const body = err?.response?.data ?? {};
-      const msg = (typeof body?.error === 'string' ? body.error : body?.error?.message) || body?.message || err?.message;
-      Alert.alert(
-        err?.response?.status === 409 ? 'Already linked' : 'Instagram not linked',
-        typeof msg === 'string' ? msg : 'Could not link Instagram. Please try again.',
-      );
-    } finally {
-      setLinkingInstagram(false);
-    }
-  };
+  const { linking: linkingInstagram, link: handleLinkInstagram, unlink: unlinkInstagram } = useInstagramLink({
+    onLinked: (username) => Alert.alert('Instagram linked', username ? `@${username} is now linked to your Formula profile.` : 'Your Instagram is now linked to your Formula profile.'),
+  });
   const handleUnlinkInstagram = () => {
-    Alert.alert('Unlink Instagram?', `@${p.instagram_username} will be removed from your Formula profile.`, [
+    Alert.alert('Unlink Instagram?', `${p.instagram_username ? `@${p.instagram_username}` : 'Your Instagram'} will be removed from your Formula profile.`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Unlink', style: 'destructive', onPress: async () => {
-          try { await api.delete('/creators/instagram'); await refreshMe(); }
+          try { await unlinkInstagram(); }
           catch (err: any) { Alert.alert('Error', err?.message ?? 'Could not unlink Instagram.'); }
         },
       },
@@ -369,6 +325,27 @@ export default function SettingsScreen() {
         },
       ],
     );
+  };
+
+  // ── Payments (brand deals payouts, served by Influenceish HQ) ────────────
+  // Same query the Deals tab uses, so the two never disagree.
+  const programsQ = useQuery<ProgramsHome>({ queryKey: ['programs-home'], queryFn: getProgramsHome, staleTime: 30_000 });
+  const ph = programsQ.data;
+  const payoutMethod = ph?.profile?.method ?? null;
+  const payoutReady = payoutMethod === 'stripe' ? !!ph?.profile?.stripeReady : payoutMethod === 'paypal' ? !!ph?.profile?.paypalEmail : false;
+  const payoutSub = programsQ.isLoading ? 'Checking…'
+    : !ph?.linked ? 'Available once a brand works with you'
+    : ph.formula?.payoutsBlockedReason ? ph.formula.payoutsBlockedReason
+    : payoutReady ? (payoutMethod === 'stripe' ? 'Bank deposit via Stripe' : `PayPal · ${ph.profile?.paypalEmail}`)
+    : 'Add a bank account or PayPal';
+  const paidTotal = (ph?.payouts ?? []).filter((x) => x.status === 'paid').reduce((a, x) => a + x.amount, 0);
+  const paymentsSub = !ph?.linked ? 'Nothing yet'
+    : ph.payouts.length ? `${ph.payouts.length} payment${ph.payouts.length === 1 ? '' : 's'} · ${paidTotal.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 })} sent`
+    : 'Nothing yet';
+  const handlePayoutSetup = () => {
+    if (ph?.formula?.payoutsBlockedReason) { Alert.alert('Payouts locked', ph.formula.payoutsBlockedReason); return; }
+    haptic.tap();
+    router.push('/payouts' as any);
   };
 
   const renews = profile?.plan_renews_at
@@ -584,11 +561,11 @@ export default function SettingsScreen() {
               />
             </>
           )}
-          {p.instagram_username ? (
+          {(p.instagram_username || p.instagram_user_id) ? (
             <SettingsRow
               icon={<Instagram size={19} color={D.textPrimary} strokeWidth={1.8} />}
               label="Instagram"
-              sub={`@${p.instagram_username}`}
+              sub={p.instagram_username ? `@${p.instagram_username}${p.instagram_followers != null ? ` · ${p.instagram_followers.toLocaleString()} followers` : ''}` : 'Linked · loading profile…'}
               rightElement={<Check size={16} color={D.limeDeep} strokeWidth={2.5} />}
               onPress={handleUnlinkInstagram}
             />
@@ -623,6 +600,34 @@ export default function SettingsScreen() {
             last
           />
         </View>
+      </FadeInView>
+
+      {/* ── Payments ────────────────────────────────────────────── */}
+      <FadeInView delay={165} style={S.section}>
+        <Text style={S.sectionLabel}>PAYMENTS</Text>
+        <View style={S.group}>
+          <SettingsRow
+            icon={<Landmark size={19} color={payoutReady ? D.limeDeep : D.textMuted} strokeWidth={1.8} />}
+            label="How you get paid"
+            sub={payoutSub}
+            onPress={handlePayoutSetup}
+            rightElement={payoutReady ? <Check size={16} color={D.limeDeep} strokeWidth={2.5} /> : undefined}
+          />
+          <SettingsRow
+            icon={<Wallet size={19} color={D.textMuted} strokeWidth={1.8} />}
+            label="Payments"
+            sub={paymentsSub}
+            onPress={() => { haptic.tap(); router.push('/(tabs)/deals' as any); }}
+          />
+          <SettingsRow
+            icon={<Handshake size={19} color={D.textMuted} strokeWidth={1.8} />}
+            label="Brand deals"
+            sub={ph?.linked ? `${ph.programs.length + ph.deals.length + ph.offers.length} active` : 'Programs, offers and retainers'}
+            onPress={() => { haptic.tap(); router.push('/(tabs)/deals' as any); }}
+            last
+          />
+        </View>
+        <Text style={S.legal}>Bank details are handled by Stripe or PayPal. Formula and Influenceish never see them.</Text>
       </FadeInView>
 
       {/* ── Support ─────────────────────────────────────────────── */}

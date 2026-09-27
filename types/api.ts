@@ -18,8 +18,12 @@ export interface CreatorProfile {
   ingest_status?: string | null;
   onboarding_completed_at?: string | null;
   tiktok_open_id?: string | null; // set when a TikTok account is linked
-  instagram_username?: string | null; // set when an Instagram account is linked (link only, not a login)
+  instagram_user_id?: string | null; // set when an Instagram account is linked (link only, not a login)
+  instagram_username?: string | null;
+  instagram_name?: string | null;
+  instagram_avatar_url?: string | null;
   instagram_followers?: number | null;
+  instagram_media_count?: number | null;
   // Onboarding fields
   gender?: string | null;
   age_range?: string | null;
