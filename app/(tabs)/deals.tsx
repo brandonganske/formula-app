@@ -21,6 +21,7 @@ import * as Clipboard from 'expo-clipboard';
 const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
 const errMsg = (e: any) => e?.response?.data?.error?.message || e?.message || 'Something went wrong';
 const DEAL_LABEL = { package: 'Video package', per_video: 'Per video', retainer: 'Monthly retainer' } as const;
+const shortDate = (ymd: string) => new Date(`${ymd}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
 type Seg = 'open' | 'invites' | 'videos' | 'earnings';
 const SEGS: { key: Seg; label: string; Icon: any }[] = [
@@ -192,6 +193,7 @@ function Tracker({ d, active }: { d: ProgramsHome; active: { programs: ProgramsH
   const last30 = sum(active.programs.map((p) => p.earnings?.earned ?? 0));
   const orders = sum(progAll.map((e) => e?.orders ?? 0));
   const sales = sum(progAll.map((e) => e?.sales ?? 0));
+  const nextPayout = active.programs.map((p) => p.program.nextPayoutDate).filter((v): v is string => !!v).sort()[0] ?? null;
   return (
     <Card style={{ backgroundColor: D.ink, borderColor: D.ink }}>
       <View style={S.rowHead}>
@@ -202,7 +204,7 @@ function Tracker({ d, active }: { d: ProgramsHome; active: { programs: ProgramsH
         </View>
       </View>
       <Text style={S.trackBig}>{money(earned)}</Text>
-      <Text style={[S.muted, { color: 'rgba(255,255,255,0.6)', marginTop: 0 }]}>earned all time · {money(last30)} in the last 30 days</Text>
+      <Text style={[S.muted, { color: 'rgba(255,255,255,0.6)', marginTop: 0 }]}>earned all time · {money(last30)} in the last 30 days{nextPayout ? ` · next payout ${shortDate(nextPayout)}` : ''}</Text>
       <View style={S.stats}>
         <View style={[S.stat, S.statDark]}><Text style={[S.statLabel, { color: 'rgba(255,255,255,0.55)' }]}>READY</Text><Text style={[S.statVal, { color: D.lime }]}>{money(ready)}</Text></View>
         <View style={[S.stat, S.statDark]}><Text style={[S.statLabel, { color: 'rgba(255,255,255,0.55)' }]}>PENDING</Text><Text style={[S.statVal, { color: '#FFF' }]}>{money(pending)}</Text></View>
@@ -316,7 +318,17 @@ function ProgramCard({ p, onDone }: { p: ProgramsHome['programs'][number]; onDon
         pill={<Pill text={p.status === 'active' ? 'Joined' : p.status === 'pending' ? 'In review' : 'Invited'} tone={p.status === 'active' ? 'lime' : p.status === 'pending' ? 'muted' : 'coral'} />} />
       <Text style={S.big}>You earn {x.rate}% of the {x.basis === 'sales_pct' ? 'sales from' : 'ad spend behind'} ads using your videos.</Text>
       <Text style={S.muted}>Paid {x.cadence} · {x.holdingDays}-day hold for returns{x.monthlyCap != null ? ` · capped at ${money(x.monthlyCap)}/mo` : ''}</Text>
+      {p.status === 'active' && (x.nextPayoutDate || x.capReached) ? (
+        <View style={S.payoutLine}>
+          <Text style={S.muted}>{x.nextPayoutDate ? `Next payout ${shortDate(x.nextPayoutDate)}` : ''}{x.nextPayoutDate && x.capReached ? ' · ' : ''}</Text>
+          {x.capReached ? <Pill text="Monthly cap reached" tone="muted" /> : null}
+        </View>
+      ) : null}
       {p.status === 'active' && p.discountCode ? <CodeRow code={p.discountCode.code} percent={p.discountCode.percent} brand={x.brand} /> : null}
+      {p.status === 'active' && p.viaCode && (p.viaCode.sales > 0 || p.viaCode.orders > 0) ? (
+        <Text style={[S.muted, { marginTop: 8 }]}>Via your code: {money(p.viaCode.sales)} in sales · {p.viaCode.orders} order{p.viaCode.orders === 1 ? '' : 's'} · {money(p.viaCode.commission)} commission</Text>
+      ) : null}
+      {p.status === 'active' && p.ads && p.ads.length > 0 ? <AdsList ads={p.ads} basis={x.basis} /> : null}
       {p.status === 'active' && p.earnings && (
         <View style={S.stats}>
           <View style={S.stat}><Text style={S.statLabel}>30 DAYS</Text><Text style={S.statVal}>{money(p.earnings.earned)}</Text></View>
@@ -361,6 +373,36 @@ function CodeRow({ code, percent, brand }: { code: string; percent: number; bran
         <Text style={S.copyText}>{copied ? 'Copied' : 'Copy'}</Text>
       </View>
     </TouchableOpacity>
+  );
+}
+
+// Which ad (or video) earned what: HQ's per-ad breakdown for the program.
+function AdsList({ ads, basis }: { ads: NonNullable<ProgramsHome['programs'][number]['ads']>; basis: 'sales_pct' | 'spend_pct' }) {
+  const [open, setOpen] = useState(false);
+  const sorted = [...ads].sort((a, b) => b.commission - a.commission);
+  const shown = open ? sorted : sorted.slice(0, 3);
+  return (
+    <View style={{ marginTop: 12 }}>
+      <Text style={S.fieldLabel}>ADS USING YOUR VIDEOS · {ads.length}</Text>
+      {shown.map((a) => (
+        <View key={a.id} style={S.adRow}>
+          {a.thumbnail ? <Image source={{ uri: a.thumbnail }} style={S.adThumb} /> : <View style={[S.adThumb, { backgroundColor: D.surface }]} />}
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={S.adName} numberOfLines={1}>{a.name}</Text>
+            <Text style={S.muted} numberOfLines={1}>{basis === 'spend_pct' ? `${money(a.spend)} spend` : `${money(a.sales)} sales · ${a.orders} order${a.orders === 1 ? '' : 's'}`} · since {new Date(a.since).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Text>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={S.adAmt}>{money(a.commission)}</Text>
+            <Text style={S.muted}>{a.pending > 0 ? `${money(a.pending)} pending` : 'ready'}</Text>
+          </View>
+        </View>
+      ))}
+      {ads.length > 3 && (
+        <TouchableOpacity onPress={() => setOpen((v) => !v)} style={S.termsBtn} activeOpacity={0.7}>
+          <ChevronDown size={14} color={D.textSecondary} style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }} /><Text style={S.termsText}>{open ? 'Show fewer' : `Show all ${ads.length}`}</Text>
+        </TouchableOpacity>
+      )}
+    </View>
   );
 }
 
@@ -459,6 +501,10 @@ function AuthorizeVideo({ d, onDone }: { d: ProgramsHome; onDone: () => void }) 
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={S.subBrand} numberOfLines={1}>{s.brand}</Text>
                 <Text style={S.muted} numberOfLines={1}>{s.platform === 'tiktok' ? 'TikTok' : 'Instagram'}{s.hasCode ? ' · code attached' : ''} · {new Date(s.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Text>
+                {s.ad && (s.ad.sales != null || s.ad.spend != null) ? (
+                  <Text style={S.muted} numberOfLines={1}>{s.ad.sales != null ? `${money(s.ad.sales)} sales` : ''}{s.ad.sales != null && s.ad.orders != null ? ` · ${s.ad.orders} orders` : ''}{s.ad.spend != null ? `${s.ad.sales != null ? ' · ' : ''}${money(s.ad.spend)} spend` : ''}</Text>
+                ) : null}
+                {s.reviewNote ? <Text style={S.reviewNote}>{s.brand} team: “{s.reviewNote}”</Text> : null}
               </View>
               <Pill text={STATUS[s.status]} tone={s.status === 'launched' ? 'lime' : 'muted'} />
             </View>
@@ -539,6 +585,12 @@ const S = StyleSheet.create({
   nudgeTitle: { ...T.bold, fontSize: 14.5, color: D.ink, letterSpacing: -0.2 },
   nudgeSub: { ...T.regular, fontSize: 12.5, color: 'rgba(26,20,38,0.7)', marginTop: 2, lineHeight: 17 },
   nudgeCta: { ...T.bold, fontSize: 13.5, color: '#FFF', backgroundColor: D.ink, borderRadius: R.full, paddingHorizontal: 14, paddingVertical: 8, overflow: 'hidden' },
+  payoutLine: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  adRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderTopWidth: 1, borderTopColor: D.inkHairline, paddingTop: 10, marginTop: 10 },
+  adThumb: { width: 40, height: 52, borderRadius: 8, backgroundColor: D.surface },
+  adName: { ...T.bold, fontSize: 13.5, color: D.textPrimary },
+  adAmt: { ...T.bold, fontSize: 14.5, color: D.textPrimary },
+  reviewNote: { ...T.regular, fontSize: 12.5, color: D.textSecondary, lineHeight: 17, marginTop: 4, fontStyle: 'italic' },
   codeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12, backgroundColor: D.lime, borderRadius: 14, padding: 10 },
   codeIcon: { width: 30, height: 30, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.6)', alignItems: 'center', justifyContent: 'center' },
   codeText: { ...T.bold, fontSize: 16, color: D.ink, letterSpacing: 0.6 },

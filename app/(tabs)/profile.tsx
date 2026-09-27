@@ -332,11 +332,12 @@ export default function SettingsScreen() {
   const programsQ = useQuery<ProgramsHome>({ queryKey: ['programs-home'], queryFn: getProgramsHome, staleTime: 30_000 });
   const ph = programsQ.data;
   const payoutMethod = ph?.profile?.method ?? null;
-  const payoutReady = payoutMethod === 'stripe' ? !!ph?.profile?.stripeReady : payoutMethod === 'paypal' ? !!ph?.profile?.paypalEmail : false;
+  const payoutReady = payoutMethod === 'stripe' ? !!ph?.profile?.stripeReady : payoutMethod === 'paypal' ? (!!ph?.paypal?.connected || !!ph?.profile?.paypalEmail) : false;
   const payoutSub = programsQ.isLoading ? 'Checking…'
     : !ph?.linked ? 'Available once a brand works with you'
     : ph.formula?.payoutsBlockedReason ? ph.formula.payoutsBlockedReason
-    : payoutReady ? (payoutMethod === 'stripe' ? 'Bank deposit via Stripe' : `PayPal · ${ph.profile?.paypalEmail}`)
+    : payoutReady ? (payoutMethod === 'stripe' ? 'Bank deposit via Stripe' : `PayPal · ${ph.paypal?.email ?? ph.profile?.paypalEmail ?? 'connected'}`)
+    : ph.profile?.payoutSetupStartedAt && !ph.profile?.payoutSetupCompletedAt ? 'Started, not finished · tap to continue'
     : 'Add a bank account or PayPal';
   const paidTotal = (ph?.payouts ?? []).filter((x) => x.status === 'paid').reduce((a, x) => a + x.amount, 0);
   const paymentsSub = !ph?.linked ? 'Nothing yet'

@@ -12,19 +12,23 @@ export type ProgramsHome = {
   open?: { kind: 'program' | 'offer'; id: string; slug: string; name: string; description: string | null; brand: string; logo: string | null; approval: 'auto' | 'manual'; summary: string; platforms: ('tiktok' | 'meta')[] }[];
   programs: {
     enrollmentId: string; status: 'invited' | 'pending' | 'active'; agreedAt: string | null;
-    program: { name: string; brand: string; logo: string | null; basis: 'sales_pct' | 'spend_pct'; rate: number; attribution: string; holdingDays: number; cadence: string; monthlyCap: number | null; terms: string | null; programStatus: string };
+    program: { name: string; brand: string; logo: string | null; basis: 'sales_pct' | 'spend_pct'; rate: number; attribution: string; holdingDays: number; cadence: string; monthlyCap: number | null; terms: string | null; programStatus: string; nextPayoutDate?: string | null; capReached?: boolean };
     earnings: { earned: number; eligible: number; pending: number; sales: number; spend: number; orders: number } | null;
     earningsAllTime?: { earned: number; eligible: number; pending: number; sales: number; spend: number; orders: number } | null;
     // The creator's own Shopify discount code for this brand (null when the program has codes off).
     discountCode?: { code: string; percent: number } | null;
+    // Per-ad breakdown (Meta ads HQ pushed using the creator's videos). Scaled down when a monthly cap applies.
+    ads?: { id: string; name: string; thumbnail: string | null; platform: 'meta'; spend: number; sales: number; orders: number; commission: number; eligible: number; pending: number; since: string }[] | null;
+    // Sales credited through the creator's discount code.
+    viaCode?: { sales: number; orders: number; commission: number } | null;
   }[];
   offers: { memberId: string; status: 'invited' | 'pending'; name: string; description: string | null; terms: string | null; brand: string; logo: string | null; summary: string; platforms: ('tiktok' | 'meta')[]; durationDays: number | null }[];
   deals: { id: string; brand: string; type: 'package' | 'per_video' | 'retainer'; status: string; totalAmount: number | null; perVideoRate: number | null; videoTarget: number | null; delivered: number; earned: number; paid: number; owed: number; dueDate: string | null }[];
   payouts: { amount: number; method: string; status: 'paid' | 'pending'; destination: string | null; at: string; label: string }[];
   challenges: { id: string; title: string; description: string | null; type: 'gmv' | 'videos' | 'orders'; goal: number; reward: string; endsOn: string; brand: string | null; joined: boolean; progress: number; completed: boolean; rewardClaimed: boolean }[];
   submitBrands: { id: string; name: string }[];
-  submissions: { id: string; brand: string; status: 'submitted' | 'launched' | 'declined'; permalink: string | null; at: string; platform?: 'tiktok' | 'instagram'; hasCode?: boolean }[];
-  profile?: { legalName: string | null; email: string | null; country: string; method: 'stripe' | 'paypal' | null; paypalEmail: string | null; stripeConnected: boolean; stripeReady: boolean };
+  submissions: { id: string; brand: string; status: 'submitted' | 'launched' | 'declined'; permalink: string | null; at: string; platform?: 'tiktok' | 'instagram'; hasCode?: boolean; reviewNote?: string | null; decidedAt?: string | null; ad?: { status: string; spend: number | null; sales: number | null; orders: number | null } | null }[];
+  profile?: { legalName: string | null; email: string | null; country: string; method: 'stripe' | 'paypal' | null; paypalEmail: string | null; stripeConnected: boolean; stripeReady: boolean; payoutSetupStartedAt?: string | null; payoutSetupCompletedAt?: string | null };
   stripeAvailable?: boolean;
   // Log in with PayPal (HQ). Optional for older hub versions.
   paypal?: { connected: boolean; email: string | null; verified: boolean | null; name: string | null };
