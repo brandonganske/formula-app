@@ -77,7 +77,7 @@ export default function DealsScreen() {
   return (
     <TabFadeView>
       <ScrollView style={S.root} contentContainerStyle={S.scroll} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={q.isRefetching} onRefresh={() => q.refetch()} tintColor={D.coral} />}>
-        <FadeInView style={S.head}>
+        <FadeInView style={S.pageHead}>
           <Text style={S.title}>Deals</Text>
           <Text style={S.sub}>Brand programs, offers and payouts.</Text>
         </FadeInView>
@@ -85,7 +85,7 @@ export default function DealsScreen() {
         <FadeInView delay={20} style={S.heroWrap}>
           <LinearGradient colors={Gradient.hero} start={{ x: 0.13, y: 0 }} end={{ x: 0.87, y: 1 }} style={S.hero}>
             <View style={S.circleA} /><View style={S.circleB} />
-            <View style={S.eyebrowRow}><Handshake size={14} color="#FFF" strokeWidth={2.4} /><Text style={S.eyebrow}>Brand programs</Text></View>
+            <View style={S.eyebrowRow}><Handshake size={14} color="#FFF" strokeWidth={2.4} /><Text style={S.heroEyebrow}>Brand programs</Text></View>
             <Text style={S.heroHeadline}>{d?.linked ? (earnedAll > 0 ? `${money(earnedAll)} earned\nwith brands so far.` : 'Get paid for the\nvideos you already make.') : 'Brands find you here.'}</Text>
             <Text style={S.heroSub}>{d?.creator?.handle ? `@${d.creator.handle}` : ''}{d?.creator?.handle ? ' · ' : ''}{inviteCount ? `${inviteCount} waiting on you` : openCount ? `${openCount} open to join` : 'Commissions, deal offers and retainers, paid out to your bank or PayPal.'}</Text>
           </LinearGradient>
@@ -626,7 +626,8 @@ function Payout({ d, onDone }: { d: ProgramsHome; onDone: () => void }) {
 const S = StyleSheet.create({
   root: { flex: 1, backgroundColor: D.bg },
   scroll: { paddingHorizontal: 16 },
-  head: { paddingHorizontal: 4, paddingTop: 18, paddingBottom: 16 },
+  pageHead: { paddingHorizontal: 4, paddingTop: 18, paddingBottom: 16 },
+  head: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
   title: { ...T.bold, fontSize: 30, color: D.textPrimary, letterSpacing: -0.8, lineHeight: 34 },
   sub: { ...T.regular, fontSize: 14, color: D.textMuted, marginTop: 4 },
   heroWrap: { borderRadius: 22, overflow: 'hidden', ...Shadow.coral, marginBottom: 14 },
@@ -634,7 +635,8 @@ const S = StyleSheet.create({
   circleA: { position: 'absolute', right: -50, bottom: -70, width: 210, height: 210, borderRadius: 105, backgroundColor: 'rgba(255,255,255,0.13)' },
   circleB: { position: 'absolute', right: -90, top: -90, width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.08)' },
   eyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 12 },
-  eyebrow: { ...T.bold, fontSize: 11.5, color: 'rgba(255,255,255,0.9)', letterSpacing: 1.1, textTransform: 'uppercase' },
+  heroEyebrow: { ...T.bold, fontSize: 11.5, color: 'rgba(255,255,255,0.9)', letterSpacing: 1.1, textTransform: 'uppercase' },
+  eyebrow: { ...T.bold, fontSize: 10.5, color: D.textMuted, letterSpacing: 0.8, textTransform: 'uppercase' },
   heroHeadline: { ...T.bold, fontSize: 26, color: '#fff', lineHeight: 31, letterSpacing: -0.4, marginBottom: 10, maxWidth: '84%' },
   heroSub: { ...T.medium, fontSize: 13, color: 'rgba(255,255,255,0.85)', lineHeight: 18, maxWidth: '88%' },
   segWrap: { marginBottom: 14 },
@@ -675,7 +677,7 @@ const S = StyleSheet.create({
   muted: { ...T.regular, fontSize: 12.5, color: D.textMuted, lineHeight: 17, marginTop: 2 },
   note: { ...T.regular, fontSize: 13, color: D.textSecondary, backgroundColor: D.surface, borderRadius: 12, padding: 12, marginTop: 12, lineHeight: 18 },
   hint: { ...T.regular, fontSize: 11.5, color: D.textMuted, lineHeight: 16 },
-  pill: { borderRadius: R.full, paddingHorizontal: 10, paddingVertical: 4 },
+  pill: { borderRadius: R.full, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'center' },
   pillText: { ...T.bold, fontSize: 11 },
   stats: { flexDirection: 'row', gap: 8, marginTop: 12 },
   stat: { flex: 1, backgroundColor: D.surface, borderRadius: 14, paddingVertical: 10, alignItems: 'center' },
