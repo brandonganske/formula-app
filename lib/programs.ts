@@ -30,6 +30,9 @@ export type ProgramsHome = {
   submissions: { id: string; brand: string; status: 'submitted' | 'launched' | 'declined'; permalink: string | null; at: string; platform?: 'tiktok' | 'instagram'; hasCode?: boolean; reviewNote?: string | null; decidedAt?: string | null; ad?: { status: string; spend: number | null; sales: number | null; orders: number | null } | null }[];
   profile?: { legalName: string | null; email: string | null; country: string; method: 'stripe' | 'paypal' | null; paypalEmail: string | null; stripeConnected: boolean; stripeReady: boolean; payoutSetupStartedAt?: string | null; payoutSetupCompletedAt?: string | null };
   stripeAvailable?: boolean;
+  // Creator agreements (HQ e-sign). Signing happens ONLY on HQ's web page,
+  // never in Formula; the app shows status, opens the sign page, downloads the PDF.
+  agreements?: { id: string; ref: string; title: string; status: 'draft' | 'sent' | 'viewed' | 'signed' | 'countersigned' | 'void'; needsSignature: boolean; sentAt: string | null; viewedAt: string | null; signedAt: string | null; signerName: string | null; brand: string | null; dealId: string | null; pdfUrl: string | null; signUrl?: string | null }[];
   // Log in with PayPal (HQ). Optional for older hub versions.
   paypal?: { connected: boolean; email: string | null; verified: boolean | null; name: string | null };
   paypalAvailable?: boolean;
@@ -49,6 +52,7 @@ type Action =
   | { action: 'stripe-link'; returnUrl: string; refreshUrl: string }
   | { action: 'paypal-connect'; returnUrl: string }
   | { action: 'paypal-disconnect' }
+  | { action: 'agreement-pdf'; agreementId: string }
   | { action: 'stripe-status' };
 
 export async function programsAction(body: Action): Promise<{ ok: boolean; ready?: boolean; url?: string; status?: 'approved' | 'pending'; already?: boolean }> {

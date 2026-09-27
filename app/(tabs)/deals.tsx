@@ -11,8 +11,9 @@ import { haptic } from '@/lib/haptics';
 import { useAuth } from '@/context/AuthContext';
 import { useTikTokLink } from '@/lib/tiktok-link';
 import { D, T, R, Gradient, Shadow } from '@/constants/ds';
-import { Handshake, Check, Megaphone, Wallet, ChevronDown, TrendingUp, Inbox, Sparkles, Clapperboard, Copy, Tag } from 'lucide-react-native';
+import { Handshake, Check, Megaphone, Wallet, ChevronDown, TrendingUp, Inbox, Sparkles, Clapperboard, Copy, Tag, FileSignature, FileDown, Landmark } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
+import * as WebBrowser from 'expo-web-browser';
 
 // Deals tab: brand programs, deal offers, deals/retainers, payments, post
 // submissions and payout setup — served by Influenceish HQ through IQ.
@@ -46,7 +47,12 @@ export default function DealsScreen() {
     programs: (d?.programs ?? []).filter((p) => p.status === 'active'),
     deals: d?.deals ?? [],
   }), [d]);
-  const inviteCount = invites.offers.length + invites.programs.length;
+  const toSign = (d?.agreements ?? []).filter((a) => a.needsSignature && a.status !== 'void');
+  const signed = (d?.agreements ?? []).filter((a) => !a.needsSignature && (a.status === 'signed' || a.status === 'countersigned'));
+  const inviteCount = invites.offers.length + invites.programs.length + toSign.length;
+  // Just signed on the web and downloaded the app? Payouts are the next step.
+  const payoutReady = !!d?.profile && (d.profile.method === 'stripe' ? !!d.profile.stripeReady : d.profile.method === 'paypal' ? (!!d.paypal?.connected || !!d.profile.paypalEmail) : false);
+  const needsPayout = !!d?.linked && !payoutReady && !d?.formula?.payoutsBlockedReason && (signed.length > 0 || active.programs.length > 0 || active.deals.length > 0);
   const openCount = (d?.open?.length ?? 0) + (d?.challenges ?? []).filter((c) => !c.joined).length;
 
   // Land on the area that needs attention first.
@@ -56,6 +62,7 @@ export default function DealsScreen() {
   useEffect(() => { if (segParam && SEGS.some((x) => x.key === segParam)) setSeg(segParam as Seg); }, [segParam]);
   const current: Seg = seg ?? (inviteCount ? 'invites' : active.programs.length || active.deals.length ? 'earnings' : 'open');
   const { profile } = useAuth();
+  const router = useRouter();
   const tiktok = useTikTokLink();
   const needsTikTok = !!profile && !profile.tiktok_open_id;
   const [segW, setSegW] = useState(0);
@@ -111,6 +118,16 @@ export default function DealsScreen() {
               <Text style={S.nudgeCta}>{tiktok.linking ? '…' : 'Link'}</Text>
             </TouchableOpacity>
           )}
+          {needsPayout && (
+            <TouchableOpacity style={[S.nudge, { backgroundColor: D.ink }]} onPress={() => { haptic.tap(); router.push('/payouts' as any); }} activeOpacity={0.85}>
+              <View style={[S.nudgeIcon, { backgroundColor: 'rgba(255,255,255,0.12)' }]}><Landmark size={16} color={D.lime} strokeWidth={2.4} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={[S.nudgeTitle, { color: '#FFF' }]}>Set up how you get paid</Text>
+                <Text style={[S.nudgeSub, { color: 'rgba(255,255,255,0.65)' }]}>Bank deposit or PayPal. Takes two minutes, then payouts run automatically.</Text>
+              </View>
+              <Text style={[S.nudgeCta, { backgroundColor: D.lime, color: D.ink }]}>Set up</Text>
+            </TouchableOpacity>
+          )}
           {q.isLoading ? (
             <ActivityIndicator color={D.coral} style={{ marginTop: 40 }} />
           ) : q.error ? (
@@ -125,6 +142,7 @@ export default function DealsScreen() {
             </>
           ) : current === 'invites' ? (
             <>
+              {toSign.map((a, i) => <FadeInView key={a.id} delay={i * 40}><AgreementCard a={a} /></FadeInView>)}
               {invites.offers.map((o, i) => <FadeInView key={o.memberId} delay={i * 40}><OfferCard o={o} onDone={refresh} /></FadeInView>)}
               {invites.programs.map((p, i) => <FadeInView key={p.enrollmentId} delay={i * 40}><ProgramCard p={p} onDone={refresh} /></FadeInView>)}
               {!inviteCount && <Empty title="No invites yet" body="When a brand invites you directly to a program or sends you a deal offer, it lands here." />}
@@ -139,6 +157,7 @@ export default function DealsScreen() {
               {active.programs.map((p, i) => <FadeInView key={p.enrollmentId} delay={i * 40}><ProgramCard p={p} onDone={refresh} /></FadeInView>)}
               {active.deals.map((x, i) => <FadeInView key={x.id} delay={i * 40}><DealCard d={x} /></FadeInView>)}
               {(d.challenges ?? []).filter((c) => c.joined).map((c, i) => <FadeInView key={c.id} delay={i * 40}><ChallengeCard c={c} onDone={refresh} /></FadeInView>)}
+              {signed.length > 0 && <SignedAgreements list={signed} />}
               {d.payouts.length > 0 && <Payments d={d} />}
               <Payout d={d} onDone={refresh} />
             </>
@@ -177,6 +196,52 @@ function OpenCard({ o, onDone }: { o: NonNullable<ProgramsHome['open']>[number];
         <Consent checked={ok} onToggle={() => setOk((v) => !v)} text={`I agree to the terms${o.platforms.includes('meta') ? `, and ${o.brand} can run my authorized videos as Facebook and Instagram ads` : ''}.`} />
         <Btn label={o.approval === 'auto' ? (o.kind === 'program' ? 'Join program' : 'Accept deal') : 'Apply'} onPress={join} busy={busy} disabled={!ok} />
       </View>
+    </Card>
+  );
+}
+
+// Agreements are signed on HQ's web page only (Brandon's rule). The app shows
+// status, opens the sign page, and downloads the signed PDF.
+async function openAgreementPdf(id: string) {
+  try {
+    const r = await programsAction({ action: 'agreement-pdf', agreementId: id });
+    if (!r.url) throw new Error('No PDF yet');
+    await WebBrowser.openBrowserAsync(r.url, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET });
+  } catch (e) { Alert.alert('Couldn’t open the PDF', errMsg(e)); }
+}
+
+function AgreementCard({ a }: { a: NonNullable<ProgramsHome['agreements']>[number] }) {
+  const sign = async () => {
+    haptic.tap();
+    if (a.signUrl) { await WebBrowser.openBrowserAsync(a.signUrl, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET }); return; }
+    Alert.alert('Sign on the web', `Open the email from contracts@influenceish.com titled “${a.title}” and sign there. Once it’s signed, set up payouts here.`);
+  };
+  return (
+    <Card>
+      <Head brand={a.brand || 'Influenceish'} eyebrow={`${a.brand ? `${a.brand} · ` : ''}Agreement`} title={a.title} pill={<Pill text={a.status === 'viewed' ? 'Viewed' : 'To sign'} tone="coral" />} />
+      <Text style={S.big}>Review and sign on the web before this deal starts.</Text>
+      <Text style={S.muted}>Sent {a.sentAt ? new Date(a.sentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'recently'} · ref {a.ref}</Text>
+      <View style={{ marginTop: 12 }}><Btn label={a.signUrl ? 'Sign on the web' : 'Where to sign'} onPress={sign} /></View>
+    </Card>
+  );
+}
+
+function SignedAgreements({ list }: { list: NonNullable<ProgramsHome['agreements']> }) {
+  return (
+    <Card>
+      <View style={S.rowHead}>
+        <View style={[S.smallIcon, { backgroundColor: D.ink }]}><FileSignature size={16} color="#FFF" strokeWidth={2.2} /></View>
+        <View style={{ flex: 1 }}><Text style={S.cardTitle}>Agreements</Text><Text style={S.muted}>Signed copies of your brand agreements.</Text></View>
+      </View>
+      {list.map((a) => (
+        <TouchableOpacity key={a.id} style={S.subRow} onPress={() => openAgreementPdf(a.id)} activeOpacity={0.8}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={S.subBrand} numberOfLines={1}>{a.title}</Text>
+            <Text style={S.muted} numberOfLines={1}>{a.brand ? `${a.brand} · ` : ''}signed {a.signedAt ? new Date(a.signedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}{a.status === 'countersigned' ? ' · countersigned' : ''}</Text>
+          </View>
+          <FileDown size={16} color={D.textMuted} strokeWidth={2.2} />
+        </TouchableOpacity>
+      ))}
     </Card>
   );
 }
