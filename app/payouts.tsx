@@ -52,12 +52,15 @@ export default function PayoutsScreen() {
   useEffect(() => {
     if (!pr || seeded) return;
     setLegalName(pr.legalName ?? ''); setEmail(pr.email ?? ''); setCountry(pr.country || 'US');
-    setMethod(pr.method ?? (d?.stripeAvailable ? 'stripe' : 'paypal')); setPaypalEmail(pr.paypalEmail ?? '');
+    const offered = d?.paypalOffered === true || (pr.method === 'paypal' && !!pr.paypalEmail) || !!d?.paypal?.connected;
+    setMethod(pr.method === 'paypal' && !offered ? 'stripe' : (pr.method ?? 'stripe')); setPaypalEmail(pr.paypalEmail ?? '');
     setSeeded(true);
   }, [pr, seeded, d?.stripeAvailable]);
 
   const stripeReady = !!pr?.stripeReady;
   const paypalReady = !!d?.paypal?.connected || (pr?.method === 'paypal' && !!pr?.paypalEmail);
+  // Stripe-only by default; PayPal shows only when HQ offers it or it's already on file.
+  const paypalOffered = d?.paypalOffered === true || paypalReady;
   const paypalEmailShown = d?.paypal?.email ?? pr?.paypalEmail ?? null;
   const [paypalBusy, setPaypalBusy] = useState(false);
   const blocked = d?.formula?.payoutsBlockedReason ?? null;
@@ -185,6 +188,7 @@ export default function PayoutsScreen() {
                   {stripeReady ? <Check size={18} color={D.limeDeep} strokeWidth={2.6} /> : <View style={[S.radio, method === 'stripe' && S.radioOn]} />}
                 </TouchableOpacity>
               )}
+              {paypalOffered && (
               <TouchableOpacity style={[S.option, method === 'paypal' && S.optionOn]} onPress={() => { haptic.select(); setMethod('paypal'); }} activeOpacity={0.85}>
                 <View style={[S.optIcon, { backgroundColor: paypalReady ? D.limeDeep : '#0070BA' }]}><Wallet size={17} color="#FFF" strokeWidth={2.2} /></View>
                 <View style={{ flex: 1 }}>
@@ -193,6 +197,7 @@ export default function PayoutsScreen() {
                 </View>
                 {paypalReady && method === 'paypal' ? <Check size={18} color={D.limeDeep} strokeWidth={2.6} /> : <View style={[S.radio, method === 'paypal' && S.radioOn]} />}
               </TouchableOpacity>
+              )}
             </FadeInView>
 
             {method === 'paypal' && (

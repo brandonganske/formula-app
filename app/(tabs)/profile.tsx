@@ -338,7 +338,7 @@ export default function SettingsScreen() {
     : ph.formula?.payoutsBlockedReason ? ph.formula.payoutsBlockedReason
     : payoutReady ? (payoutMethod === 'stripe' ? 'Bank deposit via Stripe' : `PayPal · ${ph.paypal?.email ?? ph.profile?.paypalEmail ?? 'connected'}`)
     : ph.profile?.payoutSetupStartedAt && !ph.profile?.payoutSetupCompletedAt ? 'Started, not finished · tap to continue'
-    : 'Add a bank account or PayPal';
+    : 'Add a bank account';
   const paidTotal = (ph?.payouts ?? []).filter((x) => x.status === 'paid').reduce((a, x) => a + x.amount, 0);
   const paymentsSub = !ph?.linked ? 'Nothing yet'
     : ph.payouts.length ? `${ph.payouts.length} payment${ph.payouts.length === 1 ? '' : 's'} · ${paidTotal.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 })} sent`
@@ -628,7 +628,7 @@ export default function SettingsScreen() {
             last
           />
         </View>
-        <Text style={S.legal}>Bank details are handled by Stripe or PayPal. Formula and Influenceish never see them.</Text>
+        <Text style={S.legal}>Bank details are handled by Stripe. Formula and Influenceish never see them.</Text>
       </FadeInView>
 
       {/* ── Support ─────────────────────────────────────────────── */}

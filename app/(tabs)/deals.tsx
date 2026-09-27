@@ -131,7 +131,7 @@ export default function DealsScreen() {
               <View style={[S.nudgeIcon, { backgroundColor: 'rgba(255,255,255,0.12)' }]}><Landmark size={16} color={D.lime} strokeWidth={2.4} /></View>
               <View style={{ flex: 1 }}>
                 <Text style={[S.nudgeTitle, { color: '#FFF' }]}>Set up how you get paid</Text>
-                <Text style={[S.nudgeSub, { color: 'rgba(255,255,255,0.65)' }]}>Bank deposit or PayPal. Takes two minutes, then payouts run automatically.</Text>
+                <Text style={[S.nudgeSub, { color: 'rgba(255,255,255,0.65)' }]}>Bank deposit via Stripe. Takes two minutes, then payouts run automatically.</Text>
               </View>
               <Text style={[S.nudgeCta, { backgroundColor: D.lime, color: D.ink }]}>Set up</Text>
             </TouchableOpacity>
@@ -224,7 +224,7 @@ function PayoutRow({ d }: { d: ProgramsHome }) {
   const sub = blocked ? blocked
     : ready ? (pr?.method === 'stripe' ? 'Bank deposit via Stripe' : `PayPal · ${d.paypal?.email ?? pr?.paypalEmail ?? 'connected'}`)
     : pr?.payoutSetupStartedAt && !pr?.payoutSetupCompletedAt ? 'Started, not finished · tap to continue'
-    : 'Add a bank account or PayPal';
+    : 'Add a bank account';
   return (
     <TouchableOpacity style={S.rowCard} onPress={() => { if (blocked) { Alert.alert('Payouts locked', blocked); return; } haptic.tap(); router.push('/payouts' as any); }} activeOpacity={0.85}>
       <View style={[S.smallIcon, { backgroundColor: ready ? D.limeDeep : D.coral }]}><Wallet size={16} color="#FFF" strokeWidth={2.2} /></View>
@@ -683,7 +683,7 @@ function Payout({ d, onDone }: { d: ProgramsHome; onDone: () => void }) {
         <View style={[S.smallIcon, { backgroundColor: ready ? D.limeDeep : D.coral }]}><Wallet size={16} color="#FFF" strokeWidth={2.2} /></View>
         <View style={{ flex: 1 }}>
           <Text style={S.cardTitle}>How you get paid</Text>
-          <Text style={S.muted}>{ready ? `Set up: ${pr?.method === 'stripe' ? 'bank deposit via Stripe' : 'PayPal'}` : 'Add a bank account or PayPal to receive payments.'}</Text>
+          <Text style={S.muted}>{ready ? `Set up: ${pr?.method === 'stripe' ? 'bank deposit via Stripe' : 'PayPal'}` : 'Add a bank account to receive payments.'}</Text>
         </View>
       </View>
       {d.formula?.payoutsBlockedReason ? (

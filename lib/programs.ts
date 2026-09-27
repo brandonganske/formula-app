@@ -36,6 +36,8 @@ export type ProgramsHome = {
   // Log in with PayPal (HQ). Optional for older hub versions.
   paypal?: { connected: boolean; email: string | null; verified: boolean | null; name: string | null };
   paypalAvailable?: boolean;
+  // HQ decides whether PayPal is offered as a new payout method (Stripe-only unless enabled or already on file).
+  paypalOffered?: boolean;
 };
 
 export async function getProgramsHome(): Promise<ProgramsHome> {
