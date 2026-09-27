@@ -25,6 +25,13 @@ const DEAL_LABEL = { package: 'Video package', per_video: 'Per video', retainer:
 const shortDate = (ymd: string) => new Date(`${ymd}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
 type Seg = 'open' | 'invites' | 'videos' | 'earnings';
+type EarnTab = 'active' | 'challenges' | 'payments' | 'agreements';
+const EARN_TABS: { key: EarnTab; label: string }[] = [
+  { key: 'active', label: 'Active' },
+  { key: 'challenges', label: 'Challenges' },
+  { key: 'payments', label: 'How you get paid' },
+  { key: 'agreements', label: 'Agreements' },
+];
 const SEGS: { key: Seg; label: string; Icon: any }[] = [
   { key: 'open', label: 'Open', Icon: Sparkles },
   { key: 'invites', label: 'Invites', Icon: Inbox },
@@ -57,6 +64,7 @@ export default function DealsScreen() {
 
   // Land on the area that needs attention first.
   const [seg, setSeg] = useState<Seg | null>(null);
+  const [earnTab, setEarnTab] = useState<EarnTab>('active');
   // Deep links (notifications) can open a specific area: /(tabs)/deals?seg=invites
   const { seg: segParam } = useLocalSearchParams<{ seg?: string }>();
   useEffect(() => { if (segParam && SEGS.some((x) => x.key === segParam)) setSeg(segParam as Seg); }, [segParam]);
@@ -155,29 +163,42 @@ export default function DealsScreen() {
             <>
               <Tracker d={d} active={active} />
 
-              {(active.programs.length > 0 || active.deals.length > 0) && (
+              <ScrollView horizontal showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} contentContainerStyle={S.subTabs}>
+                {EARN_TABS.map((t) => {
+                  const on = earnTab === t.key;
+                  const n = t.key === 'active' ? active.programs.length + active.deals.length
+                    : t.key === 'challenges' ? (d.challenges ?? []).filter((c) => c.joined).length
+                    : t.key === 'agreements' ? signed.length : 0;
+                  return (
+                    <TouchableOpacity key={t.key} style={[S.subTab, on && S.subTabOn]} onPress={() => { haptic.select(); setEarnTab(t.key); }} activeOpacity={0.85}>
+                      <Text style={[S.subTabText, on && S.subTabTextOn]}>{t.label}{n > 0 ? ` ${n}` : ''}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              {earnTab === 'active' && (
                 <>
-                  <SectionLabel text={`Active · ${active.programs.length + active.deals.length}`} />
                   {active.programs.map((p, i) => <FadeInView key={p.enrollmentId} delay={i * 40}><ProgramCard p={p} onDone={refresh} /></FadeInView>)}
                   {active.deals.map((x, i) => <FadeInView key={x.id} delay={i * 40}><DealCard d={x} /></FadeInView>)}
+                  {!active.programs.length && !active.deals.length && <Empty title="Nothing active yet" body="Programs you've joined and deals you've accepted show up here." />}
                 </>
               )}
-
-              {(d.challenges ?? []).filter((c) => c.joined).length > 0 && (
+              {earnTab === 'challenges' && (
                 <>
-                  <SectionLabel text="Challenges you joined" />
                   {(d.challenges ?? []).filter((c) => c.joined).map((c, i) => <FadeInView key={c.id} delay={i * 40}><ChallengeCard c={c} onDone={refresh} /></FadeInView>)}
+                  {!(d.challenges ?? []).filter((c) => c.joined).length && <Empty title="No challenges joined" body="Open bonus challenges live under Open. Join one and track it here." />}
                 </>
               )}
-
-              <SectionLabel text="Payments" />
-              <PayoutRow d={d} />
-              {d.payouts.length > 0 && <Payments d={d} />}
-
-              {signed.length > 0 && (
+              {earnTab === 'payments' && (
                 <>
-                  <SectionLabel text="Documents" />
-                  <SignedAgreements list={signed} />
+                  <PayoutRow d={d} />
+                  {d.payouts.length > 0 ? <Payments d={d} /> : <Empty title="No payments yet" body="Commission and deal payments land here as they're sent." />}
+                </>
+              )}
+              {earnTab === 'agreements' && (
+                <>
+                  {signed.length > 0 ? <SignedAgreements list={signed} /> : <Empty title="No agreements yet" body="Signed brand agreements are kept here with a PDF copy." />}
                 </>
               )}
             </>
@@ -701,6 +722,11 @@ const S = StyleSheet.create({
   segNumOn: { color: 'rgba(255,255,255,0.7)' },
   fieldLabel: { ...T.bold, fontSize: 10.5, color: D.textMuted, letterSpacing: 0.8 },
   sectionLabel: { ...T.bold, fontSize: 11, color: D.textMuted, letterSpacing: 0.8, marginTop: 6, marginBottom: -4, marginLeft: 4 },
+  subTabs: { flexDirection: 'row', gap: 8, paddingVertical: 2 },
+  subTab: { borderRadius: R.full, borderWidth: 1, borderColor: D.border, backgroundColor: D.card, paddingHorizontal: 14, paddingVertical: 8 },
+  subTabOn: { backgroundColor: D.ink, borderColor: D.ink },
+  subTabText: { ...T.bold, fontSize: 13, color: D.textSecondary },
+  subTabTextOn: { color: '#FFF' },
   rowCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: D.card, borderRadius: 18, borderWidth: 1, borderColor: D.border, padding: 14 },
   nudge: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: D.lime, borderRadius: 18, padding: 14 },
   nudgeIcon: { width: 34, height: 34, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.6)', alignItems: 'center', justifyContent: 'center' },
