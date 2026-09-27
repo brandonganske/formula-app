@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getNotifications, markNotificationsRead, type AppNotification } from '@/lib/notifications';
 import { haptic } from '@/lib/haptics';
+import { resolveDeepLink } from '@/lib/deep-links';
 import { D, T, R } from '@/constants/ds';
 import { X, Handshake, Megaphone, Wallet, Trophy, Brain, TrendingUp, Bell, Instagram, Zap } from 'lucide-react-native';
 
@@ -39,7 +40,7 @@ export default function NotificationsScreen() {
   const open = (n: AppNotification) => {
     haptic.tap();
     qc.setQueryData(['notifications'], (old: any) => old ? { ...old, items: old.items.map((x: AppNotification) => x.id === n.id ? { ...x, readAt: x.readAt ?? new Date().toISOString() } : x) } : old);
-    if (n.deepLink) { router.back(); setTimeout(() => router.push(n.deepLink as any), 50); }
+    if (n.deepLink) { const to = resolveDeepLink(n.deepLink); if (to !== '/notifications') { router.back(); setTimeout(() => router.push(to as any), 50); } }
   };
 
   return (

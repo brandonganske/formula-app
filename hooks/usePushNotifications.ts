@@ -6,6 +6,7 @@ import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { api } from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
+import { resolveDeepLink } from '@/lib/deep-links';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -71,7 +72,7 @@ export function usePushNotifications(isAuthenticated: boolean) {
     // as /(tabs)/deals?seg=invites), else open the notifications list.
     responseSub.current = Notifications.addNotificationResponseReceivedListener((r) => {
       const data = (r.notification.request.content.data ?? {}) as { deepLink?: string };
-      const to = typeof data.deepLink === 'string' && data.deepLink.startsWith('/') ? data.deepLink : '/notifications';
+      const to = resolveDeepLink(data.deepLink);
       qc.invalidateQueries({ queryKey: ['notifications'] });
       router.navigate(to as any);
     });
