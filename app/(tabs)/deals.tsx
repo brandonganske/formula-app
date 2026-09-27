@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image, RefreshControl, Alert, Animated } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image, RefreshControl, Alert, Animated, Linking } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -213,7 +213,8 @@ async function openAgreementPdf(id: string) {
 function AgreementCard({ a }: { a: NonNullable<ProgramsHome['agreements']>[number] }) {
   const sign = async () => {
     haptic.tap();
-    if (a.signUrl) { await WebBrowser.openBrowserAsync(a.signUrl, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET }); return; }
+    // System browser on purpose (HQ's request): the post-sign page links to the App Store and a PDF.
+    if (a.signUrl) { await Linking.openURL(a.signUrl); return; }
     Alert.alert('Sign on the web', `Open the email from contracts@influenceish.com titled “${a.title}” and sign there. Once it’s signed, set up payouts here.`);
   };
   return (
