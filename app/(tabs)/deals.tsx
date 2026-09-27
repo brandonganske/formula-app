@@ -154,18 +154,65 @@ export default function DealsScreen() {
           ) : (
             <>
               <Tracker d={d} active={active} />
-              {active.programs.map((p, i) => <FadeInView key={p.enrollmentId} delay={i * 40}><ProgramCard p={p} onDone={refresh} /></FadeInView>)}
-              {active.deals.map((x, i) => <FadeInView key={x.id} delay={i * 40}><DealCard d={x} /></FadeInView>)}
-              {(d.challenges ?? []).filter((c) => c.joined).map((c, i) => <FadeInView key={c.id} delay={i * 40}><ChallengeCard c={c} onDone={refresh} /></FadeInView>)}
-              {signed.length > 0 && <SignedAgreements list={signed} />}
+
+              {(active.programs.length > 0 || active.deals.length > 0) && (
+                <>
+                  <SectionLabel text={`Active · ${active.programs.length + active.deals.length}`} />
+                  {active.programs.map((p, i) => <FadeInView key={p.enrollmentId} delay={i * 40}><ProgramCard p={p} onDone={refresh} /></FadeInView>)}
+                  {active.deals.map((x, i) => <FadeInView key={x.id} delay={i * 40}><DealCard d={x} /></FadeInView>)}
+                </>
+              )}
+
+              {(d.challenges ?? []).filter((c) => c.joined).length > 0 && (
+                <>
+                  <SectionLabel text="Challenges you joined" />
+                  {(d.challenges ?? []).filter((c) => c.joined).map((c, i) => <FadeInView key={c.id} delay={i * 40}><ChallengeCard c={c} onDone={refresh} /></FadeInView>)}
+                </>
+              )}
+
+              <SectionLabel text="Payments" />
+              <PayoutRow d={d} />
               {d.payouts.length > 0 && <Payments d={d} />}
-              <Payout d={d} onDone={refresh} />
+
+              {signed.length > 0 && (
+                <>
+                  <SectionLabel text="Documents" />
+                  <SignedAgreements list={signed} />
+                </>
+              )}
             </>
           )}
         </View>
         <View style={{ height: 40 }} />
       </ScrollView>
     </TabFadeView>
+  );
+}
+
+function SectionLabel({ text }: { text: string }) {
+  return <Text style={S.sectionLabel}>{text.toUpperCase()}</Text>;
+}
+
+// Compact payout method row: status at a glance, tap to manage on the native payouts screen.
+function PayoutRow({ d }: { d: ProgramsHome }) {
+  const router = useRouter();
+  const pr = d.profile;
+  const paypalOk = !!d.paypal?.connected || (pr?.method === 'paypal' && !!pr?.paypalEmail);
+  const ready = pr?.method === 'stripe' ? !!pr?.stripeReady : pr?.method === 'paypal' ? paypalOk : false;
+  const blocked = d.formula?.payoutsBlockedReason;
+  const sub = blocked ? blocked
+    : ready ? (pr?.method === 'stripe' ? 'Bank deposit via Stripe' : `PayPal · ${d.paypal?.email ?? pr?.paypalEmail ?? 'connected'}`)
+    : pr?.payoutSetupStartedAt && !pr?.payoutSetupCompletedAt ? 'Started, not finished · tap to continue'
+    : 'Add a bank account or PayPal';
+  return (
+    <TouchableOpacity style={S.rowCard} onPress={() => { if (blocked) { Alert.alert('Payouts locked', blocked); return; } haptic.tap(); router.push('/payouts' as any); }} activeOpacity={0.85}>
+      <View style={[S.smallIcon, { backgroundColor: ready ? D.limeDeep : D.coral }]}><Wallet size={16} color="#FFF" strokeWidth={2.2} /></View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={S.cardTitle}>How you get paid</Text>
+        <Text style={S.muted} numberOfLines={1}>{sub}</Text>
+      </View>
+      {ready ? <Check size={18} color={D.limeDeep} strokeWidth={2.6} /> : <Pill text="Set up" tone="coral" />}
+    </TouchableOpacity>
   );
 }
 
@@ -356,7 +403,7 @@ function DealCard({ d }: { d: ProgramsHome['deals'][number] }) {
     : d.type === 'per_video' ? `${money(Number(d.perVideoRate) || 0)} per video` : `${money(Number(d.totalAmount) || 0)} per month`;
   return (
     <Card>
-      <Head brand={d.brand} eyebrow={`${d.brand} · ${DEAL_LABEL[d.type]}`} title={terms} pill={<Pill text={d.status === 'active' ? 'Active' : 'Completed'} tone={d.status === 'active' ? 'lime' : 'muted'} />} />
+      <Head brand={d.brand} eyebrow={d.brand} title={`${DEAL_LABEL[d.type]} · ${terms}`} pill={<Pill text={d.status === 'active' ? 'Active' : 'Completed'} tone={d.status === 'active' ? 'lime' : 'muted'} />} />
       <View style={S.stats}>
         <View style={S.stat}><Text style={S.statLabel}>EARNED</Text><Text style={S.statVal}>{money(d.earned)}</Text></View>
         <View style={S.stat}><Text style={S.statLabel}>PAID</Text><Text style={S.statVal}>{money(d.paid)}</Text></View>
@@ -653,6 +700,8 @@ const S = StyleSheet.create({
   segNum: { ...T.medium, fontSize: 11.5, color: D.textDisabled },
   segNumOn: { color: 'rgba(255,255,255,0.7)' },
   fieldLabel: { ...T.bold, fontSize: 10.5, color: D.textMuted, letterSpacing: 0.8 },
+  sectionLabel: { ...T.bold, fontSize: 11, color: D.textMuted, letterSpacing: 0.8, marginTop: 6, marginBottom: -4, marginLeft: 4 },
+  rowCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: D.card, borderRadius: 18, borderWidth: 1, borderColor: D.border, padding: 14 },
   nudge: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: D.lime, borderRadius: 18, padding: 14 },
   nudgeIcon: { width: 34, height: 34, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.6)', alignItems: 'center', justifyContent: 'center' },
   nudgeTitle: { ...T.bold, fontSize: 14.5, color: D.ink, letterSpacing: -0.2 },
